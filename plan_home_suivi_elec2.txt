@@ -1,0 +1,153 @@
+Home Suivi Élec — Plan structuré avec fichiers à modifier/créer
+
+===========================================
+ÉTAPE 0 — Détection complète des capteurs 
+-------------------------------------------
+Objectif :
+- Collecter tous les capteurs de puissance (device_class = "power")
+- Stocker intégration, pièce, entity_id et unité
+
+Fichiers :
+- custom_components/home_suivi_elec/detect_local.py
+
+Actions :
+1. Filtrer device_class = "power"
+2. Ajouter intégration (platform) et pièce (friendly_name ou GA)
+3. Sauvegarder dans data/capteurs_power.json
+4. Ajouter logs détaillés pour vérification
+
+Test :
+- Lancer le service  depuis HA
+- Vérifier JSON et logs
+
+-------------------------------------------
+ÉTAPE 1 — Référence et capteurs non mesurés
+-------------------------------------------
+Objectif :
+- Comparer la somme des capteurs avec la consommation globale (clé atom)
+- Identifier ce qui n’est pas mesuré
+
+Fichiers :
+- custom_components/home_suivi_elec/detect_local.py (extension)
+- data/capteurs_non_mesures.json (nouveau)
+
+Actions :
+1. Ajouter capteur global atom
+2. Calculer les écarts
+3. Générer capteurs_non_mesures.json avec intégration/pièce
+4. Ajouter logs détaillés
+
+Test :
+- Vérifier rapport JSON et logs
+
+-------------------------------------------
+ÉTAPE 2 — Sélection des capteurs à suivre
+-------------------------------------------
+Objectif :
+- Permettre sélection fine par intégration et pièce
+
+Fichiers :
+- data/selected_sensors.json (nouveau)
+- custom_components/home_suivi_elec/services.py (ou ajout dans __init__.py)
+
+Actions :
+1. Créer selected_sensors.json avec structure par intégration/pièce
+2. Service HA  pour modifier la sélection
+3. Ajouter logs pour valider
+
+Test :
+- Cocher/décocher capteurs → vérifier JSON et logs
+
+-------------------------------------------
+ÉTAPE 3 — Génération du dashboard Lovelace
+-------------------------------------------
+Objectif :
+- Dashboard regroupé par intégration et pièce
+- Afficher coût par capteur/pièce et total
+
+Fichiers :
+- custom_components/home_suivi_elec/generator.py
+- data/selected_sensors.json (lecture)
+
+Actions :
+1. Créer service 
+2. Lire selected_sensors.json et organiser cartes
+3. Ajouter comparaison avec capteur atom
+4. Ajouter logs détaillés
+
+Test :
+- Lancer service → vérifier dashboard
+
+-------------------------------------------
+ÉTAPE 4 — Analyse du suivi et alertes
+-------------------------------------------
+Objectif :
+- Détecter capteurs non mesurés ou désactivés
+
+Fichiers :
+- detect_local.py / generator.py
+- sensor.conso_non_mesuree (nouveau)
+
+Actions :
+1. Comparer total capteurs sélectionnés vs total atom
+2. Générer sensor.conso_non_mesuree
+3. Logs pour alertes
+
+Test :
+- Vérifier que sensor reflète bien les écarts
+
+-------------------------------------------
+ÉTAPE 5 — ConfigFlow et OptionsFlow
+-------------------------------------------
+Objectif :
+- ConfigFlow : hub, type contrat, auto_generate_lovelace
+- OptionsFlow : modification rapide des paramètres et prix
+
+Fichiers :
+- config_flow.py
+- options_flow.py
+- __init__.py (déplacer async_get_options_flow ici)
+- manifest.json (options_flow: true)
+
+Actions :
+- Auto-génération Lovelace reste pour dashboard de base
+- Sélection fine → service ou panneau custom, hors ConfigFlow
+
+Test :
+- Vérifier ConfigFlow complet et OptionsFlow (roue)
+
+===========================================
+DIAGRAMME DE FLUX
+-------------------------------------------
+generate_local_data (service HA)
+        │
+        ▼
+capteurs_power.json
+        │
+        ▼
+selected_sensors.json (service select_sensors)
+        │
+        ▼
+generate_lovelace_custom (service HA)
+        │
+        ├──> Cartes par intégration
+        │       └──> Cartes par pièce
+        │               └──> Capteurs power sélectionnés
+        │
+        └──> Comparaison avec capteur global atom
+                └──> sensor.conso_non_mesuree
+        │
+        ▼
+Dashboard Lovelace final
+        └──> Visualisation consommation & coût par pièce / intégration
+
+===========================================
+FICHIERS PRINCIPAUX IMPLIQUÉS
+-------------------------------------------
+- detect_local.py → collecte des capteurs
+- generator.py → génération YAML / Lovelace
+- config_flow.py → hub, type contrat, auto_generate
+- options_flow.py → modification des paramètres et prix
+- selected_sensors.json → sélection manuelle
+- capteurs_power.json → capteurs détectés
+- capteurs_non_mesures.json → capteurs manquants / incohérences

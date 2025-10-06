@@ -1,46 +1,72 @@
 # -*- coding: utf-8 -*-
-"""Détection locale des capteurs physiques (sans API)."""
+"""Détection locale des capteurs de puissance (W) pour Home Suivi Élec."""
 
-import logging
+import os
 import json
-import aiofiles
-from pathlib import Path
-from homeassistant.util.dt import now
-from .const import FICHIER_CAPTEURS
+import logging
+
+from homeassistant.core import HomeAssistant
+from homeassistant.helpers import device_registry as dr, entity_registry as er, area_registry as ar
 
 _LOGGER = logging.getLogger(__name__)
 
-def collect_power_entities(hass):
-    """Collecte toutes les entités sensor de puissance/énergie locales."""
+async def run_detect_local(hass: HomeAssistant, entry=None):
+    """Détecter les capteurs de puissance et sauvegarder leurs infos."""
+    _LOGGER.info("🔍 Détection locale des capteurs de puissance (power)")
+
+    # --- Dossier de stockage ---
+    data_dir = os.path.join(hass.config.path("custom_components"), "home_suivi_elec", "data")
+    os.makedirs(data_dir, exist_ok=True)
+    power_path = os.path.join(data_dir, "capteurs_power.json")
+
+    # --- Récupération des registres ---
+    dev_reg = dr.async_get(hass)
+    ent_reg = er.async_get(hass)
+    area_reg = ar.async_get(hass)
+
     capteurs = []
-    for entity_id in hass.states.async_entity_ids("sensor"):
+
+    for entity in ent_reg.entities.values():
+        # Filtrer uniquement les capteurs de puissance
+        if entity.domain != "sensor":
+            continue
+
+        device_class = entity.device_class or entity.original_device_class
+        if device_class != "power":
+            continue
+
+        entity_id = entity.entity_id
+        integration = entity.platform or "unknown"
+        device = dev_reg.async_get(entity.device_id) if entity.device_id else None
+        area = None
+
+        # Récupération de la zone si disponible
+        if device and device.area_id:
+            area_obj = area_reg.async_get_area(device.area_id)
+            area = area_obj.name if area_obj else None
+
+        # État courant depuis Home Assistant
         state = hass.states.get(entity_id)
-        if state and state.attributes.get("device_class") in ("power", "energy"):
-            capteurs.append({
-                "entity_id": entity_id,
-                "unit": state.attributes.get("unit_of_measurement"),
-                "state_class": state.attributes.get("state_class"),
-            })
-    return capteurs
+        unit = state.attributes.get("unit_of_measurement") if state else None
+        friendly_name = state.attributes.get("friendly_name") if state else entity.original_name or entity_id
+        value = state.state if state else None
 
-async def enregistrer_capteurs_detectes_async(capteurs):
-    """Sauvegarde des capteurs détectés."""
-    path = Path(FICHIER_CAPTEURS)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    async with aiofiles.open(path, "w", encoding="utf-8") as f:
-        await f.write(json.dumps(capteurs, indent=2, ensure_ascii=False))
-    _LOGGER.info("📁 %d capteurs détectés sauvegardés dans %s", len(capteurs), path)
+        capteurs.append({
+            "entity_id": entity_id,
+            "friendly_name": friendly_name,
+            "integration": integration,
+            "area": area,
+            "unit": unit,
+            "value": value,
+        })
 
-async def run_detect_local(hass, entry, mode_flux="complet"):
-    """Routine principale de détection locale."""
-    _LOGGER.info("🔍 Détection locale des capteurs (%s)", mode_flux)
-    capteurs = collect_power_entities(hass)
-    await enregistrer_capteurs_detectes_async(capteurs)
-    hass.data["home_suivi_elec"]["capteurs"] = capteurs
+    # --- Sauvegarde ---
+    try:
+        with open(power_path, "w", encoding="utf-8") as f:
+            json.dump(capteurs, f, indent=2, ensure_ascii=False)
+        _LOGGER.info("📁 %d capteurs de puissance sauvegardés dans %s", len(capteurs), power_path)
+    except Exception as e:
+        _LOGGER.exception("❌ Erreur lors de la sauvegarde des capteurs : %s", e)
+        return
 
-    hass.states.async_set(
-        "sensor.home_suivi_elec_capteurs_detectes",
-        str(len(capteurs)),
-        {"derniere_mise_a_jour": now().isoformat()}
-    )
-    _LOGGER.info("✅ %d capteurs trouvés localement", len(capteurs))
+    _LOGGER.info("✅ %d capteurs de puissance trouvés localement", len(capteurs))
