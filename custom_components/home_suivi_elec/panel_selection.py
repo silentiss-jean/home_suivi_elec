@@ -7,15 +7,39 @@ from homeassistant.components import frontend
 
 _LOGGER = logging.getLogger(__name__)
 
-async def async_setup_panel(hass: HomeAssistant, panel_dir: str):
+async def async_setup_panel(hass: HomeAssistant):
     """Setup du panneau /home_suivi_elec."""
-    # Crée le dossier panel_static si inexistant
-    os.makedirs(panel_dir, exist_ok=True)
-    panel_path = os.path.join(panel_dir, "panel.js")
 
-    if not os.path.exists(panel_path):
-        _LOGGER.warning("[PANEL] Fichier panel.js introuvable : %s", panel_path)
+    # Dossier de ton panneau statique
+    panel_dir = os.path.join(
+        hass.config.path("custom_components", "home_suivi_elec", "panel_static")
+    )
+    os.makedirs(panel_dir, exist_ok=True)
+
+    panel_js_path = os.path.join(panel_dir, "panel.js")
+    panel_html_path = os.path.join(panel_dir, "panel.html")
+
+    if not os.path.exists(panel_js_path):
+        _LOGGER.warning("[PANEL] Fichier panel.js introuvable : %s", panel_js_path)
         return
+
+    # Crée panel.html si inexistant
+    if not os.path.exists(panel_html_path):
+        _LOGGER.info("[PANEL] Création automatique de panel.html")
+        html_content = f"""<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>Home Suivi Élec</title>
+  <script type="module" src="/home_suivi_elec/panel.js"></script>
+</head>
+<body>
+  <home-suivi-elec-panel></home-suivi-elec-panel>
+</body>
+</html>
+"""
+        with open(panel_html_path, "w", encoding="utf-8") as f:
+            f.write(html_content)
 
     # Enregistre le répertoire comme ressource statique
     hass.http.async_register_static_paths(
@@ -29,7 +53,7 @@ async def async_setup_panel(hass: HomeAssistant, panel_dir: str):
             component_name="iframe",
             sidebar_title="Suivi Élec",
             sidebar_icon="mdi:flash",
-            config={"url": "/home_suivi_elec/panel.js"},
+            config={"url": "/home_suivi_elec/panel.html"},
             require_admin=True
         )
         hass.data["home_suivi_elec_panel_registered"] = True
