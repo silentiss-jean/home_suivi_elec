@@ -1,0 +1,138 @@
+# Diagramme fonctionnel Home Suivi Élec (reconstruction sans API)
+# Date : 2025-10-06 18:35
+# Répertoire de travail : /Volumes/git-lun/dev/home_suivi_elec
+# Destination Home Assistant : custom_components/home_suivi_elec/
+
+──────────────────────────────
+🏁 1. Démarrage Home Assistant
+──────────────────────────────
+└─> __init__.py
+     ├─ async_setup() → initialisation minimale
+     ├─ async_setup_entry()
+     │   ├─ Charge ConfigEntry (mode, tarifs, exclusions)
+     │   ├─ Scan JSON sets (debug_json_sets.scan_sets)
+     │   ├─ Crée capteurs HA virtuels (unit €)
+     │   ├─ Initialise sensor.home_suivi_elec_tarifs
+     │   ├─ Enregistre les services :
+     │   │   ├─ generate_home_suivi_elec → lance detect_local.run_detect_local()
+     │   │   └─ generate_lovelace_auto → lance detect_local.run_detect_local() + generator.run_all()
+     │   └─ Si auto_generate activé → exécution après HA_START
+     └─ async_unload_entry() → suppression si besoin
+
+──────────────────────────────
+🔍 2. Détection des capteurs
+──────────────────────────────
+fichier : detect_local.py  
+But : détecter automatiquement les entités physiques liées à la puissance ou à l’énergie.
+
+Fonction principale : run_detect_local(hass, entry, mode_flux="complet")
+
+├─ collect_power_entities(hass)
+│   ├─ Parcourt hass.states.async_all('sensor')
+│   ├─ Filtre ceux avec device_class in ("power", "energy")
+│   ├─ Vérifie unit_of_measurement (W, kW, kWh)
+│   └─ Retourne liste [{entity_id, attributes, state}]
+│
+├─ is_physical_power_entity(entity)
+│   └─ Vérifie : unit=W + state_class=measurement
+│
+├─ regrouper_par_piece(entites)
+│   └─ Extrait le nom de la pièce depuis entity_id (ex: salon_xxx → "salon")
+│
+├─ enregistrer_capteurs_detectes_async()
+│   └─ Sauvegarde async → data/capteurs_detectes.json
+│
+└─ update_sensor_entities_par_piece()
+    └─ Met à jour sensor.home_suivi_elec_entites_par_piece dans hass
+
+──────────────────────────────
+🧩 3. Génération de la configuration
+──────────────────────────────
+fichier : generator.py  
+Objectif : générer YAML pour la configuration Home Assistant et les vues Lovelace.
+
+├─ slugify() / normalize_name() → nettoyage ID
+├─ build_integrations_capteurs()
+│   └─ Structure {integration: {actifs: [], exclus: []}}
+│
+├─ generate_yaml_config(capteurs)
+│   ├─ input_number prix_kwh
+│   ├─ platform: integration (power sensors)
+│   ├─ utility_meter (daily/weekly/monthly/yearly)
+│   └─ template sensors coût (€)
+│
+├─ generate_lovelace_grid()
+│   └─ YAML Lovelace : vue “Consommation par pièce”
+│
+├─ generate_lovelace_history()
+│   └─ YAML Lovelace : vue “Historique énergétique”
+│
+├─ generate_lovelace_file_auto()
+│   └─ Écrit lovelace_auto.yaml dans /config/
+│
+└─ run_all()
+    ├─ Appelle generate_yaml_config()
+    ├─ Appelle generate_lovelace_grid() + history
+    └─ Appelle generate_lovelace_file_auto()
+
+──────────────────────────────
+💶 4. Calculateur de coûts
+──────────────────────────────
+- Tarifs HT / HP / HC + abonnement mensuel.
+- Calcul coût : (prix_kWh × conso) via template YAML.
+- Aucun calcul Python requis (100 % natif HA).
+
+──────────────────────────────
+⚙️ 5. Config Flow (à venir)
+──────────────────────────────
+- Interface graphique Home Assistant :
+  - Type contrat (prix unique / HP/HC)
+  - Prix du kWh / abonnement
+  - Auto génération Lovelace
+  - Entités à exclure
+- Persistance via ConfigEntry
+- Reload dynamique via async_reload_entry()
+
+──────────────────────────────
+🔧 6. Services Home Assistant
+──────────────────────────────
+- generate_home_suivi_elec :
+  → run_detect_local() → sauvegarde JSON capteurs_detectes.json
+- generate_lovelace_auto :
+  → run_detect_local() + generator.run_all() → YAML + Lovelace
+
+──────────────────────────────
+📂 7. Structure des fichiers
+──────────────────────────────
+custom_components/home_suivi_elec/
+├─ __init__.py
+├─ manifest.json
+├─ const.py
+├─ detect_local.py
+├─ generator.py
+├─ helpers/
+│   ├─ __init__.py
+│   ├─ integrations.py
+│   ├─ loader.py
+│   └─ utils.py
+├─ debug_json_sets.py
+└─ data/
+   └─ capteurs_detectes.json
+
+──────────────────────────────
+🧠 8. Notes techniques
+──────────────────────────────
+- ✅ 100 % local (pas d’API, pas de token)
+- ✅ Async I/O pour toutes écritures
+- ✅ Aucun circular import
+- ✅ Code HA 2025.x compatible
+- ✅ Services async testables indépendamment
+- ✅ Fichier data persistant pour debug et reprise
+- ✅ Extensible (ajout futur ConfigFlow et calculs avancés)
+
+──────────────────────────────
+📍 9. Répertoire de travail
+──────────────────────────────
+/Volumes/git-lun/dev/home_suivi_elec/
+→ Destination HA : custom_components/home_suivi_elec/
+

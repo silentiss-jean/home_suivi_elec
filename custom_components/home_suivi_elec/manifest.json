@@ -1,0 +1,10 @@
+{
+  "domain": "home_suivi_elec",
+  "name": "Home Suivi Élec",
+  "version": "2025.10.06",
+  "documentation": "https://github.com/ton_compte/home_suivi_elec",
+  "dependencies": [],
+  "codeowners": ["@ton_github"],
+  "requirements": [],
+  "iot_class": "local_polling"
+}
