@@ -1,4 +1,3 @@
-# custom_components/home_suivi_elec/options_flow.py
 from homeassistant import config_entries
 import voluptuous as vol
 from homeassistant.helpers import config_validation as cv
@@ -12,7 +11,6 @@ from .const import (
     CONF_HC_START, CONF_HC_END,
     CONF_ABONNEMENT_MENSUEL_HT, CONF_ABONNEMENT_MENSUEL_TTC
 )
-from .helpers.validation import validate_time
 
 class HomeSuiviElecOptionsFlow(config_entries.OptionsFlow):
     """Options flow pour Home Suivi Élec."""
@@ -23,11 +21,11 @@ class HomeSuiviElecOptionsFlow(config_entries.OptionsFlow):
     async def async_step_init(self, user_input=None):
         """Formulaire des options."""
         if user_input is not None:
+            # On peut valider les heures ici après soumission si besoin
             return self.async_create_entry(title="", data=user_input)
 
         data = self.config_entry.options or {}
 
-        # Déterminer type de contrat et valeurs par défaut
         type_contrat = data.get(CONF_TYPE_CONTRAT, "prix_unique")
         defaults = DEFAULTS.get(type_contrat, {})
 
@@ -47,8 +45,8 @@ class HomeSuiviElecOptionsFlow(config_entries.OptionsFlow):
             vol.Optional(CONF_PRIX_TTC_HP, default=data.get(CONF_PRIX_TTC_HP, defaults.get(CONF_PRIX_TTC_HP))): cv.positive_float,
             vol.Optional(CONF_PRIX_HT_HC, default=data.get(CONF_PRIX_HT_HC, defaults.get(CONF_PRIX_HT_HC))): cv.positive_float,
             vol.Optional(CONF_PRIX_TTC_HC, default=data.get(CONF_PRIX_TTC_HC, defaults.get(CONF_PRIX_TTC_HC))): cv.positive_float,
-            vol.Optional(CONF_HC_START, default=data.get(CONF_HC_START, defaults.get(CONF_HC_START))): vol.All(cv.string, validate_time),
-            vol.Optional(CONF_HC_END, default=data.get(CONF_HC_END, defaults.get(CONF_HC_END))): vol.All(cv.string, validate_time),
+            vol.Optional(CONF_HC_START, default=data.get(CONF_HC_START, defaults.get(CONF_HC_START))): cv.string,
+            vol.Optional(CONF_HC_END, default=data.get(CONF_HC_END, defaults.get(CONF_HC_END))): cv.string,
         })
 
         return self.async_show_form(step_id="init", data_schema=schema)
