@@ -1,11 +1,12 @@
 {
   "domain": "home_suivi_elec",
   "name": "Home Suivi Élec",
-  "version": "0.9.7",
+  "version": "0.9.8",
   "documentation": "https://github.com/silentiss-jean/home_suivi_elec",
   "dependencies": [],
   "codeowners": ["@silentiss-jean"],
   "requirements": [],
   "iot_class": "local_polling",
-  "config_flow": true
+  "config_flow": true,
+  "options_flow": true
 }
