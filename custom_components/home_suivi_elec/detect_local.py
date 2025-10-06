@@ -4,7 +4,6 @@
 import logging
 import json
 import aiofiles
-from collections import defaultdict
 from pathlib import Path
 from homeassistant.util.dt import now
 from .const import FICHIER_CAPTEURS
@@ -37,6 +36,7 @@ async def run_detect_local(hass, entry, mode_flux="complet"):
     _LOGGER.info("🔍 Détection locale des capteurs (%s)", mode_flux)
     capteurs = collect_power_entities(hass)
     await enregistrer_capteurs_detectes_async(capteurs)
+    hass.data["home_suivi_elec"]["capteurs"] = capteurs
 
     hass.states.async_set(
         "sensor.home_suivi_elec_capteurs_detectes",

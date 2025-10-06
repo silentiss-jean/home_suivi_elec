@@ -23,6 +23,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     hass.data.setdefault(DOMAIN, {})
     hass.data[DOMAIN]["config"] = dict(entry.data)
     hass.data[DOMAIN]["options"] = dict(entry.options or {})
+    hass.data[DOMAIN]["capteurs"] = []
 
     # --- Service 1 : Détection locale
     async def handle_generate_local_data(call: ServiceCall):
