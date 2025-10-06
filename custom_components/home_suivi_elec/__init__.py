@@ -1,11 +1,11 @@
 # -*- coding: utf-8 -*-
-"""Initialisation principale de l’intégration Home Suivi Élec avec ConfigFlow et services."""
+"""Initialisation de Home Suivi Élec avec ConfigFlow et services."""
 
 import logging
 from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.config_entries import ConfigEntry
 
-from .const import DOMAIN
+from .const import DOMAIN, CONF_AUTO_GENERATE
 from .detect_local import run_detect_local
 from .generator import run_all
 from .debug_json_sets import scan_sets
@@ -23,9 +23,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     hass.data.setdefault(DOMAIN, {})
     hass.data[DOMAIN]["config"] = dict(entry.data)
     hass.data[DOMAIN]["options"] = dict(entry.options or {})
-    hass.data[DOMAIN]["capteurs"] = []
 
-    # --- Service 1 : Détection locale
+    # --- Services
     async def handle_generate_local_data(call: ServiceCall):
         try:
             _LOGGER.info("🔍 Service 'generate_local_data' lancé")
@@ -34,7 +33,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         except Exception as e:
             _LOGGER.error("❌ Erreur dans generate_local_data : %s", e)
 
-    # --- Service 2 : Génération Lovelace automatique
     async def handle_generate_lovelace_auto(call: ServiceCall):
         try:
             _LOGGER.info("🧩 Service 'generate_lovelace_auto' lancé")
@@ -43,12 +41,16 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         except Exception as e:
             _LOGGER.error("⚠️ Erreur dans generate_lovelace_auto : %s", e)
 
-    # --- Enregistrement des services
     hass.services.async_register(DOMAIN, "generate_local_data", handle_generate_local_data)
     hass.services.async_register(DOMAIN, "generate_lovelace_auto", handle_generate_lovelace_auto)
 
     # --- Scan debug JSON sets
     scan_sets(hass)
+
+    # --- Détection automatique si option activée
+    if hass.data[DOMAIN]["options"].get(CONF_AUTO_GENERATE, True):
+        _LOGGER.info("🧩 Option auto_generate_lovelace activée — génération automatique")
+        await run_all(hass, hass.data[DOMAIN]["options"])
 
     _LOGGER.info("✅ Services enregistrés : generate_local_data, generate_lovelace_auto")
     return True
