@@ -55,12 +55,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         _LOGGER.info("[SETUP_ENTRY] auto_generate_lovelace is enabled")
         await run_all(hass, hass.data[DOMAIN]["options"])
 
-    # --- Création du dossier panel_static si nécessaire
-    panel_dir = os.path.join(os.path.dirname(__file__), "panel_static")
-    os.makedirs(panel_dir, exist_ok=True)
-
-    # --- Ajout du panneau Home Suivi Élec
-    await async_setup_panel(hass, panel_dir)
+    # --- Setup du panneau
+    await async_setup_panel(hass)
 
     _LOGGER.info("[SETUP_ENTRY] Home Suivi Élec setup complete")
     return True
@@ -77,14 +73,17 @@ def async_get_options_flow(config_entry: ConfigEntry):
     return HomeSuiviElecOptionsFlow(config_entry)
 
 # --- Fonction interne pour le panneau
-async def async_setup_panel(hass: HomeAssistant, panel_dir: str):
+async def async_setup_panel(hass: HomeAssistant):
     """Crée le panneau /home_suivi_elec s’il n’existe pas déjà."""
+    panel_dir = hass.config.path("custom_components", "home_suivi_elec", "panel_static")
+    os.makedirs(panel_dir, exist_ok=True)
+
     panel_path = os.path.join(panel_dir, "panel.js")
     if not os.path.exists(panel_path):
         _LOGGER.warning("[PANEL] Fichier panel.js introuvable : %s", panel_path)
         return
 
-    # Enregistre le répertoire complet comme ressource statique
+    # Enregistre le répertoire comme ressource statique
     hass.http.async_register_static_paths(
         [frontend.StaticPathConfig("/home_suivi_elec", panel_dir)]
     )
