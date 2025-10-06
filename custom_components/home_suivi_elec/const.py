@@ -5,6 +5,7 @@ DOMAIN = "home_suivi_elec"
 FICHIER_CAPTEURS = "custom_components/home_suivi_elec/data/capteurs_detectes.json"
 
 # Champs ConfigFlow / Options
+CONF_NAME = "name"
 CONF_MODE = "mode"
 CONF_URL = "base_url"
 CONF_TYPE_CONTRAT = "type_contrat"
