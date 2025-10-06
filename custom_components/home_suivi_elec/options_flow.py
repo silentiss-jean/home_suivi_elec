@@ -1,8 +1,11 @@
+# custom_components/home_suivi_elec/options_flow.py
 from homeassistant import config_entries
 import voluptuous as vol
+from homeassistant.helpers import config_validation as cv
+
 from .const import (
     DOMAIN, CONTRATS, DEFAULTS,
-    CONF_TYPE_CONTRAT, CONF_AUTO_GENERATE,
+    CONF_NAME, CONF_TYPE_CONTRAT, CONF_AUTO_GENERATE,
     CONF_PRIX_HT, CONF_PRIX_TTC,
     CONF_PRIX_HT_HP, CONF_PRIX_TTC_HP,
     CONF_PRIX_HT_HC, CONF_PRIX_TTC_HC,
@@ -24,28 +27,28 @@ class HomeSuiviElecOptionsFlow(config_entries.OptionsFlow):
 
         data = self.config_entry.options or {}
 
-        # Récupérer les valeurs par défaut selon type de contrat
+        # Déterminer type de contrat et valeurs par défaut
         type_contrat = data.get(CONF_TYPE_CONTRAT, "prix_unique")
         defaults = DEFAULTS.get(type_contrat, {})
 
         schema = vol.Schema({
-            # Type de contrat
+            vol.Optional(CONF_NAME, default=data.get(CONF_NAME, self.config_entry.title)): str,
             vol.Optional(CONF_TYPE_CONTRAT, default=data.get(CONF_TYPE_CONTRAT, type_contrat)): vol.In(CONTRATS.keys()),
             vol.Optional(CONF_AUTO_GENERATE, default=data.get(CONF_AUTO_GENERATE, True)): bool,
 
             # Tarif unique
-            vol.Optional(CONF_PRIX_HT, default=data.get(CONF_PRIX_HT, defaults.get(CONF_PRIX_HT))): vol.Coerce(float),
-            vol.Optional(CONF_PRIX_TTC, default=data.get(CONF_PRIX_TTC, defaults.get(CONF_PRIX_TTC))): vol.Coerce(float),
-            vol.Optional(CONF_ABONNEMENT_MENSUEL_HT, default=data.get(CONF_ABONNEMENT_MENSUEL_HT, defaults.get(CONF_ABONNEMENT_MENSUEL_HT))): vol.Coerce(float),
-            vol.Optional(CONF_ABONNEMENT_MENSUEL_TTC, default=data.get(CONF_ABONNEMENT_MENSUEL_TTC, defaults.get(CONF_ABONNEMENT_MENSUEL_TTC))): vol.Coerce(float),
+            vol.Optional(CONF_PRIX_HT, default=data.get(CONF_PRIX_HT, defaults.get(CONF_PRIX_HT))): cv.positive_float,
+            vol.Optional(CONF_PRIX_TTC, default=data.get(CONF_PRIX_TTC, defaults.get(CONF_PRIX_TTC))): cv.positive_float,
+            vol.Optional(CONF_ABONNEMENT_MENSUEL_HT, default=data.get(CONF_ABONNEMENT_MENSUEL_HT, defaults.get(CONF_ABONNEMENT_MENSUEL_HT))): cv.positive_float,
+            vol.Optional(CONF_ABONNEMENT_MENSUEL_TTC, default=data.get(CONF_ABONNEMENT_MENSUEL_TTC, defaults.get(CONF_ABONNEMENT_MENSUEL_TTC))): cv.positive_float,
 
             # Heures Pleines / Creuses
-            vol.Optional(CONF_PRIX_HT_HP, default=data.get(CONF_PRIX_HT_HP, defaults.get(CONF_PRIX_HT_HP))): vol.Coerce(float),
-            vol.Optional(CONF_PRIX_TTC_HP, default=data.get(CONF_PRIX_TTC_HP, defaults.get(CONF_PRIX_TTC_HP))): vol.Coerce(float),
-            vol.Optional(CONF_PRIX_HT_HC, default=data.get(CONF_PRIX_HT_HC, defaults.get(CONF_PRIX_HT_HC))): vol.Coerce(float),
-            vol.Optional(CONF_PRIX_TTC_HC, default=data.get(CONF_PRIX_TTC_HC, defaults.get(CONF_PRIX_TTC_HC))): vol.Coerce(float),
-            vol.Optional(CONF_HC_START, default=data.get(CONF_HC_START, defaults.get(CONF_HC_START))): validate_time,
-            vol.Optional(CONF_HC_END, default=data.get(CONF_HC_END, defaults.get(CONF_HC_END))): validate_time,
+            vol.Optional(CONF_PRIX_HT_HP, default=data.get(CONF_PRIX_HT_HP, defaults.get(CONF_PRIX_HT_HP))): cv.positive_float,
+            vol.Optional(CONF_PRIX_TTC_HP, default=data.get(CONF_PRIX_TTC_HP, defaults.get(CONF_PRIX_TTC_HP))): cv.positive_float,
+            vol.Optional(CONF_PRIX_HT_HC, default=data.get(CONF_PRIX_HT_HC, defaults.get(CONF_PRIX_HT_HC))): cv.positive_float,
+            vol.Optional(CONF_PRIX_TTC_HC, default=data.get(CONF_PRIX_TTC_HC, defaults.get(CONF_PRIX_TTC_HC))): cv.positive_float,
+            vol.Optional(CONF_HC_START, default=data.get(CONF_HC_START, defaults.get(CONF_HC_START))): vol.All(cv.string, validate_time),
+            vol.Optional(CONF_HC_END, default=data.get(CONF_HC_END, defaults.get(CONF_HC_END))): vol.All(cv.string, validate_time),
         })
 
         return self.async_show_form(step_id="init", data_schema=schema)

@@ -1,3 +1,4 @@
+# custom_components/home_suivi_elec/config_flow.py
 from homeassistant import config_entries
 import voluptuous as vol
 from homeassistant.helpers import config_validation as cv
@@ -14,7 +15,7 @@ from .const import (
 from .helpers.validation import validate_time
 
 class HomeSuiviElecFlow(config_entries.ConfigFlow, domain=DOMAIN):
-    """Config flow pour Home Suivi Élec avec nom du hub."""
+    """Config flow pour Home Suivi Élec avec nom du hub et tarifs."""
 
     VERSION = 1
 
@@ -53,14 +54,14 @@ class HomeSuiviElecFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 vol.Optional(CONF_ABONNEMENT_MENSUEL_HT, default=DEFAULTS["prix_unique"][CONF_ABONNEMENT_MENSUEL_HT]): cv.positive_float,
                 vol.Optional(CONF_ABONNEMENT_MENSUEL_TTC, default=DEFAULTS["prix_unique"][CONF_ABONNEMENT_MENSUEL_TTC]): cv.positive_float,
             })
-        else:
+        else:  # heures_creuses
             schema = vol.Schema({
                 vol.Optional(CONF_PRIX_HT_HP, default=DEFAULTS["heures_creuses"][CONF_PRIX_HT_HP]): cv.positive_float,
                 vol.Optional(CONF_PRIX_TTC_HP, default=DEFAULTS["heures_creuses"][CONF_PRIX_TTC_HP]): cv.positive_float,
                 vol.Optional(CONF_PRIX_HT_HC, default=DEFAULTS["heures_creuses"][CONF_PRIX_HT_HC]): cv.positive_float,
                 vol.Optional(CONF_PRIX_TTC_HC, default=DEFAULTS["heures_creuses"][CONF_PRIX_TTC_HC]): cv.positive_float,
-                vol.Optional(CONF_HC_START, default=DEFAULTS["heures_creuses"][CONF_HC_START]): validate_time,
-                vol.Optional(CONF_HC_END, default=DEFAULTS["heures_creuses"][CONF_HC_END]): validate_time,
+                vol.Optional(CONF_HC_START, default=DEFAULTS["heures_creuses"][CONF_HC_START]): vol.All(cv.string, validate_time),
+                vol.Optional(CONF_HC_END, default=DEFAULTS["heures_creuses"][CONF_HC_END]): vol.All(cv.string, validate_time),
                 vol.Optional(CONF_ABONNEMENT_MENSUEL_HT, default=DEFAULTS["heures_creuses"][CONF_ABONNEMENT_MENSUEL_HT]): cv.positive_float,
                 vol.Optional(CONF_ABONNEMENT_MENSUEL_TTC, default=DEFAULTS["heures_creuses"][CONF_ABONNEMENT_MENSUEL_TTC]): cv.positive_float,
             })
