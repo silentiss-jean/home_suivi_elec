@@ -8,9 +8,10 @@ from .const import (
     CONF_PRIX_HT, CONF_PRIX_TTC,
     CONF_PRIX_HT_HP, CONF_PRIX_TTC_HP,
     CONF_PRIX_HT_HC, CONF_PRIX_TTC_HC,
-    CONF_ABONNEMENT_MENSUEL_HT, CONF_ABONNEMENT_MENSUEL_TTC,
-    CONF_HC_START, CONF_HC_END
+    CONF_HC_START, CONF_HC_END,
+    CONF_ABONNEMENT_MENSUEL_HT, CONF_ABONNEMENT_MENSUEL_TTC
 )
+from .helpers.validation import validate_time
 
 class HomeSuiviElecFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Config flow pour Home Suivi Élec avec nom du hub et tarifs."""
@@ -39,9 +40,7 @@ class HomeSuiviElecFlow(config_entries.ConfigFlow, domain=DOMAIN):
     async def async_step_tarifs(self, user_input=None):
         """Formulaire des tarifs selon le type de contrat choisi."""
         if user_input is not None:
-            # Fusion avec données précédentes
             self._user_data.update(user_input)
-            # On peut faire la validation des heures après ici si besoin
             return self.async_create_entry(title=self._user_data[CONF_NAME], data=self._user_data)
 
         contrat = getattr(self, "_user_data", {}).get(CONF_TYPE_CONTRAT, "prix_unique")

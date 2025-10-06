@@ -2,13 +2,13 @@
 """Initialisation de Home Suivi Élec avec ConfigFlow et services."""
 
 import logging
-from homeassistant.core import HomeAssistant, ServiceCall
-from homeassistant.config_entries import ConfigEntry
-
+from homeassistant.core import HomeAssistant, ServiceCall, callback
+from homeassistant.config_entries import ConfigEntry, OptionsFlow
 from .const import DOMAIN, CONF_AUTO_GENERATE
 from .detect_local import run_detect_local
 from .generator import run_all
 from .debug_json_sets import scan_sets
+from .options_flow import HomeSuiviElecOptionsFlow
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -59,3 +59,9 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Déchargement d’une instance."""
     _LOGGER.info("♻️ Déchargement Home Suivi Élec")
     return True
+
+# --- Liaison avec OptionsFlow pour la roue d’options
+@callback
+def async_get_options_flow(config_entry: ConfigEntry) -> OptionsFlow:
+    """Retourne l’OptionsFlow associé à cette ConfigEntry."""
+    return HomeSuiviElecOptionsFlow(config_entry)
