@@ -1,6 +1,7 @@
 from homeassistant import config_entries
 import voluptuous as vol
 from homeassistant.helpers import config_validation as cv
+import logging
 
 from .const import (
     DOMAIN, CONTRATS, DEFAULTS,
@@ -8,10 +9,12 @@ from .const import (
     CONF_PRIX_HT, CONF_PRIX_TTC,
     CONF_PRIX_HT_HP, CONF_PRIX_TTC_HP,
     CONF_PRIX_HT_HC, CONF_PRIX_TTC_HC,
-    CONF_HC_START, CONF_HC_END,
-    CONF_ABONNEMENT_MENSUEL_HT, CONF_ABONNEMENT_MENSUEL_TTC
+    CONF_ABONNEMENT_MENSUEL_HT, CONF_ABONNEMENT_MENSUEL_TTC,
+    CONF_HC_START, CONF_HC_END
 )
 from .helpers.validation import validate_time
+
+_LOGGER = logging.getLogger(__name__)
 
 class HomeSuiviElecFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Config flow pour Home Suivi Élec avec nom du hub et tarifs."""
@@ -19,15 +22,13 @@ class HomeSuiviElecFlow(config_entries.ConfigFlow, domain=DOMAIN):
     VERSION = 1
 
     async def async_step_user(self, user_input=None):
-        """Formulaire principal pour nom, type de contrat et option auto_generate."""
+        _LOGGER.debug("[CONFIG_FLOW] async_step_user called, user_input: %s", user_input)
         if user_input is not None:
             self._user_data = user_input
-
-            # Vérifier doublons
             for entry in self._async_current_entries():
                 if entry.data.get(CONF_NAME) == user_input[CONF_NAME]:
+                    _LOGGER.warning("[CONFIG_FLOW] Hub déjà existant: %s", user_input[CONF_NAME])
                     return self.async_abort(reason="hub_exists")
-
             return await self.async_step_tarifs()
 
         schema = vol.Schema({
@@ -38,7 +39,7 @@ class HomeSuiviElecFlow(config_entries.ConfigFlow, domain=DOMAIN):
         return self.async_show_form(step_id="user", data_schema=schema)
 
     async def async_step_tarifs(self, user_input=None):
-        """Formulaire des tarifs selon le type de contrat choisi."""
+        _LOGGER.debug("[CONFIG_FLOW] async_step_tarifs called, user_input: %s", user_input)
         if user_input is not None:
             self._user_data.update(user_input)
             return self.async_create_entry(title=self._user_data[CONF_NAME], data=self._user_data)
@@ -52,7 +53,7 @@ class HomeSuiviElecFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 vol.Optional(CONF_ABONNEMENT_MENSUEL_HT, default=DEFAULTS["prix_unique"][CONF_ABONNEMENT_MENSUEL_HT]): cv.positive_float,
                 vol.Optional(CONF_ABONNEMENT_MENSUEL_TTC, default=DEFAULTS["prix_unique"][CONF_ABONNEMENT_MENSUEL_TTC]): cv.positive_float,
             })
-        else:  # heures_creuses
+        else:
             schema = vol.Schema({
                 vol.Optional(CONF_PRIX_HT_HP, default=DEFAULTS["heures_creuses"][CONF_PRIX_HT_HP]): cv.positive_float,
                 vol.Optional(CONF_PRIX_TTC_HP, default=DEFAULTS["heures_creuses"][CONF_PRIX_TTC_HP]): cv.positive_float,

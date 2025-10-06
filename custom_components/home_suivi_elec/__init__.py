@@ -2,8 +2,9 @@
 """Initialisation de Home Suivi Élec avec ConfigFlow et services."""
 
 import logging
-from homeassistant.core import HomeAssistant, ServiceCall, callback
-from homeassistant.config_entries import ConfigEntry, OptionsFlow
+from homeassistant.core import HomeAssistant, ServiceCall
+from homeassistant.config_entries import ConfigEntry
+
 from .const import DOMAIN, CONF_AUTO_GENERATE
 from .detect_local import run_detect_local
 from .generator import run_all
@@ -13,55 +14,47 @@ from .options_flow import HomeSuiviElecOptionsFlow
 _LOGGER = logging.getLogger(__name__)
 
 async def async_setup(hass: HomeAssistant, config: dict) -> bool:
-    """Setup minimal (sans ConfigEntry)."""
+    _LOGGER.info("[SETUP] async_setup called with config keys: %s", list(config.keys()))
     return True
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-    """Setup d’une instance Home Suivi Élec via ConfigEntry."""
-    _LOGGER.info("🔌 Initialisation de l’intégration Home Suivi Élec")
-
+    _LOGGER.info("[SETUP_ENTRY] Initialisation de Home Suivi Élec, entry data: %s", entry.data)
     hass.data.setdefault(DOMAIN, {})
     hass.data[DOMAIN]["config"] = dict(entry.data)
     hass.data[DOMAIN]["options"] = dict(entry.options or {})
 
-    # --- Services
     async def handle_generate_local_data(call: ServiceCall):
+        _LOGGER.info("[SERVICE] generate_local_data called")
         try:
-            _LOGGER.info("🔍 Service 'generate_local_data' lancé")
             await run_detect_local(hass, entry)
-            _LOGGER.info("✅ Détection locale terminée")
+            _LOGGER.info("[SERVICE] generate_local_data finished successfully")
         except Exception as e:
-            _LOGGER.error("❌ Erreur dans generate_local_data : %s", e)
+            _LOGGER.exception("[SERVICE] Error in generate_local_data: %s", e)
 
     async def handle_generate_lovelace_auto(call: ServiceCall):
+        _LOGGER.info("[SERVICE] generate_lovelace_auto called")
         try:
-            _LOGGER.info("🧩 Service 'generate_lovelace_auto' lancé")
             await run_all(hass, hass.data[DOMAIN]["options"])
-            _LOGGER.info("✅ Interface Lovelace générée")
+            _LOGGER.info("[SERVICE] generate_lovelace_auto finished successfully")
         except Exception as e:
-            _LOGGER.error("⚠️ Erreur dans generate_lovelace_auto : %s", e)
+            _LOGGER.exception("[SERVICE] Error in generate_lovelace_auto: %s", e)
 
     hass.services.async_register(DOMAIN, "generate_local_data", handle_generate_local_data)
     hass.services.async_register(DOMAIN, "generate_lovelace_auto", handle_generate_lovelace_auto)
 
-    # --- Scan debug JSON sets
     scan_sets(hass)
 
-    # --- Détection automatique si option activée
     if hass.data[DOMAIN]["options"].get(CONF_AUTO_GENERATE, True):
-        _LOGGER.info("🧩 Option auto_generate_lovelace activée — génération automatique")
+        _LOGGER.info("[SETUP_ENTRY] auto_generate_lovelace is enabled")
         await run_all(hass, hass.data[DOMAIN]["options"])
 
-    _LOGGER.info("✅ Services enregistrés : generate_local_data, generate_lovelace_auto")
+    _LOGGER.info("[SETUP_ENTRY] Home Suivi Élec setup complete")
     return True
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-    """Déchargement d’une instance."""
-    _LOGGER.info("♻️ Déchargement Home Suivi Élec")
+    _LOGGER.info("[UNLOAD_ENTRY] Déchargement de l'intégration Home Suivi Élec")
     return True
 
-# --- Liaison avec OptionsFlow pour la roue d’options
-@callback
-def async_get_options_flow(config_entry: ConfigEntry) -> OptionsFlow:
-    """Retourne l’OptionsFlow associé à cette ConfigEntry."""
+async def async_get_options_flow(config_entry):
+    _LOGGER.info("[OPTIONS_FLOW] async_get_options_flow called for entry: %s", config_entry.title)
     return HomeSuiviElecOptionsFlow(config_entry)
