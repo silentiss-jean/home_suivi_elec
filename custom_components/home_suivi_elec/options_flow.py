@@ -16,7 +16,7 @@ from .const import (
 _LOGGER = logging.getLogger(__name__)
 
 class HomeSuiviElecOptionsFlow(config_entries.OptionsFlow):
-    """Options flow pour Home Suivi Élec."""
+    """Options flow pour Home Suivi Élec avec logs."""
 
     def __init__(self, config_entry):
         self.config_entry = config_entry
@@ -24,6 +24,7 @@ class HomeSuiviElecOptionsFlow(config_entries.OptionsFlow):
     async def async_step_init(self, user_input=None):
         _LOGGER.debug("[OPTIONS_FLOW] async_step_init called, user_input: %s", user_input)
         if user_input is not None:
+            _LOGGER.info("[OPTIONS_FLOW] Options submitted: %s", user_input)
             return self.async_create_entry(title="", data=user_input)
 
         data = self.config_entry.options or {}
@@ -34,10 +35,12 @@ class HomeSuiviElecOptionsFlow(config_entries.OptionsFlow):
             vol.Optional(CONF_NAME, default=data.get(CONF_NAME, self.config_entry.title)): str,
             vol.Optional(CONF_TYPE_CONTRAT, default=data.get(CONF_TYPE_CONTRAT, type_contrat)): vol.In(CONTRATS.keys()),
             vol.Optional(CONF_AUTO_GENERATE, default=data.get(CONF_AUTO_GENERATE, True)): bool,
+            # Tarif unique
             vol.Optional(CONF_PRIX_HT, default=data.get(CONF_PRIX_HT, defaults.get(CONF_PRIX_HT))): cv.positive_float,
             vol.Optional(CONF_PRIX_TTC, default=data.get(CONF_PRIX_TTC, defaults.get(CONF_PRIX_TTC))): cv.positive_float,
             vol.Optional(CONF_ABONNEMENT_MENSUEL_HT, default=data.get(CONF_ABONNEMENT_MENSUEL_HT, defaults.get(CONF_ABONNEMENT_MENSUEL_HT))): cv.positive_float,
             vol.Optional(CONF_ABONNEMENT_MENSUEL_TTC, default=data.get(CONF_ABONNEMENT_MENSUEL_TTC, defaults.get(CONF_ABONNEMENT_MENSUEL_TTC))): cv.positive_float,
+            # Heures Pleines / Creuses
             vol.Optional(CONF_PRIX_HT_HP, default=data.get(CONF_PRIX_HT_HP, defaults.get(CONF_PRIX_HT_HP))): cv.positive_float,
             vol.Optional(CONF_PRIX_TTC_HP, default=data.get(CONF_PRIX_TTC_HP, defaults.get(CONF_PRIX_TTC_HP))): cv.positive_float,
             vol.Optional(CONF_PRIX_HT_HC, default=data.get(CONF_PRIX_HT_HC, defaults.get(CONF_PRIX_HT_HC))): cv.positive_float,
@@ -45,4 +48,5 @@ class HomeSuiviElecOptionsFlow(config_entries.OptionsFlow):
             vol.Optional(CONF_HC_START, default=data.get(CONF_HC_START, defaults.get(CONF_HC_START))): cv.string,
             vol.Optional(CONF_HC_END, default=data.get(CONF_HC_END, defaults.get(CONF_HC_END))): cv.string,
         })
+
         return self.async_show_form(step_id="init", data_schema=schema)

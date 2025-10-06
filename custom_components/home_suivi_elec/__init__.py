@@ -14,7 +14,7 @@ from .options_flow import HomeSuiviElecOptionsFlow
 _LOGGER = logging.getLogger(__name__)
 
 async def async_setup(hass: HomeAssistant, config: dict) -> bool:
-    _LOGGER.info("[SETUP] async_setup called with config keys: %s", list(config.keys()))
+    _LOGGER.debug("[SETUP] async_setup called with config keys: %s", list(config.keys()))
     return True
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
@@ -23,6 +23,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     hass.data[DOMAIN]["config"] = dict(entry.data)
     hass.data[DOMAIN]["options"] = dict(entry.options or {})
 
+    # --- Services
     async def handle_generate_local_data(call: ServiceCall):
         _LOGGER.info("[SERVICE] generate_local_data called")
         try:
@@ -56,5 +57,5 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     return True
 
 async def async_get_options_flow(config_entry):
-    _LOGGER.info("[OPTIONS_FLOW] async_get_options_flow called for entry: %s", config_entry.title)
+    _LOGGER.debug("[OPTIONS_FLOW] async_get_options_flow called for entry: %s", config_entry.title)
     return HomeSuiviElecOptionsFlow(config_entry)
