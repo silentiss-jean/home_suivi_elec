@@ -33,7 +33,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     hass.data[DOMAIN]["config"] = dict(entry.data)
     hass.data[DOMAIN]["options"] = dict(entry.options or {})
 
-    # --- Services ----------------------------------------------------------
+    # --- Services
     async def handle_generate_local_data(call: ServiceCall):
         _LOGGER.info("[SERVICE] generate_local_data called")
         try:
@@ -78,7 +78,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     # --- Setup panneau HTML
     await async_setup_panel(hass)
 
-    # --- WebSocket commands ------------------------------------------------
+    # --- WebSocket commands
     @websocket_api.async_response
     async def ws_get_sensors(hass, connection, msg):
         data = await manage_selection.async_get_sensors(hass)
@@ -97,7 +97,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         "home_suivi_elec/save_selection", ws_save_selection
     )
 
-    _LOGGER.info("[SETUP_ENTRY] ✅ Home Suivi Élec setup complete")
+    _LOGGER.info("[SETUP_ENTRY] Home Suivi Élec setup complete")
     return True
 
 
@@ -113,16 +113,15 @@ def async_get_options_flow(config_entry: ConfigEntry):
 
 
 # ---------------------------------------------------------------------------
-# SETUP PANEL (HTML DIRECT, SANS IFRAME)
+# SETUP PANEL (SANS IFRAME)
 # ---------------------------------------------------------------------------
 
 async def async_setup_panel(hass: HomeAssistant):
-    """Copie le panel HTML dans www et l'ajoute à la barre latérale de HA (sans iframe)."""
+    """Copie le panel HTML dans www et l'ajoute à la sidebar de HA (sans iframe)."""
     panel_src_dir = hass.config.path("custom_components", "home_suivi_elec", "panel_static")
     panel_dst_dir = hass.config.path("www", "community", "home_suivi_elec_panel")
     os.makedirs(panel_dst_dir, exist_ok=True)
 
-    # Copie du fichier HTML
     for filename in ("panel_option1.html",):
         src = os.path.join(panel_src_dir, filename)
         dst = os.path.join(panel_dst_dir, filename)
@@ -132,28 +131,32 @@ async def async_setup_panel(hass: HomeAssistant):
         else:
             _LOGGER.warning("[PANEL] Missing file: %s", src)
 
-    # Supprime ancien panneau iframe s’il existe
+    # 🔹 Supprimer tout ancien panneau iframe
     try:
         await hass.components.frontend.async_remove_panel("suivi_elec")
         _LOGGER.info("[PANEL] Ancien panneau 'iframe' supprimé si présent.")
     except Exception as e:
         _LOGGER.debug("[PANEL] Aucun ancien panneau iframe à supprimer (%s)", e)
 
-    # Enregistre le nouveau panneau HTML direct
+    # 🔹 Enregistrer un panneau frontend natif (non iframe)
     if not hass.data.get("home_suivi_elec_panel_registered"):
-        hass.components.frontend.async_register_panel(
-            component_name="home_suivi_elec_panel",
+        frontend.async_register_built_in_panel(
+            hass,
+            component_name="custom",
             sidebar_title="Suivi Élec",
             sidebar_icon="mdi:flash",
-            frontend_url_path="home_suivi_elec",
             require_admin=True,
+            frontend_url_path="home_suivi_elec",
             config={
-                "html_url": "/local/community/home_suivi_elec_panel/panel_option1.html",
-                "embed_iframe": False,
-                "trust_external": True,
+                "_panel_custom": {
+                    "name": "home_suivi_elec_panel",
+                    "embed_iframe": False,
+                    "html_url": "/local/community/home_suivi_elec_panel/panel_option1.html",
+                    "trust_external": True,
+                }
             },
         )
         hass.data["home_suivi_elec_panel_registered"] = True
-        _LOGGER.info("[PANEL] ✅ Panneau HTML Home Suivi Élec (direct HTML) ajouté à la barre latérale.")
+        _LOGGER.info("[PANEL] ✅ Panneau HTML Home Suivi Élec (non-iframe) ajouté à la barre latérale.")
     else:
         _LOGGER.debug("[PANEL] ⚙️ Panneau déjà enregistré, aucune action.")
