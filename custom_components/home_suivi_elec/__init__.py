@@ -58,7 +58,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     hass.services.async_register(DOMAIN, "generate_lovelace_auto", handle_generate_lovelace_auto)
     hass.services.async_register(DOMAIN, "generate_selection", handle_generate_selection)
 
-    # --- Setup API sélection
+    # --- Setup API sélection (REST optionnel)
     from . import manage_selection
     await manage_selection.async_setup_selection_api(hass)
 
@@ -70,7 +70,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         _LOGGER.info("[SETUP_ENTRY] auto_generate_lovelace is enabled")
         await run_all(hass, hass.data[DOMAIN]["options"])
 
-    # --- Setup du panneau HTML
+    # --- Setup panneau HTML
     await async_setup_panel(hass)
 
     # --- WebSocket commands
@@ -105,11 +105,12 @@ def async_get_options_flow(config_entry: ConfigEntry):
     return HomeSuiviElecOptionsFlow(config_entry)
 
 async def async_setup_panel(hass: HomeAssistant):
+    """Copie le panel HTML dans www et l'ajoute à la sidebar de HA."""
     panel_src_dir = hass.config.path("custom_components", "home_suivi_elec", "panel_static")
     panel_dst_dir = hass.config.path("www", "community", "home_suivi_elec_panel")
     os.makedirs(panel_dst_dir, exist_ok=True)
 
-    for filename in ("panel_option1.html", "panel.js"):
+    for filename in ("panel_option1.html",):
         src = os.path.join(panel_src_dir, filename)
         dst = os.path.join(panel_dst_dir, filename)
         if os.path.exists(src):
