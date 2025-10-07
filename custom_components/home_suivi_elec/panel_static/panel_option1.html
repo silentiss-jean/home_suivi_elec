@@ -4,47 +4,14 @@
   <meta charset="UTF-8">
   <title>Home Suivi Élec</title>
   <style>
-    body {
-      font-family: Arial, sans-serif;
-      margin: 2rem;
-      color: var(--primary-text-color);
-      background: var(--card-background-color);
-    }
+    body { font-family: Arial, sans-serif; margin: 2rem; color: var(--primary-text-color); background: var(--card-background-color); }
     h1 { font-size: 1.8rem; margin-bottom: 0.5rem; }
     .subtitle { color: var(--secondary-text-color); margin-bottom: 1rem; }
-    .status {
-      background: var(--ha-card-background, #fff);
-      padding: 1rem;
-      border-radius: 12px;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
-      margin-bottom: 1.5rem;
-    }
-    button {
-      padding: 0.5rem 1rem;
-      margin-right: 0.5rem;
-      background: var(--primary-color);
-      color: white;
-      border: none;
-      border-radius: 8px;
-      cursor: pointer;
-    }
+    .status { background: var(--ha-card-background, #fff); padding: 1rem; border-radius: 12px; box-shadow: 0 2px 6px rgba(0,0,0,0.1); margin-bottom: 1.5rem; }
+    button { padding: 0.5rem 1rem; margin-right: 0.5rem; background: var(--primary-color); color: white; border: none; border-radius: 8px; cursor: pointer; }
     button:hover { opacity: 0.9; }
-    .integration-block {
-      border: 1px solid #ccc;
-      border-radius: 8px;
-      padding: 0.8rem;
-      margin-bottom: 1rem;
-      background: white;
-    }
-    .integration-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      background: #f0f0f0;
-      padding: 0.3rem 0.8rem;
-      border-radius: 6px;
-      font-weight: bold;
-    }
+    .integration-block { border: 1px solid #ccc; border-radius: 8px; padding: 0.8rem; margin-bottom: 1rem; background: white; }
+    .integration-header { display: flex; justify-content: space-between; align-items: center; background: #f0f0f0; padding: 0.3rem 0.8rem; border-radius: 6px; font-weight: bold; }
     .sensor-list { margin-top: 0.5rem; padding-left: 1rem; }
     .message { margin-top: 1rem; color: var(--secondary-text-color); font-style: italic; }
   </style>
@@ -63,16 +30,16 @@
     <div id="integration-list"></div>
   </div>
 
-  <script type="module">
+  <script>
     const message = document.getElementById("message");
     const container = document.getElementById("integration-list");
 
     async function loadSensors() {
       message.textContent = "Chargement des capteurs...";
       try {
-        const data = await window.hass.callWS({
-          type: "home_suivi_elec/get_sensors"
-        });
+        const res = await fetch("/api/home_suivi_elec/get_sensors");
+        if (!res.ok) throw new Error("Erreur API: " + res.status);
+        const data = await res.json();
 
         container.innerHTML = "";
         Object.entries(data).forEach(([integration, sensors]) => {
@@ -108,13 +75,12 @@
 
         message.textContent = "✅ Capteurs chargés.";
       } catch (err) {
-        message.textContent = "Erreur : " + err.message;
+        message.textContent = "❌ Erreur : " + err.message;
       }
     }
 
     function toggleIntegration(integration, checked) {
-      document.querySelectorAll(`input[data-integration="${integration}"]`)
-        .forEach(cb => cb.checked = checked);
+      document.querySelectorAll(`input[data-integration="${integration}"]`).forEach(cb => cb.checked = checked);
     }
 
     async function saveSelection() {
@@ -125,11 +91,15 @@
         if (!selections[integ]) selections[integ] = [];
         selections[integ].push({ entity_id: cb.value, enabled: cb.checked });
       });
+
       try {
-        await window.hass.callWS({
-          type: "home_suivi_elec/save_selection",
-          selection: selections
+        const res = await fetch("/api/home_suivi_elec/save_selection", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(selections)
         });
+        if (!res.ok) throw new Error("Erreur API: " + res.status);
+        await res.json();
         message.textContent = "✅ Sélection sauvegardée";
       } catch (err) {
         message.textContent = "❌ Erreur : " + err.message;
