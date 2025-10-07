@@ -1,14 +1,12 @@
+const message = document.getElementById("message");
+const container = document.getElementById("integration-list");
+
 async function loadSensors() {
-  const message = document.getElementById("message");
   message.textContent = "Chargement des capteurs...";
   try {
-    const res = await fetch("/api/home_suivi_elec/get_sensors");
-    if (!res.ok) throw new Error("Erreur API: " + res.status);
-    const data = await res.json();
+    const data = await window.hass.callWS({ type: "home_suivi_elec/get_sensors" });
 
-    const container = document.getElementById("integration-list");
     container.innerHTML = "";
-
     Object.entries(data).forEach(([integration, sensors]) => {
       const block = document.createElement("div");
       block.className = "integration-block";
@@ -47,30 +45,20 @@ async function loadSensors() {
 }
 
 function toggleIntegration(integration, checked) {
-  document
-    .querySelectorAll(`input[data-integration="${integration}"]`)
-    .forEach(cb => (cb.checked = checked));
+  document.querySelectorAll(`input[data-integration="${integration}"]`).forEach(cb => cb.checked = checked);
 }
 
 async function saveSelection() {
-  const message = document.getElementById("message");
   message.textContent = "Sauvegarde en cours...";
   const selections = {};
-
   document.querySelectorAll("input[type=checkbox]").forEach(cb => {
     const integ = cb.dataset.integration;
     if (!selections[integ]) selections[integ] = [];
-    if (cb.checked)
-      selections[integ].push({ entity_id: cb.value, enabled: true });
+    selections[integ].push({ entity_id: cb.value, enabled: cb.checked });
   });
 
   try {
-    const res = await fetch("/api/home_suivi_elec/save_selection", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(selections),
-    });
-    const result = await res.json();
+    await window.hass.callWS({ type: "home_suivi_elec/save_selection", selection: selections });
     message.textContent = "✅ Sélection sauvegardée";
   } catch (err) {
     message.textContent = "❌ Erreur : " + err.message;
