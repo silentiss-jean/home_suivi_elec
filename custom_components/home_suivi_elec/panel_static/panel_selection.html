@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Home Suivi Élec - Sélection des capteurs</title>
+<style>
+body { font-family: Arial, sans-serif; margin: 2rem; color: var(--primary-text-color); }
+h1 { font-size: 1.6rem; margin-bottom: 0.5rem; }
+.integration { margin-bottom: 1.5rem; }
+.integration h2 { margin: 0.5rem 0; font-size: 1.3rem; }
+.area { margin-left: 1rem; margin-bottom: 0.5rem; }
+.area h3 { margin: 0.3rem 0; font-size: 1.1rem; }
+.sensor { margin-left: 2rem; }
+button { margin: 0.2rem; }
+</style>
+</head>
+<body>
+<h1>Home Suivi Élec - Test Sélection des capteurs</h1>
+<div id="container"></div>
+<button onclick="saveSelection()">Sauvegarder la sélection</button>
+<p id="status"></p>
+
+<script type="module">
+let sensorsData = {};
+
+async function loadSensors() {
+    const res = await fetch('/api/home_suivi_elec/get_sensors');
+    if (!res.ok) {
+        document.getElementById('status').textContent = 'Erreur: ' + res.statusText;
+        return;
+    }
+    sensorsData = await res.json();
+    renderSensors();
+}
+
+function renderSensors() {
+    const container = document.getElementById('container');
+    container.innerHTML = '';
+    for (const [integration, sensors] of Object.entries(sensorsData)) {
+        const divInt = document.createElement('div');
+        divInt.className = 'integration';
+        const h2 = document.createElement('h2');
+        h2.textContent = integration;
+        divInt.appendChild(h2);
+
+        // Select/Deselect All buttons
+        const btnAll = document.createElement('button');
+        btnAll.textContent = 'Select All';
+        btnAll.onclick = () => toggleIntegration(integration, true);
+        const btnNone = document.createElement('button');
+        btnNone.textContent = 'Deselect All';
+        btnNone.onclick = () => toggleIntegration(integration, false);
+        divInt.appendChild(btnAll);
+        divInt.appendChild(btnNone);
+
+        // Group by area
+        const areas = {};
+        sensors.forEach(s => {
+            const area = s.area || 'unknown';
+            areas[area] = areas[area] || [];
+            areas[area].push(s);
+        });
+
+        for (const [area, areaSensors] of Object.entries(areas)) {
+            const divArea = document.createElement('div');
+            divArea.className = 'area';
+            const h3 = document.createElement('h3');
+            h3.textContent = area;
+            divArea.appendChild(h3);
+
+            areaSensors.forEach(s => {
+                const divSensor = document.createElement('div');
+                divSensor.className = 'sensor';
+                const chk = document.createElement('input');
+                chk.type = 'checkbox';
+                chk.checked = s.enabled;
+                chk.onchange = () => { s.enabled = chk.checked; };
+                const label = document.createElement('label');
+                label.textContent = s.friendly_name || s.entity_id;
+                divSensor.appendChild(chk);
+                divSensor.appendChild(label);
+                divArea.appendChild(divSensor);
+            });
+
+            divInt.appendChild(divArea);
+        }
+
+        container.appendChild(divInt);
+    }
+}
+
+function toggleIntegration(integration, state) {
+    sensorsData[integration].forEach(s => s.enabled = state);
+    renderSensors();
+}
+
+async function saveSelection() {
+    const res = await fetch('/api/home_suivi_elec/save_selection', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(sensorsData)
+    });
+    if (res.ok) {
+        document.getElementById('status').textContent = '✅ Sélection sauvegardée';
+    } else {
+        document.getElementById('status').textContent = '❌ Erreur lors de la sauvegarde';
+    }
+}
+
+loadSensors();
+</script>
+</body>
+</html>

@@ -1,0 +1,110 @@
+Home Suivi Élec — État actuel et plan d’action
+
+===========================================
+ÉTAT ACTUEL
+
+1. Détection des capteurs (generate_local_data)
+-----------------------------------------------
+✅ Service fonctionne depuis HA
+✅ capteurs_power.json créé avec tous les capteurs type "power"
+✅ Intégration, pièce, entity_id et unité enregistrés
+✅ Logs détaillés disponibles
+- Testé et validé
+
+2. Sélection des capteurs (generate_selection / API / page HTML)
+---------------------------------------------------------------
+✅ Service fonctionne depuis HA
+✅ API `/api/home_suivi_elec/get_sensors` retourne la liste
+✅ API `/api/home_suivi_elec/save_selection` sauvegarde la sélection
+✅ Page HTML test avec listes et cases à cocher
+- Problème de token résolu en mode test
+- Pas encore de "Select all / Deselect all" par intégration
+- Sauvegarde fonctionne mais UI minimale (liste simple)
+
+3. Panneau HTML dans HA (iframe)
+--------------------------------
+✅ panel.html + panel.js copiés dans `/www/community/home_suivi_elec_panel/`
+✅ Panneau visible dans sidebar HA
+✅ Affiche correctement l’état d’installation et info de base
+- Pas encore d’animation ni interaction avancée
+- Fonctionne sans 404
+
+4. Services Lovelace auto-génération
+-----------------------------------
+✅ `generate_lovelace_auto` fonctionne via service HA
+- Dashboard de test minimal OK
+- Pas encore regroupement par intégration/pièce pour chaque capteur
+
+===========================================
+CE QUI RESTE À FAIRE
+
+Étape 1 — Interface de sélection avancée
+----------------------------------------
+- Ajouter "Select all / Deselect all" pour chaque intégration
+- Permettre sélection par pièce
+- Permettre désactivation d’une intégration complète
+- UI responsive et lisible (option pour future version graphique)
+
+Étape 2 — Sauvegarde et persistance
+-----------------------------------
+- S’assurer que `capteurs_selection.json` est mis à jour correctement
+- Supprimer besoin de token dans page de test (mode développement)
+- Tester avec services HA (`home_suivi_elec.generate_selection`) depuis UI
+
+Étape 3 — Dashboard final
+-------------------------
+- Générer cartes Lovelace regroupées par intégration et pièce
+- Afficher coût par capteur / pièce et comparaison avec capteur global (atom)
+- Ajouter alertes pour capteurs non mesurés ou désactivés
+- Vérifier logs détaillés à chaque étape
+
+Étape 4 — Portabilité / Git
+---------------------------
+- Nettoyer arborescence `custom_components/home_suivi_elec/`
+- Automatiser copie HTML/JS vers `/www/community/` au setup
+- Versionner tout le nécessaire pour que l’intégration soit portable
+- Ne pas exiger configuration manuelle du dashboard ou panel
+
+Étape 5 — Tests finaux
+----------------------
+- Vérifier que tous les services fonctionnent dans HA
+- Vérifier l’accès API et panneau HTML depuis sidebar
+- Vérifier que la sélection persistante fonctionne et est correcte
+- Valider les logs pour chaque service
+
+===========================================
+DIAGRAMME SYNTHÉTIQUE (flux)
+-------------------------------------------
+
+generate_local_data (service HA)
+        │
+        ▼
+capteurs_power.json
+        │
+        ▼
+generate_selection / page HTML / API
+        │
+        ▼
+capteurs_selection.json
+        │
+        ▼
+generate_lovelace_auto (service HA)
+        │
+        ├──> Cartes par intégration
+        │       └──> Cartes par pièce
+        │               └──> Capteurs power sélectionnés
+        │
+        └──> Comparaison avec capteur global atom
+                └──> sensor.conso_non_mesuree
+        │
+        ▼
+Dashboard Lovelace final
+        └──> Visualisation consommation & coût par pièce / intégration
+
+===========================================
+Résumé
+-------------------------------------------
+✅ Base opérationnelle : détection, sélection, panel HTML et services testés
+⚠️ UI selection capteurs à améliorer
+⚠️ Dashboard final à générer
+⚠️ Portabilité et automatisation à finaliser
