@@ -17,6 +17,7 @@ from .options_flow import HomeSuiviElecOptionsFlow
 
 _LOGGER = logging.getLogger(__name__)
 
+
 # ---------------------------------------------------------------------------
 # SETUP PRINCIPAL
 # ---------------------------------------------------------------------------
@@ -113,7 +114,7 @@ def async_get_options_flow(config_entry: ConfigEntry):
 
 
 # ---------------------------------------------------------------------------
-# SETUP PANEL (HTML DIRECT, NON IFRAME)
+# SETUP PANEL (HTML via panel_custom, avec callWS)
 # ---------------------------------------------------------------------------
 
 async def async_setup_panel(hass: HomeAssistant):
@@ -123,14 +124,13 @@ async def async_setup_panel(hass: HomeAssistant):
     os.makedirs(panel_dst_dir, exist_ok=True)
 
     # Copie du fichier HTML
-    for filename in ("panel_option1.html",):
-        src = os.path.join(panel_src_dir, filename)
-        dst = os.path.join(panel_dst_dir, filename)
-        if os.path.exists(src):
-            shutil.copy2(src, dst)
-            _LOGGER.info("[PANEL] Copied %s → %s", src, dst)
-        else:
-            _LOGGER.warning("[PANEL] Missing file: %s", src)
+    src = os.path.join(panel_src_dir, "panel_option1.html")
+    dst = os.path.join(panel_dst_dir, "panel_option1.html")
+    if os.path.exists(src):
+        shutil.copy2(src, dst)
+        _LOGGER.info("[PANEL] Copied %s → %s", src, dst)
+    else:
+        _LOGGER.warning("[PANEL] Missing file: %s", src)
 
     # Supprime ancien panneau iframe s’il existe
     try:
@@ -139,7 +139,7 @@ async def async_setup_panel(hass: HomeAssistant):
     except Exception as e:
         _LOGGER.debug("[PANEL] Aucun ancien panneau iframe à supprimer (%s)", e)
 
-    # Enregistre le panneau via panel_custom
+    # Enregistre le panneau via panel_custom avec iframe pour callWS
     if not hass.data.get("home_suivi_elec_panel_registered"):
         frontend.async_register_built_in_panel(
             hass,
@@ -152,12 +152,12 @@ async def async_setup_panel(hass: HomeAssistant):
                 "_panel_custom": {
                     "name": "home_suivi_elec_panel",
                     "html_url": "/local/community/home_suivi_elec_panel/panel_option1.html",
-                    "embed_iframe": False,
+                    "embed_iframe": True,  # obligatoire pour callWS
                     "trust_external": True,
                 }
             },
         )
         hass.data["home_suivi_elec_panel_registered"] = True
-        _LOGGER.info("[PANEL] ✅ Panneau HTML Home Suivi Élec (panel_custom) ajouté à la barre latérale.")
+        _LOGGER.info("[PANEL] ✅ Panneau HTML Home Suivi Élec (panel_custom + iframe) ajouté à la barre latérale.")
     else:
         _LOGGER.debug("[PANEL] ⚙️ Panneau déjà enregistré, aucune action.")
