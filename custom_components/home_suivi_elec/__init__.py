@@ -2,6 +2,7 @@
 """Initialisation de Home Suivi Élec avec ConfigFlow, OptionsFlow, services et panneau."""
 import logging
 import os
+import shutil
 from homeassistant.core import HomeAssistant, ServiceCall, callback
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.components import frontend
@@ -83,10 +84,16 @@ async def async_setup_panel(hass: HomeAssistant):
         _LOGGER.warning("[PANEL] Fichier panel.js introuvable : %s", panel_path)
         return
 
-    # Enregistre le répertoire comme ressource statique
-    hass.http.async_register_static_paths(
-        [frontend.StaticPathConfig("/home_suivi_elec", panel_dir)]
-    )
+    # --- Copie automatique du fichier vers /www/community/home_suivi_elec/
+    www_target_dir = hass.config.path("www", "community", "home_suivi_elec")
+    os.makedirs(www_target_dir, exist_ok=True)
+    target_path = os.path.join(www_target_dir, "panel.js")
+
+    try:
+        shutil.copy2(panel_path, target_path)
+        _LOGGER.info("[PANEL] Copie de panel.js vers %s réussie", target_path)
+    except Exception as e:
+        _LOGGER.error("[PANEL] Erreur de copie de panel.js : %s", e)
 
     # Ajoute le panneau à la sidebar
     if not hass.data.get("home_suivi_elec_panel_registered"):
@@ -95,10 +102,10 @@ async def async_setup_panel(hass: HomeAssistant):
             component_name="iframe",
             sidebar_title="Suivi Élec",
             sidebar_icon="mdi:flash",
-            config={"url": "/home_suivi_elec/panel.js"},
+            config={"url": "/local/community/home_suivi_elec/panel.js"},
             require_admin=True
         )
         hass.data["home_suivi_elec_panel_registered"] = True
-        _LOGGER.info("[PANEL] ✅ Panneau Home Suivi Élec ajouté à la barre latérale")
+        _LOGGER.info("[PANEL] ✅ Panneau Home Suivi Élec ajouté à la barre latérale (URL /local/)")
     else:
         _LOGGER.debug("[PANEL] ⚙️ Panneau déjà enregistré, aucune action.")

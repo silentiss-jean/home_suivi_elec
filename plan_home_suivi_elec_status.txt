@@ -1,0 +1,82 @@
+Home Suivi Élec — État actuel et plan de résolution
+
+===========================================
+ÉTAT ACTUEL
+
+✅ Étape 0 — Détection des capteurs power
+- Les capteurs device_class="power" sont détectés via generate_local_data
+- JSON généré : capteurs_power.json
+- Intégration, pièce, entity_id et unité présents
+- Logs valides et service HA opérationnel
+
+✅ Étape 2 — Sélection des capteurs
+- generate_selection lit capteurs_power.json et crée capteurs_selection.json
+- Sélection par intégration et par pièce possible
+- Logs valides
+
+⚠️ Étape 5 — ConfigFlow / OptionsFlow
+- ConfigFlow et OptionsFlow fonctionnels
+- Roue de modification des options disponible
+
+❌ Étape 3 — Panneau / Dashboard Lovelace
+- Fichiers panel.js et panel.html présents dans panel_static
+- Panneau ajouté à la barre latérale via async_register_built_in_panel
+- Tentatives d’accès via /home_suivi_elec → 404 ou iframe Error
+- Ressource statique enregistrée mais non servie correctement
+
+===========================================
+ANALYSE DU BLOQUAGE
+
+Problème principal :
+- HA ne sert pas le dossier panel_static correctement pour l'iframe
+- async_register_static_paths et async_register_built_in_panel utilisés mais l’URL /home_suivi_elec/panel.html ou panel.js renvoie 404
+- Utilisation d'iframe avec /panel.js n’est pas standard → HA attend généralement un URL accessible via /local/ ou /frontend_static/
+
+Constats :
+- Pas besoin d’auto_generate_lovelace pour accéder au panneau
+- Fichier HTML créé automatiquement mais HA ne le sert pas correctement
+- Comparaison avec un panel fonctionnel (ex. VSCode add-on) : URL en /a0d7b954_vscode/ingress, servi via frontend static intégré
+- Le problème est côté **enregistrement du panneau statique** dans HA 2025.x
+
+===========================================
+PLAN DE RÉSOLUTIONS
+
+1️⃣ Vérifier la méthode de service statique
+- Remplacer async_register_static_paths + StaticPathConfig par :
+  hass.http.app.router.add_static("/home_suivi_elec", panel_dir)
+- OU copier panel.js et panel.html dans /config/www/home_suivi_elec/ et accéder via /local/home_suivi_elec/panel.html
+
+2️⃣ Adapter async_register_built_in_panel
+- Utiliser component_name="iframe", config={"url": "/local/home_suivi_elec/panel.html"} si on passe par /www
+- Éviter d’utiliser panel.js directement comme URL d’iframe → HA ne le gère pas
+
+3️⃣ Vérifier permissions et cache
+- Supprimer cache navigateur et HA front-end cache
+- Vérifier que le fichier panel.html est lisible
+
+4️⃣ Test
+- Accéder directement à :
+  http://<IP_HA>:8123/local/home_suivi_elec/panel.html
+- Si affiché → iframe fonctionne
+- Si toujours 404 → problème d’accès fichier / dossier / HA
+
+5️⃣ Stabiliser code __init__.py
+- Supprimer tout code d’enregistrement de panel.js dans le dossier custom_components
+- Ne garder que la logique de création automatique de panel.html si nécessaire
+- Pointer iframe vers /local/... pour être compatible HA
+
+===========================================
+ÉTAPES SUIVANTES APRÈS CORRECTION
+
+- Valider que le panneau s’affiche correctement dans HA
+- Tester interactions JS / sélection de capteurs
+- Générer dashboard Lovelace avec cartes par intégration / pièce
+- Comparer consommation réelle avec clé atom
+
+===========================================
+RÉSUMÉ
+
+- Ce qui fonctionne : détection capteurs power, sélection capteurs, config/options flow
+- Ce qui bloque : panneau statique et iframe → 404 / error
+- Cause probable : méthode d’enregistrement des ressources statiques non compatible avec HA 2025.x
+- Solution : servir via /www et /local, corriger URL iframe et built_in_panel
