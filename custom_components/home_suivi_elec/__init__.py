@@ -17,9 +17,14 @@ from .options_flow import HomeSuiviElecOptionsFlow
 
 _LOGGER = logging.getLogger(__name__)
 
+# ---------------------------------------------------------------------------
+# SETUP PRINCIPAL
+# ---------------------------------------------------------------------------
+
 async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     _LOGGER.info("[SETUP] async_setup called with config keys: %s", list(config.keys()))
     return True
+
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     _LOGGER.info("[SETUP_ENTRY] Initialisation de Home Suivi Élec, entry data: %s", entry.data)
@@ -95,17 +100,24 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     _LOGGER.info("[SETUP_ENTRY] Home Suivi Élec setup complete")
     return True
 
+
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     _LOGGER.info("[UNLOAD_ENTRY] Déchargement de Home Suivi Élec")
     return True
+
 
 @callback
 def async_get_options_flow(config_entry: ConfigEntry):
     _LOGGER.debug("[OPTIONS_FLOW] async_get_options_flow called for entry: %s", config_entry.title)
     return HomeSuiviElecOptionsFlow(config_entry)
 
+
+# ---------------------------------------------------------------------------
+# SETUP PANEL (SANS IFRAME)
+# ---------------------------------------------------------------------------
+
 async def async_setup_panel(hass: HomeAssistant):
-    """Copie le panel HTML dans www et l'ajoute à la sidebar de HA."""
+    """Copie le panel HTML dans www et l'ajoute à la sidebar de HA (sans iframe)."""
     panel_src_dir = hass.config.path("custom_components", "home_suivi_elec", "panel_static")
     panel_dst_dir = hass.config.path("www", "community", "home_suivi_elec_panel")
     os.makedirs(panel_dst_dir, exist_ok=True)
@@ -119,16 +131,31 @@ async def async_setup_panel(hass: HomeAssistant):
         else:
             _LOGGER.warning("[PANEL] Missing file: %s", src)
 
+    # 🔹 Supprimer tout ancien panneau iframe
+    try:
+        await hass.components.frontend.async_remove_panel("suivi_elec")
+        _LOGGER.info("[PANEL] Ancien panneau 'iframe' supprimé si présent.")
+    except Exception as e:
+        _LOGGER.debug("[PANEL] Aucun ancien panneau iframe à supprimer (%s)", e)
+
+    # 🔹 Enregistrer un panneau frontend natif (non iframe)
     if not hass.data.get("home_suivi_elec_panel_registered"):
         frontend.async_register_built_in_panel(
             hass,
-            component_name="iframe",
+            component_name="panel_custom",
             sidebar_title="Suivi Élec",
             sidebar_icon="mdi:flash",
-            config={"url": "/local/community/home_suivi_elec_panel/panel_option1.html"},
-            require_admin=True
+            require_admin=True,
+            config={
+                "_panel_custom": {
+                    "name": "home_suivi_elec_panel",
+                    "embed_iframe": False,
+                    "html_url": "/local/community/home_suivi_elec_panel/panel_option1.html",
+                    "trust_external": True,
+                }
+            },
         )
         hass.data["home_suivi_elec_panel_registered"] = True
-        _LOGGER.info("[PANEL] ✅ Panneau HTML Home Suivi Élec ajouté à la barre latérale")
+        _LOGGER.info("[PANEL] ✅ Panneau HTML Home Suivi Élec (non-iframe) ajouté à la barre latérale.")
     else:
         _LOGGER.debug("[PANEL] ⚙️ Panneau déjà enregistré, aucune action.")
