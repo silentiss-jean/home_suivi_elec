@@ -1,10 +1,12 @@
 # -*- coding: utf-8 -*-
-"""Gestion de la sélection des capteurs Home Suivi Élec."""
+"""Gestion de la sélection des capteurs Home Suivi Élec (async-safe)."""
 import os
 import json
 import logging
 from homeassistant.core import HomeAssistant
 from homeassistant.components.http import HomeAssistantView
+import asyncio
+from functools import partial
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -12,8 +14,10 @@ DATA_DIR = os.path.join(os.path.dirname(__file__), "data")
 CAPTEURS_POWER_PATH = os.path.join(DATA_DIR, "capteurs_power.json")
 CAPTEURS_SELECTION_PATH = os.path.join(DATA_DIR, "capteurs_selection.json")
 
+
 async def async_setup_selection_api(hass: HomeAssistant):
     """Setup API pour lire/sauver la sélection des capteurs."""
+
     class GetSensorsView(HomeAssistantView):
         url = "/api/home_suivi_elec/get_sensors"
         name = "api:home_suivi_elec:get_sensors"
@@ -22,8 +26,9 @@ async def async_setup_selection_api(hass: HomeAssistant):
         async def get(self, request):
             if not os.path.exists(CAPTEURS_POWER_PATH):
                 return self.json({"error": "capteurs_power.json introuvable"})
-            with open(CAPTEURS_POWER_PATH, "r", encoding="utf-8") as f:
-                data = json.load(f)
+            # lecture async-safe
+            loop = asyncio.get_running_loop()
+            data = await loop.run_in_executor(None, partial(load_json_file, CAPTEURS_POWER_PATH))
             integrations = {}
             for c in data:
                 integ = c.get("integration", "unknown")
@@ -44,8 +49,8 @@ async def async_setup_selection_api(hass: HomeAssistant):
         async def post(self, request):
             body = await request.json()
             os.makedirs(DATA_DIR, exist_ok=True)
-            with open(CAPTEURS_SELECTION_PATH, "w", encoding="utf-8") as f:
-                json.dump(body, f, indent=2, ensure_ascii=False)
+            loop = asyncio.get_running_loop()
+            await loop.run_in_executor(None, partial(save_json_file, CAPTEURS_SELECTION_PATH, body))
             _LOGGER.info("✅ Sélection des capteurs sauvegardée")
             return self.json({"success": True})
 
@@ -60,8 +65,8 @@ async def run_generate_selection(hass: HomeAssistant):
         _LOGGER.warning("capteurs_power.json introuvable. Lancez generate_local_data d'abord.")
         return
 
-    with open(CAPTEURS_POWER_PATH, "r", encoding="utf-8") as f:
-        data = json.load(f)
+    loop = asyncio.get_running_loop()
+    data = await loop.run_in_executor(None, partial(load_json_file, CAPTEURS_POWER_PATH))
 
     integrations = {}
     for c in data:
@@ -75,7 +80,15 @@ async def run_generate_selection(hass: HomeAssistant):
         })
 
     os.makedirs(DATA_DIR, exist_ok=True)
-    with open(CAPTEURS_SELECTION_PATH, "w", encoding="utf-8") as f:
-        json.dump(integrations, f, indent=2, ensure_ascii=False)
-
+    await loop.run_in_executor(None, partial(save_json_file, CAPTEURS_SELECTION_PATH, integrations))
     _LOGGER.info("✅ [SELECTION] Fichier capteurs_selection.json créé/mis à jour")
+
+
+# --- Fonctions sync pour lecture/écriture JSON hors event loop
+def load_json_file(path: str):
+    with open(path, "r", encoding="utf-8") as f:
+        return json.load(f)
+
+def save_json_file(path: str, data):
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=2, ensure_ascii=False)
