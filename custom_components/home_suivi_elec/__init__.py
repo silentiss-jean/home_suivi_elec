@@ -113,11 +113,11 @@ def async_get_options_flow(config_entry: ConfigEntry):
 
 
 # ---------------------------------------------------------------------------
-# SETUP PANEL (HTML DIRECT, SANS IFRAME)
+# SETUP PANEL (HTML DIRECT, NON IFRAME)
 # ---------------------------------------------------------------------------
 
 async def async_setup_panel(hass: HomeAssistant):
-    """Copie le panel HTML dans www et l'ajoute à la barre latérale de HA (sans iframe)."""
+    """Copie le panel HTML dans www et l'ajoute à la barre latérale de HA (panel_custom)."""
     panel_src_dir = hass.config.path("custom_components", "home_suivi_elec", "panel_static")
     panel_dst_dir = hass.config.path("www", "community", "home_suivi_elec_panel")
     os.makedirs(panel_dst_dir, exist_ok=True)
@@ -139,21 +139,25 @@ async def async_setup_panel(hass: HomeAssistant):
     except Exception as e:
         _LOGGER.debug("[PANEL] Aucun ancien panneau iframe à supprimer (%s)", e)
 
-    # Enregistre le nouveau panneau HTML direct
+    # Enregistre le panneau via panel_custom
     if not hass.data.get("home_suivi_elec_panel_registered"):
-        hass.components.frontend.async_register_panel(
-            component_name="home_suivi_elec_panel",
+        frontend.async_register_built_in_panel(
+            hass,
+            component_name="panel_custom",
             sidebar_title="Suivi Élec",
             sidebar_icon="mdi:flash",
             frontend_url_path="home_suivi_elec",
             require_admin=True,
             config={
-                "html_url": "/local/community/home_suivi_elec_panel/panel_option1.html",
-                "embed_iframe": False,
-                "trust_external": True,
+                "_panel_custom": {
+                    "name": "home_suivi_elec_panel",
+                    "html_url": "/local/community/home_suivi_elec_panel/panel_option1.html",
+                    "embed_iframe": False,
+                    "trust_external": True,
+                }
             },
         )
         hass.data["home_suivi_elec_panel_registered"] = True
-        _LOGGER.info("[PANEL] ✅ Panneau HTML Home Suivi Élec (direct HTML) ajouté à la barre latérale.")
+        _LOGGER.info("[PANEL] ✅ Panneau HTML Home Suivi Élec (panel_custom) ajouté à la barre latérale.")
     else:
         _LOGGER.debug("[PANEL] ⚙️ Panneau déjà enregistré, aucune action.")
