@@ -56,8 +56,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         _LOGGER.info("[SETUP_ENTRY] auto_generate_lovelace is enabled")
         await run_all(hass, hass.data[DOMAIN]["options"])
 
-    # --- Setup du panneau
+    # --- Setup du panneau HTML
     await async_setup_panel(hass)
+
+    # --- Setup API pour sélection capteurs
+    from . import manage_selection
+    await manage_selection.async_setup_selection_api(hass)
 
     _LOGGER.info("[SETUP_ENTRY] Home Suivi Élec setup complete")
     return True
