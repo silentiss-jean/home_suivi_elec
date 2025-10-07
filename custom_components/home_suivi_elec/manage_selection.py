@@ -14,7 +14,6 @@ CAPTEURS_SELECTION_PATH = os.path.join(DATA_DIR, "capteurs_selection.json")
 
 async def async_setup_selection_api(hass: HomeAssistant):
     """Setup API pour lire/sauver la sélection des capteurs."""
-
     class GetSensorsView(HomeAssistantView):
         url = "/api/home_suivi_elec/get_sensors"
         name = "api:home_suivi_elec:get_sensors"
@@ -22,10 +21,9 @@ async def async_setup_selection_api(hass: HomeAssistant):
 
         async def get(self, request):
             if not os.path.exists(CAPTEURS_POWER_PATH):
-                return self.json({"error": "capteurs_power.json introuvable"}, status_code=404)
+                return self.json({"error": "capteurs_power.json introuvable"})
             with open(CAPTEURS_POWER_PATH, "r", encoding="utf-8") as f:
                 data = json.load(f)
-            # Grouper par intégration
             integrations = {}
             for c in data:
                 integ = c.get("integration", "unknown")
@@ -54,3 +52,30 @@ async def async_setup_selection_api(hass: HomeAssistant):
     hass.http.register_view(GetSensorsView)
     hass.http.register_view(SaveSelectionView)
     _LOGGER.info("[SELECTION] API selection capteurs prête")
+
+
+async def run_generate_selection(hass: HomeAssistant):
+    """Crée ou met à jour capteurs_selection.json depuis capteurs_power.json"""
+    if not os.path.exists(CAPTEURS_POWER_PATH):
+        _LOGGER.warning("capteurs_power.json introuvable. Lancez generate_local_data d'abord.")
+        return
+
+    with open(CAPTEURS_POWER_PATH, "r", encoding="utf-8") as f:
+        data = json.load(f)
+
+    integrations = {}
+    for c in data:
+        integ = c.get("integration", "unknown")
+        integrations.setdefault(integ, []).append({
+            "entity_id": c.get("entity_id"),
+            "friendly_name": c.get("friendly_name"),
+            "area": c.get("area"),
+            "unit": c.get("unit"),
+            "enabled": True
+        })
+
+    os.makedirs(DATA_DIR, exist_ok=True)
+    with open(CAPTEURS_SELECTION_PATH, "w", encoding="utf-8") as f:
+        json.dump(integrations, f, indent=2, ensure_ascii=False)
+
+    _LOGGER.info("✅ [SELECTION] Fichier capteurs_selection.json créé/mis à jour")
