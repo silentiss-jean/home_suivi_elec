@@ -142,10 +142,11 @@ async def async_setup_panel(hass: HomeAssistant):
     if not hass.data.get("home_suivi_elec_panel_registered"):
         frontend.async_register_built_in_panel(
             hass,
-            component_name="panel_custom",
+            component_name="custom",
             sidebar_title="Suivi Élec",
             sidebar_icon="mdi:flash",
             require_admin=True,
+            frontend_url_path="home_suivi_elec",
             config={
                 "_panel_custom": {
                     "name": "home_suivi_elec_panel",
