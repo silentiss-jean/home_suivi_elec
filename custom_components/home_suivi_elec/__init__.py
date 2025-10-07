@@ -48,6 +48,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     hass.services.async_register(DOMAIN, "generate_local_data", handle_generate_local_data)
     hass.services.async_register(DOMAIN, "generate_lovelace_auto", handle_generate_lovelace_auto)
 
+    # --- Setup API pour sélection capteurs
+    from . import manage_selection
+    await manage_selection.async_setup_selection_api(hass)
+
     # --- Scan debug JSON sets
     scan_sets(hass)
 
@@ -58,10 +62,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     # --- Setup du panneau HTML
     await async_setup_panel(hass)
-
-    # --- Setup API pour sélection capteurs
-    from . import manage_selection
-    await manage_selection.async_setup_selection_api(hass)
 
     _LOGGER.info("[SETUP_ENTRY] Home Suivi Élec setup complete")
     return True
