@@ -1,149 +1,105 @@
-<script type="module">
-const message = document.getElementById("message");
-const container = document.getElementById("integration-list");
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>Home Suivi Élec</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 2rem; color: var(--primary-text-color); background: var(--card-background-color); }
+    h1 { font-size: 1.8rem; margin-bottom: 0.5rem; }
+    .subtitle { color: var(--secondary-text-color); margin-bottom: 1rem; }
+    .status { background: var(--ha-card-background, #fff); padding: 1rem; border-radius: 12px; box-shadow: 0 2px 6px rgba(0,0,0,0.1); margin-bottom: 1.5rem; }
+    button { padding: 0.5rem 1rem; margin-right: 0.5rem; background: var(--primary-color); color: white; border: none; border-radius: 8px; cursor: pointer; }
+    button:hover { opacity: 0.9; }
+    .integration-block { border: 1px solid #ccc; border-radius: 8px; padding: 0.8rem; margin-bottom: 1rem; background: white; }
+    .integration-header { display: flex; justify-content: space-between; align-items: center; background: #f0f0f0; padding: 0.3rem 0.8rem; border-radius: 6px; font-weight: bold; }
+    .sensor-list { margin-top: 0.5rem; padding-left: 1rem; }
+    .message { margin-top: 1rem; color: var(--secondary-text-color); font-style: italic; }
+  </style>
+</head>
+<body>
+  <div class="wrapper">
+    <h1>⚡ Home Suivi Élec</h1>
+    <div class="subtitle">Interface de sélection des capteurs</div>
 
-async function loadSensors() {
-  message.textContent = "Chargement des capteurs...";
-  try {
-    const data = await window.hass.callWS({
-      type: "home_suivi_elec/get_sensors"
-    });
+    <div class="status">
+      <button id="load-btn">🔄 Charger les capteurs</button>
+      <button id="save-btn">💾 Sauvegarder la sélection</button>
+      <div id="message" class="message"></div>
+    </div>
 
-    container.innerHTML = "";
-    Object.entries(data).forEach(([integration, sensors]) => {
-      const block = document.createElement("div");
-      block.className = "integration-block";
+    <div id="integration-list"></div>
+  </div>
 
-      const header = document.createElement("div");
-      header.className = "integration-header";
-      header.innerHTML = `
-        <span>${integration}</span>
-        <div>
-          <button onclick="toggleIntegration('${integration}', true)">Tout cocher</button>
-          <button onclick="toggleIntegration('${integration}', false)">Tout décocher</button>
-        </div>
-      `;
-      block.appendChild(header);
+  <script type="module">
+    const message = document.getElementById("message");
+    const container = document.getElementById("integration-list");
 
-      const list = document.createElement("div");
-      list.className = "sensor-list";
-      sensors.forEach(s => {
-        const item = document.createElement("div");
-        item.innerHTML = `
-          <label>
-            <input type="checkbox" data-integration="${integration}" value="${s.entity_id}" checked>
-            ${s.friendly_name || s.entity_id} (${s.area || "?"})
-          </label>
-        `;
-        list.appendChild(item);
+    async function loadSensors() {
+      message.textContent = "Chargement des capteurs...";
+      try {
+        const data = await window.hass.callWS({ type: "home_suivi_elec/get_sensors" });
+
+        container.innerHTML = "";
+        Object.entries(data).forEach(([integration, sensors]) => {
+          const block = document.createElement("div");
+          block.className = "integration-block";
+
+          const header = document.createElement("div");
+          header.className = "integration-header";
+          header.innerHTML = `
+            <span>${integration}</span>
+            <div>
+              <button onclick="toggleIntegration('${integration}', true)">Tout cocher</button>
+              <button onclick="toggleIntegration('${integration}', false)">Tout décocher</button>
+            </div>
+          `;
+          block.appendChild(header);
+
+          const list = document.createElement("div");
+          list.className = "sensor-list";
+          sensors.forEach(s => {
+            const item = document.createElement("div");
+            item.innerHTML = `
+              <label>
+                <input type="checkbox" data-integration="${integration}" value="${s.entity_id}" checked>
+                ${s.friendly_name || s.entity_id} (${s.area || "?"})
+              </label>
+            `;
+            list.appendChild(item);
+          });
+          block.appendChild(list);
+          container.appendChild(block);
+        });
+
+        message.textContent = "✅ Capteurs chargés.";
+      } catch (err) {
+        message.textContent = "❌ Erreur : " + err.message;
+      }
+    }
+
+    function toggleIntegration(integration, checked) {
+      document.querySelectorAll(`input[data-integration="${integration}"]`).forEach(cb => cb.checked = checked);
+    }
+
+    async function saveSelection() {
+      message.textContent = "Sauvegarde en cours...";
+      const selections = {};
+      document.querySelectorAll("input[type=checkbox]").forEach(cb => {
+        const integ = cb.dataset.integration;
+        if (!selections[integ]) selections[integ] = [];
+        selections[integ].push({ entity_id: cb.value, enabled: cb.checked });
       });
-      block.appendChild(list);
-      container.appendChild(block);
-    });
 
-    message.textContent = "✅ Capteurs chargés.";
-  } catch (err) {
-    message.textContent = "❌ Erreur : " + err.message;
-  }
-}
+      try {
+        await window.hass.callWS({ type: "home_suivi_elec/save_selection", selection: selections });
+        message.textContent = "✅ Sélection sauvegardée";
+      } catch (err) {
+        message.textContent = "❌ Erreur : " + err.message;
+      }
+    }
 
-function toggleIntegration(integration, checked) {
-  document.querySelectorAll(`input[data-integration="${integration}"]`).forEach(cb => cb.checked = checked);
-}
-
-async function saveSelection() {
-  message.textContent = "Sauvegarde en cours...";
-  const selections = {};
-  document.querySelectorAll("input[type=checkbox]").forEach(cb => {
-    const integ = cb.dataset.integration;
-    if (!selections[integ]) selections[integ] = [];
-    selections[integ].push({ entity_id: cb.value, enabled: cb.checked });
-  });
-  try {
-    await window.hass.callWS({
-      type: "home_suivi_elec/save_selection",
-      selection: selections
-    });
-    message.textContent = "✅ Sélection sauvegardée";
-  } catch (err) {
-    message.textContent = "❌ Erreur : " + err.message;
-  }
-}
-
-document.getElementById("load-btn").addEventListener("click", loadSensors);
-document.getElementById("save-btn").addEventListener("click", saveSelection);
-</script><script type="module">
-const message = document.getElementById("message");
-const container = document.getElementById("integration-list");
-
-async function loadSensors() {
-  message.textContent = "Chargement des capteurs...";
-  try {
-    const data = await window.hass.callWS({
-      type: "home_suivi_elec/get_sensors"
-    });
-
-    container.innerHTML = "";
-    Object.entries(data).forEach(([integration, sensors]) => {
-      const block = document.createElement("div");
-      block.className = "integration-block";
-
-      const header = document.createElement("div");
-      header.className = "integration-header";
-      header.innerHTML = `
-        <span>${integration}</span>
-        <div>
-          <button onclick="toggleIntegration('${integration}', true)">Tout cocher</button>
-          <button onclick="toggleIntegration('${integration}', false)">Tout décocher</button>
-        </div>
-      `;
-      block.appendChild(header);
-
-      const list = document.createElement("div");
-      list.className = "sensor-list";
-      sensors.forEach(s => {
-        const item = document.createElement("div");
-        item.innerHTML = `
-          <label>
-            <input type="checkbox" data-integration="${integration}" value="${s.entity_id}" checked>
-            ${s.friendly_name || s.entity_id} (${s.area || "?"})
-          </label>
-        `;
-        list.appendChild(item);
-      });
-      block.appendChild(list);
-      container.appendChild(block);
-    });
-
-    message.textContent = "✅ Capteurs chargés.";
-  } catch (err) {
-    message.textContent = "❌ Erreur : " + err.message;
-  }
-}
-
-function toggleIntegration(integration, checked) {
-  document.querySelectorAll(`input[data-integration="${integration}"]`).forEach(cb => cb.checked = checked);
-}
-
-async function saveSelection() {
-  message.textContent = "Sauvegarde en cours...";
-  const selections = {};
-  document.querySelectorAll("input[type=checkbox]").forEach(cb => {
-    const integ = cb.dataset.integration;
-    if (!selections[integ]) selections[integ] = [];
-    selections[integ].push({ entity_id: cb.value, enabled: cb.checked });
-  });
-  try {
-    await window.hass.callWS({
-      type: "home_suivi_elec/save_selection",
-      selection: selections
-    });
-    message.textContent = "✅ Sélection sauvegardée";
-  } catch (err) {
-    message.textContent = "❌ Erreur : " + err.message;
-  }
-}
-
-document.getElementById("load-btn").addEventListener("click", loadSensors);
-document.getElementById("save-btn").addEventListener("click", saveSelection);
-</script>
+    document.getElementById("load-btn").addEventListener("click", loadSensors);
+    document.getElementById("save-btn").addEventListener("click", saveSelection);
+  </script>
+</body>
+</html>
