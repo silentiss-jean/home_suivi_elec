@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>Test API Home Suivi Élec</title>
+  <style>
+    body { font-family: Arial; margin: 2rem; }
+    h1 { color: #f57c00; }
+    table { border-collapse: collapse; width: 100%; margin-top: 1rem; }
+    th, td { border: 1px solid #ccc; padding: 0.5rem; text-align: left; }
+    th { background-color: #eee; }
+    input[type="checkbox"] { transform: scale(1.2); }
+    button { margin-top: 1rem; padding: 0.5rem 1rem; }
+  </style>
+</head>
+<body>
+  <h1>Test sélection capteurs</h1>
+  <div id="integration-tables"></div>
+  <button onclick="saveSelection()">Sauvegarder la sélection</button>
+
+  <script>
+    async function loadSensors() {
+      const res = await fetch('/api/home_suivi_elec/get_sensors');
+      const data = await res.json();
+      const container = document.getElementById('integration-tables');
+      container.innerHTML = '';
+      for (const integ in data) {
+        const sensors = data[integ];
+        let html = `<h2>Intégration: ${integ}</h2><table><tr><th>Actif</th><th>Entity</th><th>Nom</th><th>Pièce</th><th>Unit</th></tr>`;
+        sensors.forEach((s,i) => {
+          html += `<tr>
+            <td><input type="checkbox" data-integ="${integ}" data-index="${i}" ${s.enabled ? 'checked' : ''}></td>
+            <td>${s.entity_id}</td>
+            <td>${s.friendly_name}</td>
+            <td>${s.area}</td>
+            <td>${s.unit || ''}</td>
+          </tr>`;
+        });
+        html += '</table>';
+        container.innerHTML += html;
+      }
+    }
+
+    async function saveSelection() {
+      const checkboxes = document.querySelectorAll('input[type="checkbox"]');
+      const selections = {};
+      checkboxes.forEach(cb => {
+        const integ = cb.dataset.integ;
+        const index = cb.dataset.index;
+        selections[integ] = selections[integ] || [];
+        selections[integ][index] = cb.checked;
+      });
+
+      // Reconstruire le JSON pour l'API
+      const payload = {};
+      const res = await fetch('/api/home_suivi_elec/get_sensors');
+      const sensorsData = await res.json();
+      for (const integ in sensorsData) {
+        payload[integ] = sensorsData[integ].map((s,i) => {
+          return { ...s, enabled: selections[integ][i] };
+        });
+      }
+
+      await fetch('/api/home_suivi_elec/save_selection', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      alert('Sélection sauvegardée !');
+    }
+
+    loadSensors();
+  </script>
+</body>
+</html>
