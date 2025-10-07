@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Initialisation de Home Suivi Élec avec ConfigFlow, OptionsFlow, services et panneau."""
+"""Initialisation de Home Suivi Élec avec ConfigFlow, OptionsFlow, services et panneau HTML."""
 import logging
 import os
 import shutil
@@ -73,39 +73,35 @@ def async_get_options_flow(config_entry: ConfigEntry):
     _LOGGER.debug("[OPTIONS_FLOW] async_get_options_flow called for entry: %s", config_entry.title)
     return HomeSuiviElecOptionsFlow(config_entry)
 
-# --- Fonction interne pour le panneau
+# --- Fonction interne pour le panneau HTML
 async def async_setup_panel(hass: HomeAssistant):
-    """Crée le panneau /home_suivi_elec s’il n’existe pas déjà."""
-    panel_dir = hass.config.path("custom_components", "home_suivi_elec", "panel_static")
-    os.makedirs(panel_dir, exist_ok=True)
+    """Crée le panneau /local/community/home_suivi_elec_panel/ avec panel.html et panel.js"""
+    panel_src_dir = hass.config.path("custom_components", "home_suivi_elec", "panel_static")
+    panel_dst_dir = hass.config.path("www", "community", "home_suivi_elec_panel")
 
-    panel_path = os.path.join(panel_dir, "panel.js")
-    if not os.path.exists(panel_path):
-        _LOGGER.warning("[PANEL] Fichier panel.js introuvable : %s", panel_path)
-        return
+    os.makedirs(panel_dst_dir, exist_ok=True)
 
-    # --- Copie automatique du fichier vers /www/community/home_suivi_elec/
-    www_target_dir = hass.config.path("www", "community", "home_suivi_elec")
-    os.makedirs(www_target_dir, exist_ok=True)
-    target_path = os.path.join(www_target_dir, "panel.js")
+    # Copie automatique du HTML + JS vers /www/community
+    for filename in ("panel.html", "panel.js"):
+        src = os.path.join(panel_src_dir, filename)
+        dst = os.path.join(panel_dst_dir, filename)
+        if os.path.exists(src):
+            shutil.copy2(src, dst)
+            _LOGGER.info("[PANEL] Copied %s → %s", src, dst)
+        else:
+            _LOGGER.warning("[PANEL] Missing file: %s", src)
 
-    try:
-        shutil.copy2(panel_path, target_path)
-        _LOGGER.info("[PANEL] Copie de panel.js vers %s réussie", target_path)
-    except Exception as e:
-        _LOGGER.error("[PANEL] Erreur de copie de panel.js : %s", e)
-
-    # Ajoute le panneau à la sidebar
+    # Ajoute le panneau à la sidebar (iframe)
     if not hass.data.get("home_suivi_elec_panel_registered"):
         frontend.async_register_built_in_panel(
             hass,
             component_name="iframe",
             sidebar_title="Suivi Élec",
             sidebar_icon="mdi:flash",
-            config={"url": "/local/community/home_suivi_elec/panel.js"},
+            config={"url": "/local/community/home_suivi_elec_panel/panel.html"},
             require_admin=True
         )
         hass.data["home_suivi_elec_panel_registered"] = True
-        _LOGGER.info("[PANEL] ✅ Panneau Home Suivi Élec ajouté à la barre latérale (URL /local/)")
+        _LOGGER.info("[PANEL] ✅ Panneau HTML Home Suivi Élec ajouté à la barre latérale")
     else:
         _LOGGER.debug("[PANEL] ⚙️ Panneau déjà enregistré, aucune action.")
