@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Home Suivi Élec - Test Sélection des capteurs</title>
+<style>
+  body { font-family: Arial; margin: 2rem; }
+  h1 { color: #2c3e50; }
+  .integration { border: 1px solid #ccc; padding: 1rem; margin-bottom: 1rem; border-radius: 8px; }
+  .integration h2 { margin-top: 0; }
+  button { margin-right: 1rem; margin-bottom: 1rem; }
+  label { display: block; margin-left: 1rem; }
+</style>
+</head>
+<body>
+
+<h1>Home Suivi Élec - Test Sélection des capteurs</h1>
+
+<div id="sensorsContainer">Chargement…</div>
+
+<button onclick="saveSelection()">Sauvegarder la sélection</button>
+
+<script>
+const API_TOKEN = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiIzYzAxY2NlZjFkZTU0MjAzODdkYmNlMDA0MmJhOTZjOCIsImlhdCI6MTc1ODYyOTUwNSwiZXhwIjoyMDczOTg5NTA1fQ.CG_CuvS9Nnwh0eXGQ1JEitwx5qNSsDaMQjpJS8QRZTE";
+
+async function loadSensors() {
+    const container = document.getElementById("sensorsContainer");
+    container.innerHTML = "Chargement…";
+
+    const resp = await fetch("/api/home_suivi_elec/get_sensors", {
+        headers: { "Authorization": "Bearer " + API_TOKEN }
+    });
+    if (!resp.ok) {
+        container.innerHTML = "Erreur: " + resp.status + " " + resp.statusText;
+        return;
+    }
+    const data = await resp.json();
+    container.innerHTML = "";
+
+    for (const integ in data) {
+        const div = document.createElement("div");
+        div.className = "integration";
+
+        const h2 = document.createElement("h2");
+        h2.textContent = integ;
+        div.appendChild(h2);
+
+        const selectAllBtn = document.createElement("button");
+        selectAllBtn.textContent = "Tout cocher";
+        selectAllBtn.onclick = () => {
+            div.querySelectorAll("input[type=checkbox]").forEach(cb => cb.checked = true);
+        };
+        div.appendChild(selectAllBtn);
+
+        const deselectAllBtn = document.createElement("button");
+        deselectAllBtn.textContent = "Tout décocher";
+        deselectAllBtn.onclick = () => {
+            div.querySelectorAll("input[type=checkbox]").forEach(cb => cb.checked = false);
+        };
+        div.appendChild(deselectAllBtn);
+
+        data[integ].forEach(sensor => {
+            const label = document.createElement("label");
+            const cb = document.createElement("input");
+            cb.type = "checkbox";
+            cb.checked = sensor.enabled;
+            cb.dataset.entity = sensor.entity_id;
+            label.appendChild(cb);
+            label.appendChild(document.createTextNode(` ${sensor.friendly_name} [${sensor.area}] (${sensor.unit || "?"})`));
+            div.appendChild(label);
+        });
+
+        container.appendChild(div);
+    }
+}
+
+async function saveSelection() {
+    const container = document.getElementById("sensorsContainer");
+    const integrations = {};
+    container.querySelectorAll(".integration").forEach(div => {
+        const integName = div.querySelector("h2").textContent;
+        integrations[integName] = [];
+        div.querySelectorAll("input[type=checkbox]").forEach(cb => {
+            integrations[integName].push({
+                entity_id: cb.dataset.entity,
+                enabled: cb.checked
+            });
+        });
+    });
+
+    const resp = await fetch("/api/home_suivi_elec/save_selection", {
+        method: "POST",
+        headers: {
+            "Authorization": "Bearer " + API_TOKEN,
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify(integrations)
+    });
+    if (resp.ok) {
+        alert("✅ Sélection sauvegardée");
+    } else {
+        alert("❌ Erreur lors de la sauvegarde: " + resp.status);
+    }
+}
+
+window.addEventListener("DOMContentLoaded", loadSensors);
+</script>
+
+</body>
+</html>
