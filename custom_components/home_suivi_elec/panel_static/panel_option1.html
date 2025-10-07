@@ -1,149 +1,72 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-  <meta charset="UTF-8">
-  <title>Home Suivi Élec</title>
-  <style>
-    /* Préfixe hs_ pour éviter conflit avec HA */
-    body.hs_body {
-      font-family: Arial, sans-serif;
-      margin: 2rem;
-      color: var(--primary-text-color);
-      background: var(--card-background-color);
-    }
-    h1.hs_title { font-size: 1.8rem; margin-bottom: 0.5rem; }
-    .hs_subtitle { color: var(--secondary-text-color); margin-bottom: 1rem; }
-    .hs_status {
-      background: var(--ha-card-background, #fff);
-      padding: 1rem;
-      border-radius: 12px;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
-      margin-bottom: 1.5rem;
-    }
-    .hs_status button {
-      padding: 0.5rem 1rem;
-      margin-right: 0.5rem;
-      background: var(--primary-color);
-      color: white;
-      border: none;
-      border-radius: 8px;
-      cursor: pointer;
-    }
-    .hs_status button:hover { opacity: 0.9; }
-    .hs_integration_block {
-      border: 1px solid #ccc;
-      border-radius: 8px;
-      padding: 0.8rem;
-      margin-bottom: 1rem;
-      background: white;
-    }
-    .hs_integration_header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      background: #f0f0f0;
-      padding: 0.3rem 0.8rem;
-      border-radius: 6px;
-      font-weight: bold;
-    }
-    .hs_sensor_list { margin-top: 0.5rem; padding-left: 1rem; }
-    .hs_message { margin-top: 1rem; color: var(--secondary-text-color); font-style: italic; }
-  </style>
+<meta charset="UTF-8">
+<title>Home Suivi Élec</title>
+<style>
+body.hs_body { font-family: Arial; margin:2rem; color:var(--primary-text-color); background:var(--card-background-color);}
+.hs_status { padding:1rem; border-radius:12px; background:var(--ha-card-background,#fff); box-shadow:0 2px 6px rgba(0,0,0,.1); margin-bottom:1rem;}
+.hs_status button { padding:.5rem 1rem; margin-right:.5rem; background:var(--primary-color); color:white; border:none; border-radius:8px; cursor:pointer;}
+.hs_status button:hover{opacity:.9;}
+.hs_message{margin-top:1rem; font-style:italic; color:var(--secondary-text-color);}
+.hs_integration_block{padding:.5rem; margin-bottom:.5rem; border:1px solid #ccc; border-radius:6px; background:white;}
+</style>
 </head>
 <body class="hs_body">
-  <div class="wrapper">
-    <h1 class="hs_title">⚡ Home Suivi Élec</h1>
-    <div class="hs_subtitle">Interface de sélection des capteurs</div>
+<h1>⚡ Home Suivi Élec</h1>
+<div class="hs_status">
+  <button id="load-btn">🔄 Charger capteurs</button>
+  <button id="save-btn">💾 Sauvegarder</button>
+  <div id="message" class="hs_message"></div>
+</div>
+<div id="integration-list"></div>
 
-    <div class="hs_status">
-      <button id="load-btn">🔄 Charger les capteurs</button>
-      <button id="save-btn">💾 Sauvegarder la sélection</button>
-      <div id="message" class="hs_message"></div>
-    </div>
+<script>
+const token = "<VOTRE_LONG_LIVED_TOKEN>"; // Remplacer par token HA
+const headers = { "Authorization": "Bearer " + token, "Content-Type": "application/json" };
 
-    <div id="integration-list"></div>
-  </div>
+const container = document.getElementById("integration-list");
+const message = document.getElementById("message");
 
-  <script type="module">
-    const initPanel = () => {
-      if (!window.hass) {
-        console.warn("Home Assistant non encore disponible, retry...");
-        setTimeout(initPanel, 200);
-        return;
-      }
-
-      const message = document.getElementById("message");
-      const container = document.getElementById("integration-list");
-
-      async function loadSensors() {
-        message.textContent = "Chargement des capteurs...";
-        try {
-          const data = await window.hass.callWS({ type: "home_suivi_elec/get_sensors" });
-
-          container.innerHTML = "";
-          Object.entries(data).forEach(([integration, sensors]) => {
-            const block = document.createElement("div");
-            block.className = "hs_integration_block";
-
-            const header = document.createElement("div");
-            header.className = "hs_integration_header";
-            header.innerHTML = `
-              <span>${integration}</span>
-              <div>
-                <button onclick="toggleIntegration('${integration}', true)">Tout cocher</button>
-                <button onclick="toggleIntegration('${integration}', false)">Tout décocher</button>
-              </div>
-            `;
+async function loadSensors(){
+    message.textContent="Chargement...";
+    try{
+        const r = await fetch("/api/home_suivi_elec/get_sensors", {headers});
+        const data = await r.json();
+        container.innerHTML="";
+        Object.entries(data).forEach(([integ, sensors])=>{
+            const block=document.createElement("div");
+            block.className="hs_integration_block";
+            const header=document.createElement("div");
+            header.innerHTML=`<strong>${integ}</strong>`;
             block.appendChild(header);
-
-            const list = document.createElement("div");
-            list.className = "hs_sensor_list";
-            sensors.forEach(s => {
-              const item = document.createElement("div");
-              item.innerHTML = `
-                <label>
-                  <input type="checkbox" data-integration="${integration}" value="${s.entity_id}" checked>
-                  ${s.friendly_name || s.entity_id} (${s.area || "?"})
-                </label>
-              `;
-              list.appendChild(item);
+            sensors.forEach(s=>{
+                const item=document.createElement("div");
+                item.innerHTML=`<label><input type="checkbox" data-integration="${integ}" value="${s.entity_id}" checked> ${s.friendly_name||s.entity_id}</label>`;
+                block.appendChild(item);
             });
-            block.appendChild(list);
             container.appendChild(block);
-          });
-
-          message.textContent = "✅ Capteurs chargés.";
-        } catch (err) {
-          message.textContent = "❌ Erreur : " + err.message;
-        }
-      }
-
-      function toggleIntegration(integration, checked) {
-        document.querySelectorAll(`input[data-integration="${integration}"]`).forEach(cb => cb.checked = checked);
-      }
-
-      async function saveSelection() {
-        message.textContent = "Sauvegarde en cours...";
-        const selections = {};
-        document.querySelectorAll("input[type=checkbox]").forEach(cb => {
-          const integ = cb.dataset.integration;
-          if (!selections[integ]) selections[integ] = [];
-          selections[integ].push({ entity_id: cb.value, enabled: cb.checked });
         });
+        message.textContent="✅ Capteurs chargés";
+    }catch(e){message.textContent="❌ "+e.message;}
+}
 
-        try {
-          await window.hass.callWS({ type: "home_suivi_elec/save_selection", selection: selections });
-          message.textContent = "✅ Sélection sauvegardée";
-        } catch (err) {
-          message.textContent = "❌ Erreur : " + err.message;
-        }
-      }
+async function saveSelection(){
+    message.textContent="Sauvegarde...";
+    const selections={};
+    document.querySelectorAll("input[type=checkbox]").forEach(cb=>{
+        const integ=cb.dataset.integration;
+        if(!selections[integ]) selections[integ]=[];
+        selections[integ].push({entity_id:cb.value,enabled:cb.checked});
+    });
+    try{
+        await fetch("/api/home_suivi_elec/save_selection",{method:"POST",headers,body:JSON.stringify(selections)});
+        message.textContent="✅ Sauvegardé";
+    }catch(e){message.textContent="❌ "+e.message;}
+}
 
-      document.getElementById("load-btn").addEventListener("click", loadSensors);
-      document.getElementById("save-btn").addEventListener("click", saveSelection);
-    };
-
-    initPanel();
-  </script>
+document.getElementById("load-btn").addEventListener("click",loadSensors);
+document.getElementById("save-btn").addEventListener("click",saveSelection);
+</script>
 </body>
 </html>
