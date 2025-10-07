@@ -1,75 +1,81 @@
-class HomeSuiviElecPanel extends HTMLElement {
-  constructor() {
-    super();
-    this.sensors = {};
-  }
+async function loadSensors() {
+  const message = document.getElementById("message");
+  message.textContent = "Chargement des capteurs...";
+  try {
+    const res = await fetch("/api/home_suivi_elec/get_sensors");
+    if (!res.ok) throw new Error("Erreur API: " + res.status);
+    const data = await res.json();
 
-  async connectedCallback() {
-    this.innerHTML = `<h1>⚡ Home Suivi Élec — Sélection Capteurs</h1><div id="content">Chargement...</div>`;
-    await this.loadSensors();
-    this.render();
-  }
-
-  async loadSensors() {
-    try {
-      const resp = await fetch("/api/home_suivi_elec/get_sensors");
-      this.sensors = await resp.json();
-    } catch (e) {
-      console.error("Erreur chargement capteurs:", e);
-      this.sensors = {};
-    }
-  }
-
-  render() {
-    const container = document.getElementById("content");
+    const container = document.getElementById("integration-list");
     container.innerHTML = "";
-    for (const [integration, caps] of Object.entries(this.sensors)) {
-      const integDiv = document.createElement("div");
-      integDiv.innerHTML = `<h2>${integration}</h2>`;
-      caps.forEach(c => {
-        const checkbox = document.createElement("input");
-        checkbox.type = "checkbox";
-        checkbox.checked = c.enabled;
-        checkbox.id = c.entity_id;
-        checkbox.dataset.integ = integration;
 
-        const label = document.createElement("label");
-        label.htmlFor = c.entity_id;
-        label.innerText = `${c.friendly_name} (${c.area || "?"}) [${c.unit || "?"}]`;
+    Object.entries(data).forEach(([integration, sensors]) => {
+      const block = document.createElement("div");
+      block.className = "integration-block";
 
-        const line = document.createElement("div");
-        line.appendChild(checkbox);
-        line.appendChild(label);
-        integDiv.appendChild(line);
+      const header = document.createElement("div");
+      header.className = "integration-header";
+      header.innerHTML = `
+        <span>${integration}</span>
+        <div>
+          <button onclick="toggleIntegration('${integration}', true)">Tout cocher</button>
+          <button onclick="toggleIntegration('${integration}', false)">Tout décocher</button>
+        </div>
+      `;
+      block.appendChild(header);
+
+      const list = document.createElement("div");
+      list.className = "sensor-list";
+      sensors.forEach(s => {
+        const item = document.createElement("div");
+        item.innerHTML = `
+          <label>
+            <input type="checkbox" data-integration="${integration}" value="${s.entity_id}" checked>
+            ${s.friendly_name || s.entity_id} (${s.area || "?"})
+          </label>
+        `;
+        list.appendChild(item);
       });
-      container.appendChild(integDiv);
-    }
+      block.appendChild(list);
+      container.appendChild(block);
+    });
 
-    const saveBtn = document.createElement("button");
-    saveBtn.innerText = "💾 Enregistrer";
-    saveBtn.onclick = () => this.saveSelection();
-    container.appendChild(saveBtn);
-  }
-
-  async saveSelection() {
-    const selected = {};
-    for (const [integration, caps] of Object.entries(this.sensors)) {
-      selected[integration] = caps.map(c => {
-        const cb = document.getElementById(c.entity_id);
-        return { ...c, enabled: cb.checked };
-      });
-    }
-    try {
-      await fetch("/api/home_suivi_elec/save_selection", {
-        method: "POST",
-        headers: {"Content-Type": "application/json"},
-        body: JSON.stringify(selected)
-      });
-      alert("✅ Sélection sauvegardée");
-    } catch (e) {
-      alert("❌ Erreur sauvegarde: " + e);
-    }
+    message.textContent = "✅ Capteurs chargés.";
+  } catch (err) {
+    message.textContent = "Erreur : " + err.message;
   }
 }
 
-customElements.define("home-suivi-elec-panel", HomeSuiviElecPanel);
+function toggleIntegration(integration, checked) {
+  document
+    .querySelectorAll(`input[data-integration="${integration}"]`)
+    .forEach(cb => (cb.checked = checked));
+}
+
+async function saveSelection() {
+  const message = document.getElementById("message");
+  message.textContent = "Sauvegarde en cours...";
+  const selections = {};
+
+  document.querySelectorAll("input[type=checkbox]").forEach(cb => {
+    const integ = cb.dataset.integration;
+    if (!selections[integ]) selections[integ] = [];
+    if (cb.checked)
+      selections[integ].push({ entity_id: cb.value, enabled: true });
+  });
+
+  try {
+    const res = await fetch("/api/home_suivi_elec/save_selection", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(selections),
+    });
+    const result = await res.json();
+    message.textContent = "✅ Sélection sauvegardée";
+  } catch (err) {
+    message.textContent = "❌ Erreur : " + err.message;
+  }
+}
+
+document.getElementById("load-btn").addEventListener("click", loadSensors);
+document.getElementById("save-btn").addEventListener("click", saveSelection);
