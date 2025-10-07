@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>Test API Home Suivi Élec</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 2rem; color: var(--primary-text-color); }
+    h1 { font-size: 1.6rem; }
+    pre { background: var(--card-background-color); padding: 1rem; border-radius: 8px; overflow-x: auto; }
+    .error { color: red; }
+  </style>
+</head>
+<body>
+  <h1>Test API Home Suivi Élec</h1>
+  <p>Liste des capteurs détectés :</p>
+  <pre id="output">Chargement...</pre>
+
+  <script>
+    async function fetchSensors() {
+      const token = prompt("Entrez votre token long-lived HA:");
+      if (!token) {
+        document.getElementById("output").textContent = "Token manquant !";
+        return;
+      }
+
+      try {
+        const response = await fetch("/api/home_suivi_elec/get_sensors", {
+          headers: {
+            "Authorization": "Bearer " + token,
+            "Content-Type": "application/json"
+          }
+        });
+        if (!response.ok) {
+          document.getElementById("output").textContent = "Erreur : " + response.status + " " + response.statusText;
+          return;
+        }
+        const data = await response.json();
+        document.getElementById("output").textContent = JSON.stringify(data, null, 2);
+      } catch (err) {
+        document.getElementById("output").textContent = "Erreur fetch : " + err;
+      }
+    }
+
+    fetchSensors();
+  </script>
+</body>
+</html>
