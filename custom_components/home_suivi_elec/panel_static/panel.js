@@ -5,24 +5,46 @@ class HomeSuiviElecPanel extends HTMLElement {
   }
 
   async connectedCallback() {
-    this.innerHTML = `<h1>⚡ Home Suivi Élec — Sélection Capteurs</h1><div id="content">Chargement...</div>`;
+    this.innerHTML = `
+      <h1>⚡ Home Suivi Élec — Sélection des capteurs</h1>
+      <div id="content">Chargement...</div>
+    `;
     await this.loadSensors();
     this.render();
   }
 
+  async getAuthHeaders() {
+    // Récupère le token d'authentification Home Assistant
+    if (window.hassConnection && window.hassConnection.options?.auth?.accessToken) {
+      return {
+        Authorization: "Bearer " + window.hassConnection.options.auth.accessToken,
+        "Content-Type": "application/json"
+      };
+    }
+
+    // Token non trouvé : on affiche un message clair
+    console.warn("⚠️ Token HA non détecté — vérifie que tu es connecté à Home Assistant.");
+    return { "Content-Type": "application/json" };
+  }
+
   async loadSensors() {
+    const content = this.querySelector("#content");
     try {
-      const resp = await fetch("/api/home_suivi_elec/get_sensors");
+      const headers = await this.getAuthHeaders();
+      const resp = await fetch("/api/home_suivi_elec/get_sensors", { headers });
+      if (!resp.ok) throw new Error("Erreur HTTP " + resp.status);
       this.sensors = await resp.json();
     } catch (e) {
       console.error("Erreur chargement capteurs:", e);
+      content.innerHTML = `<p style="color:red;">❌ Impossible de charger les capteurs (${e.message})</p>`;
       this.sensors = {};
     }
   }
 
   render() {
-    const container = document.getElementById("content");
+    const container = this.querySelector("#content");
     container.innerHTML = "";
+
     for (const [integration, caps] of Object.entries(this.sensors)) {
       const integDiv = document.createElement("div");
       integDiv.innerHTML = `<h2>${integration}</h2>`;
@@ -59,15 +81,18 @@ class HomeSuiviElecPanel extends HTMLElement {
         return { ...c, enabled: cb.checked };
       });
     }
+
     try {
-      await fetch("/api/home_suivi_elec/save_selection", {
+      const headers = await this.getAuthHeaders();
+      const resp = await fetch("/api/home_suivi_elec/save_selection", {
         method: "POST",
-        headers: {"Content-Type": "application/json"},
+        headers,
         body: JSON.stringify(selected)
       });
+      if (!resp.ok) throw new Error("HTTP " + resp.status);
       alert("✅ Sélection sauvegardée");
     } catch (e) {
-      alert("❌ Erreur sauvegarde: " + e);
+      alert("❌ Erreur sauvegarde: " + e.message);
     }
   }
 }
