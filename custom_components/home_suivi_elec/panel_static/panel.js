@@ -2,6 +2,7 @@ class HomeSuiviElecPanel extends HTMLElement {
   constructor() {
     super();
     this.sensors = {};
+    this.token = null;
   }
 
   async connectedCallback() {
@@ -14,7 +15,6 @@ class HomeSuiviElecPanel extends HTMLElement {
     await this.loadSensors();
   }
 
-  // 🔹 Récupération du token (HA ou manuel)
   async getAuthToken() {
     try {
       const conn = await window.hassConnection;
@@ -22,93 +22,79 @@ class HomeSuiviElecPanel extends HTMLElement {
         console.log("🔐 Token HA récupéré automatiquement");
         return conn.options.auth.accessToken;
       }
-      console.warn("⚠️ Aucun token HA détecté — bascule en mode test local");
     } catch (e) {
-      console.warn("⚠️ Erreur récupération token HA:", e);
+      console.warn("⚠️ Impossible d'obtenir le token HA:", e);
     }
 
-    // 🔹 Fallback manuel pour test local (remplacer par ton token long-lived)
-    const MANUAL_TOKEN = "TON_LONG_LIVED_TOKEN_ICI";
-    if (MANUAL_TOKEN && MANUAL_TOKEN.length > 30) {
-      console.warn("🔑 Utilisation d’un token manuel (mode test)");
+    // 🔹 Token manuel pour tests REST
+    const MANUAL_TOKEN = "🔑__TON_TOKEN_LONG_LIVED_ICI__🔑";
+    if (MANUAL_TOKEN.length > 30) {
+      console.warn("⚠️ Mode test REST (token manuel utilisé)");
       return MANUAL_TOKEN;
     }
 
-    console.error("❌ Aucun token disponible — les requêtes échoueront (401)");
+    console.error("❌ Aucun token disponible !");
     return null;
   }
 
-  getAuthHeaders() {
-    const headers = { "Content-Type": "application/json" };
-    if (this.token) headers["Authorization"] = `Bearer ${this.token}`;
-    return headers;
+  getHeaders() {
+    const h = { "Content-Type": "application/json" };
+    if (this.token) h["Authorization"] = `Bearer ${this.token}`;
+    return h;
   }
 
   async loadSensors() {
-    const container = document.getElementById("content");
-    container.textContent = "Chargement...";
+    const div = this.querySelector("#content");
+    div.textContent = "Chargement...";
     try {
-      const resp = await fetch("/api/home_suivi_elec/get_sensors", {
-        headers: this.getAuthHeaders(),
-      });
-
-      if (!resp.ok) throw new Error(`Erreur HTTP ${resp.status}`);
+      const resp = await fetch("/api/home_suivi_elec/get_sensors", { headers: this.getHeaders() });
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
       this.sensors = await resp.json();
       this.render();
     } catch (e) {
-      console.error("Erreur chargement capteurs:", e);
-      container.innerHTML = `<p style="color:red;">❌ ${e.message}</p>`;
+      div.innerHTML = `<p style="color:red;">❌ ${e.message}</p>`;
+      console.error(e);
     }
   }
 
   render() {
-    const container = document.getElementById("content");
-    container.innerHTML = "";
-    for (const [integration, caps] of Object.entries(this.sensors)) {
-      const integDiv = document.createElement("div");
-      integDiv.innerHTML = `<h2>${integration}</h2>`;
+    const div = this.querySelector("#content");
+    div.innerHTML = "";
+    for (const [integ, caps] of Object.entries(this.sensors)) {
+      const block = document.createElement("div");
+      block.innerHTML = `<h3>${integ}</h3>`;
       caps.forEach(c => {
-        const checkbox = document.createElement("input");
-        checkbox.type = "checkbox";
-        checkbox.checked = c.enabled;
-        checkbox.id = c.entity_id;
-        checkbox.dataset.integ = integration;
-
-        const label = document.createElement("label");
-        label.htmlFor = c.entity_id;
-        label.innerText = `${c.friendly_name} (${c.area || "?"}) [${c.unit || "?"}]`;
-
-        const line = document.createElement("div");
-        line.appendChild(checkbox);
-        line.appendChild(label);
-        integDiv.appendChild(line);
+        const row = document.createElement("div");
+        row.innerHTML = `
+          <label>
+            <input type="checkbox" id="${c.entity_id}" checked />
+            ${c.friendly_name} (${c.area || "?"}) [${c.unit || "?"}]
+          </label>`;
+        block.appendChild(row);
       });
-      container.appendChild(integDiv);
+      div.appendChild(block);
     }
-
-    document.getElementById("save-btn").onclick = () => this.saveSelection();
+    this.querySelector("#save-btn").onclick = () => this.saveSelection();
   }
 
   async saveSelection() {
     const selected = {};
-    for (const [integration, caps] of Object.entries(this.sensors)) {
-      selected[integration] = caps.map(c => {
-        const cb = document.getElementById(c.entity_id);
+    for (const [integ, caps] of Object.entries(this.sensors)) {
+      selected[integ] = caps.map(c => {
+        const cb = this.querySelector(`#${c.entity_id}`);
         return { ...c, enabled: cb.checked };
       });
     }
-
     try {
       const resp = await fetch("/api/home_suivi_elec/save_selection", {
         method: "POST",
-        headers: this.getAuthHeaders(),
-        body: JSON.stringify(selected)
+        headers: this.getHeaders(),
+        body: JSON.stringify(selected),
       });
-
-      if (!resp.ok) throw new Error(`Erreur HTTP ${resp.status}`);
-      alert("✅ Sélection sauvegardée");
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      alert("✅ Sélection sauvegardée !");
     } catch (e) {
-      alert("❌ Erreur sauvegarde: " + e);
+      alert(`❌ ${e.message}`);
     }
   }
 }
