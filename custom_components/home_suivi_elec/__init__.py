@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
-"""Initialisation de Home Suivi Élec avec panneau HTML IFRAME + services + API REST."""
+"""Initialisation de Home Suivi Élec avec services + API REST + copie frontend."""
+
 import logging
 import os
 import shutil
@@ -49,19 +50,20 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     hass.services.async_register(DOMAIN, "generate_lovelace_auto", handle_generate_lovelace_auto)
     hass.services.async_register(DOMAIN, "generate_selection", handle_generate_selection)
 
-    # --- API REST
+    # --- API REST sélection capteurs
     from . import manage_selection
     await manage_selection.async_setup_selection_api(hass)
 
     # --- Scan debug JSON
     scan_sets(hass)
 
-    # --- Auto-génération
+    # --- Auto-génération si activée
     if hass.data[DOMAIN]["options"].get(CONF_AUTO_GENERATE, True):
         await run_all(hass, hass.data[DOMAIN]["options"])
 
-    # --- Panel HTML
-    await async_setup_panel(hass)
+    # --- Copie frontend HTML/JS au démarrage
+    await copy_frontend_files(hass)
+
     return True
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
@@ -71,8 +73,11 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 def async_get_options_flow(config_entry: ConfigEntry):
     return HomeSuiviElecOptionsFlow(config_entry)
 
-async def async_setup_panel(hass: HomeAssistant):
-    """Copie panel HTML/JS et enregistre panneau latéral IFRAME."""
+# -----------------------------------------------------------------------------
+# FONCTION UTILITAIRE POUR COPIE FRONTEND
+# -----------------------------------------------------------------------------
+async def copy_frontend_files(hass: HomeAssistant):
+    """Copie les fichiers HTML/JS vers www/community pour accès via /local/"""
     panel_src = hass.config.path("custom_components", "home_suivi_elec", "panel_static")
     panel_dst = hass.config.path("www", "community", "home_suivi_elec_panel")
     os.makedirs(panel_dst, exist_ok=True)
@@ -82,24 +87,6 @@ async def async_setup_panel(hass: HomeAssistant):
         dst = os.path.join(panel_dst, filename)
         if os.path.exists(src):
             await hass.async_add_executor_job(shutil.copy2, src, dst)
-
-    try:
-        await hass.components.frontend.async_remove_panel("home_suivi_elec")
-    except Exception:
-        pass
-
-    if not hass.data.get("home_suivi_elec_panel_registered"):
-        frontend.async_register_built_in_panel(
-            hass,
-            component_name="custom",
-            sidebar_title="Suivi Élec",
-            sidebar_icon="mdi:flash",
-            frontend_url_path="home_suivi_elec",
-            require_admin=True,
-            config={
-                "url": "/local/community/home_suivi_elec_panel/panel.html",
-                "embed_iframe": True,
-                "trust_external": True,
-            },
-        )
-        hass.data["home_suivi_elec_panel_registered"] = True
+            _LOGGER.info(f"[FRONTEND] Copié {src} → {dst}")
+        else:
+            _LOGGER.warning(f"[FRONTEND] Fichier manquant : {src}")
