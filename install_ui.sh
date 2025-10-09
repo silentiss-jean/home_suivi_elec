@@ -1,15 +1,24 @@
 #!/bin/bash
-# 🧩 Copie des fichiers UI Home Suivi Élec vers /config/www/community/home_suivi_elec_ui
+# -------------------------------------------------------------------
+# Home Suivi Élec - Installation UI simplifiée
+# Copie les fichiers web_static vers www/community/home_suivi_elec_ui
+# -------------------------------------------------------------------
 
-SRC_DIR="custom_components/home_suivi_elec/web_static"
+# Répertoire source (dans le repo git)
+SRC_DIR="$(pwd)/custom_components/home_suivi_elec/web_static"
+
+# Répertoire destination sur HA
 DST_DIR="/config/www/community/home_suivi_elec_ui"
 
-echo "📦 Copie de l'interface UI..."
+echo "📂 Création du répertoire destination si nécessaire : $DST_DIR"
 mkdir -p "$DST_DIR"
 
-cp -v "$SRC_DIR"/* "$DST_DIR"/ 2>/dev/null || {
-  echo "❌ Erreur de copie, vérifie que le dossier source existe : $SRC_DIR"
-  exit 1
-}
+echo "📦 Copie des fichiers depuis $SRC_DIR vers $DST_DIR"
+for f in "$SRC_DIR"/*; do
+    if [ -f "$f" ]; then
+        cp "$f" "$DST_DIR"
+        echo "✅ Copié : $f → $DST_DIR"
+    fi
+done
 
-echo "✅ Interface copiée avec succès dans $DST_DIR"
+echo "🎉 Installation UI terminée !"
