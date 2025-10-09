@@ -1,11 +1,12 @@
 # -*- coding: utf-8 -*-
-"""Initialisation de Home Suivi Élec avec services + API REST + copie UI simplifiée."""
+"""Home Suivi Élec — Services + API REST + copie UI simplifiée."""
 
 import logging
 import os
 import shutil
 from homeassistant.core import HomeAssistant, ServiceCall, callback
 from homeassistant.config_entries import ConfigEntry
+from aiohttp import web
 
 from .const import DOMAIN, CONF_AUTO_GENERATE
 from .detect_local import run_detect_local
@@ -18,7 +19,6 @@ _LOGGER = logging.getLogger(__name__)
 # -----------------------------------------------------------------------------
 # SETUP PRINCIPAL
 # -----------------------------------------------------------------------------
-
 async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     _LOGGER.info("[SETUP] async_setup called")
     return True
@@ -54,9 +54,27 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     hass.services.async_register(DOMAIN, "generate_lovelace_auto", handle_generate_lovelace_auto)
     hass.services.async_register(DOMAIN, "generate_selection", handle_generate_selection)
 
-    # --- API REST sélection capteurs
+    # --- API REST pour capteurs
     from . import manage_selection
-    await manage_selection.async_setup_selection_api(hass)
+
+    async def handle_get_sensors(request):
+        try:
+            data = await manage_selection.get_sensors(hass)
+        except Exception as e:
+            data = {"error": str(e)}
+        return web.json_response(data)
+
+    hass.http.register_view(
+        type(
+            "HomeSuiviElecSensorsView",
+            (web.View,),
+            {
+                "name": "home_suivi_elec_sensors",
+                "url": "/api/home_suivi_elec/get_sensors",
+                "get": handle_get_sensors,
+            },
+        )
+    )
 
     # --- Scan debug JSON
     scan_sets(hass)
@@ -65,9 +83,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     if hass.data[DOMAIN]["options"].get(CONF_AUTO_GENERATE, True):
         await run_all(hass, hass.data[DOMAIN]["options"])
 
-    # --- Copie fichiers UI statiques
+    # --- Copie UI simplifiée
     await copy_ui_files(hass)
 
+    _LOGGER.info("[SETUP_ENTRY] ✅ Home Suivi Élec setup terminé")
     return True
 
 
