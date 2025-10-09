@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>Home Suivi Élec</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    body {
+      font-family: system-ui, sans-serif;
+      margin: 2rem;
+      background: var(--primary-background-color, #f6f6f6);
+      color: var(--primary-text-color, #111);
+    }
+    h1 { color: #ff9800; font-size: 1.8rem; }
+    .container { padding: 1rem; border-radius: 8px; background: white; }
+    .sensor { padding: 0.3rem 0; }
+    button {
+      margin-top: 1rem;
+      padding: 0.6rem 1rem;
+      border: none;
+      border-radius: 6px;
+      background-color: #ff9800;
+      color: white;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <h1>⚡ Home Suivi Élec</h1>
+  <div id="content" class="container">Chargement des capteurs...</div>
+  <button id="refresh">🔄 Recharger</button>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>

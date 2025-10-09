@@ -1,12 +1,11 @@
 # -*- coding: utf-8 -*-
-"""Initialisation de Home Suivi Élec avec services + API REST + copie frontend."""
+"""Initialisation de Home Suivi Élec avec services + API REST + copie UI simplifiée."""
 
 import logging
 import os
 import shutil
 from homeassistant.core import HomeAssistant, ServiceCall, callback
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.components import frontend
 
 from .const import DOMAIN, CONF_AUTO_GENERATE
 from .detect_local import run_detect_local
@@ -16,9 +15,14 @@ from .options_flow import HomeSuiviElecOptionsFlow
 
 _LOGGER = logging.getLogger(__name__)
 
+# -----------------------------------------------------------------------------
+# SETUP PRINCIPAL
+# -----------------------------------------------------------------------------
+
 async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     _LOGGER.info("[SETUP] async_setup called")
     return True
+
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     _LOGGER.info("[SETUP_ENTRY] Initialisation Home Suivi Élec")
@@ -61,32 +65,34 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     if hass.data[DOMAIN]["options"].get(CONF_AUTO_GENERATE, True):
         await run_all(hass, hass.data[DOMAIN]["options"])
 
-    # --- Copie frontend HTML/JS au démarrage
-    await copy_frontend_files(hass)
+    # --- Copie fichiers UI statiques
+    await copy_ui_files(hass)
 
     return True
+
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     return True
+
 
 @callback
 def async_get_options_flow(config_entry: ConfigEntry):
     return HomeSuiviElecOptionsFlow(config_entry)
 
-# -----------------------------------------------------------------------------
-# FONCTION UTILITAIRE POUR COPIE FRONTEND
-# -----------------------------------------------------------------------------
-async def copy_frontend_files(hass: HomeAssistant):
-    """Copie les fichiers HTML/JS vers www/community pour accès via /local/"""
-    panel_src = hass.config.path("custom_components", "home_suivi_elec", "panel_static")
-    panel_dst = hass.config.path("www", "community", "home_suivi_elec_panel")
-    os.makedirs(panel_dst, exist_ok=True)
 
-    for filename in ("panel.html", "panel.js"):
-        src = os.path.join(panel_src, filename)
-        dst = os.path.join(panel_dst, filename)
-        if os.path.exists(src):
-            await hass.async_add_executor_job(shutil.copy2, src, dst)
-            _LOGGER.info(f"[FRONTEND] Copié {src} → {dst}")
-        else:
-            _LOGGER.warning(f"[FRONTEND] Fichier manquant : {src}")
+# -----------------------------------------------------------------------------
+# COPIE FICHIERS UI
+# -----------------------------------------------------------------------------
+async def copy_ui_files(hass: HomeAssistant):
+    """Copie les fichiers HTML/JS vers /www/community/home_suivi_elec_ui"""
+    src = hass.config.path("custom_components", "home_suivi_elec", "web_static")
+    dst = hass.config.path("www", "community", "home_suivi_elec_ui")
+    os.makedirs(dst, exist_ok=True)
+
+    for f in os.listdir(src):
+        src_path = os.path.join(src, f)
+        dst_path = os.path.join(dst, f)
+        if os.path.isfile(src_path):
+            await hass.async_add_executor_job(shutil.copy2, src_path, dst_path)
+            _LOGGER.info(f"[UI] Copié : {src_path} → {dst_path}")
+    _LOGGER.info("[UI] ✅ Interface copiée avec succès dans /www/community/home_suivi_elec_ui")
