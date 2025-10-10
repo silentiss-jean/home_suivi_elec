@@ -69,6 +69,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     # --- Générer capteurs_power.json au démarrage si absent
     await run_detect_local(hass, entry)
 
+    # --- Générer capteurs_selection.json au démarrage si absent
+    await manage_selection.run_generate_selection(hass)
+
     # --- Copie UI au démarrage sans bloquer le loop
     loop = asyncio.get_running_loop()
     src = hass.config.path("custom_components", "home_suivi_elec", "web_static")
