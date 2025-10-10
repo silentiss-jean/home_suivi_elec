@@ -38,12 +38,10 @@ async def run_detect_local(hass: HomeAssistant, entry=None):
         device = dev_reg.async_get(entity.device_id) if entity.device_id else None
         area = None
 
-        # Récupération de la zone si disponible
         if device and device.area_id:
             area_obj = area_reg.async_get_area(device.area_id)
             area = area_obj.name if area_obj else None
 
-        # État courant
         state = hass.states.get(entity_id)
         value = None
         unit = None
@@ -53,19 +51,19 @@ async def run_detect_local(hass: HomeAssistant, entry=None):
             raw_name = state.attributes.get("friendly_name")
             unit = state.attributes.get("unit_of_measurement")
             if state.state not in ("unknown", "unavailable"):
-                value = state.state
+                try:
+                    value = float(state.state)
+                except (ValueError, TypeError):
+                    value = None
 
-        # Récupération du nom du device si existant
         device_display_name = None
         if device:
             device_display_name = getattr(device, "name_by_user", None) or getattr(device, "name", None)
 
-        # Construction du nom
         if not raw_name:
             raw_name = entity.original_name or entity_id
 
         if device_display_name:
-            # Si friendly_name ne contient pas déjà le nom du device
             if device_display_name.lower() not in raw_name.lower():
                 friendly_name = f"{device_display_name} {raw_name}"
             else:
@@ -73,9 +71,7 @@ async def run_detect_local(hass: HomeAssistant, entry=None):
         else:
             friendly_name = raw_name
 
-        # Nettoyage léger (éviter les doublons absurdes)
-        friendly_name = friendly_name.strip()
-        friendly_name = friendly_name.replace("sensor.", "").replace("_", " ")
+        friendly_name = friendly_name.strip().replace("sensor.", "")
 
         capteurs.append({
             "entity_id": entity_id,
