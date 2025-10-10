@@ -2,28 +2,78 @@
 <html lang="fr">
 <head>
   <meta charset="UTF-8">
-  <title>Home Suivi Élec — Accueil</title>
+  <title>Home Suivi Élec</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <style>
-    body { font-family: system-ui, sans-serif; margin: 2rem; }
-    h1 { color: #ff9800; }
-    nav button { margin-right: 1rem; padding: 0.5rem 1rem; }
-    #summary { margin-top: 1rem; }
+    body {
+      font-family: system-ui, sans-serif;
+      margin: 1rem;
+      background: var(--primary-background-color, #f6f6f6);
+      color: var(--primary-text-color, #111);
+    }
+
+    h1 { color: #ff9800; font-size: 1.8rem; }
+
+    .tabs {
+      display: flex;
+      margin-bottom: 1rem;
+      gap: 0.5rem;
+    }
+
+    .tab {
+      padding: 0.5rem 1rem;
+      background: #eee;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+
+    .tab.active {
+      background: #ff9800;
+      color: white;
+    }
+
+    .container {
+      padding: 1rem;
+      border-radius: 8px;
+      background: white;
+      max-width: 900px;
+    }
+
+    .sensor-line {
+      margin: 0.2rem 0;
+    }
+
+    button {
+      margin-top: 1rem;
+      padding: 0.6rem 1rem;
+      border: none;
+      border-radius: 6px;
+      background-color: #ff9800;
+      color: white;
+      cursor: pointer;
+    }
+
+    #summary {
+      margin-bottom: 1rem;
+      font-weight: bold;
+    }
   </style>
 </head>
 <body>
   <h1>⚡ Home Suivi Élec</h1>
-  <nav>
-    <button onclick="window.location.href='detection.html'">Détection</button>
-    <button onclick="window.location.href='config.html'">Configuration</button>
-    <button onclick="window.location.href='custom.html'">Customisation</button>
-    <button onclick="window.location.href='generate.html'">Génération cartes</button>
-  </nav>
-  <div id="summary">
-    <p>Total capteurs détectés: <span id="total_sensors">0</span></p>
-    <p>Capteurs actifs: <span id="active_sensors">0</span></p>
-    <p>Coût énergétique estimé: <span id="cost_estimate">0</span> €</p>
-    <p>Dernier refresh: <span id="last_refresh">-</span></p>
+
+  <div class="tabs">
+    <div id="tab-detection" class="tab active">Détection</div>
+    <div id="tab-configuration" class="tab">Configuration</div>
+  </div>
+
+  <div id="summary" class="container">
+    Total capteurs détectés: 0<br>
+    Dernier refresh: -
+  </div>
+
+  <div id="content" class="container">
+    Chargement...
   </div>
 
   <script type="module" src="app.js"></script>
