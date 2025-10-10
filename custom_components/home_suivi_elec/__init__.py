@@ -4,7 +4,7 @@
 import logging
 import os
 import shutil
-from functools import partial
+import asyncio
 from homeassistant.core import HomeAssistant, ServiceCall, callback
 from homeassistant.config_entries import ConfigEntry
 from .const import DOMAIN, CONF_AUTO_GENERATE
@@ -12,14 +12,14 @@ from .detect_local import run_detect_local
 from .generator import run_all
 from .debug_json_sets import scan_sets
 from .options_flow import HomeSuiviElecOptionsFlow
-from . import manage_selection  # pour les API REST
-import asyncio
+from . import manage_selection  # pour les API REST et generate_selection
 
 _LOGGER = logging.getLogger(__name__)
 
 async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     _LOGGER.info("[SETUP] async_setup appelé")
     return True
+
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     _LOGGER.info("[SETUP_ENTRY] Initialisation Home Suivi Élec")
@@ -66,9 +66,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     if hass.data[DOMAIN]["options"].get(CONF_AUTO_GENERATE, True):
         await run_all(hass, hass.data[DOMAIN]["options"])
 
-    # --- Générer capteurs_power.json puis capteurs_selection.json au démarrage
+    # --- Générer capteurs_power.json au démarrage si absent
     await run_detect_local(hass, entry)
-    await manage_selection.generate_selection(hass)
+
+    # --- Générer capteurs_selection.json automatiquement après la détection
+    try:
+        await manage_selection.generate_selection(hass)
+    except Exception as e:
+        _LOGGER.exception("Erreur auto generate_selection au démarrage: %s", e)
 
     # --- Copie UI au démarrage sans bloquer le loop
     loop = asyncio.get_running_loop()
@@ -79,6 +84,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     _LOGGER.info("[SETUP_ENTRY] ✅ Home Suivi Élec setup terminé")
     return True
 
+
 def _copy_ui_blocking(src, dst):
     os.makedirs(dst, exist_ok=True)
     for f in os.listdir(src):
@@ -86,6 +92,7 @@ def _copy_ui_blocking(src, dst):
         dst_path = os.path.join(dst, f)
         if os.path.isfile(src_path):
             shutil.copy2(src_path, dst_path)
+
 
 @callback
 def async_get_options_flow(config_entry: ConfigEntry):

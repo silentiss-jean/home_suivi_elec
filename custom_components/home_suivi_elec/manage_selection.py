@@ -68,3 +68,31 @@ def load_json(path):
 def save_json(path, data):
     with open(path, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2, ensure_ascii=False)
+
+async def generate_selection(hass: HomeAssistant):
+    """Génère le fichier capteurs_selection.json à partir de capteurs_power.json."""
+    try:
+        if not os.path.exists(CAPTEURS_POWER_PATH):
+            _LOGGER.warning("[generate_selection] ⚠️ capteurs_power.json introuvable, génération annulée.")
+            return
+
+        loop = asyncio.get_running_loop()
+        data = await loop.run_in_executor(None, partial(load_json, CAPTEURS_POWER_PATH))
+
+        integrations = {}
+        for c in data:
+            integ = c.get("integration", "unknown")
+            integrations.setdefault(integ, []).append({
+                "entity_id": c.get("entity_id"),
+                "friendly_name": c.get("friendly_name"),
+                "area": c.get("area"),
+                "unit": c.get("unit"),
+                "enabled": True,
+            })
+
+        os.makedirs(DATA_DIR, exist_ok=True)
+        await loop.run_in_executor(None, partial(save_json, CAPTEURS_SELECTION_PATH, integrations))
+        _LOGGER.info("[generate_selection] ✅ capteurs_selection.json généré avec %d intégrations.", len(integrations))
+
+    except Exception as e:
+        _LOGGER.exception("[generate_selection] ❌ Erreur: %s", e)
