@@ -1,3 +1,4 @@
+cat > /config/custom_components/home_suivi_elec/web_static/app.js <<'EOF'
 // -*- coding: utf-8 -*-
 
 // === 🏠 PAGE HOME ===
@@ -8,26 +9,28 @@ async function loadSummary() {
   const refreshSpan = document.getElementById("dernierRefresh");
 
   try {
-    const [powerResp, selectionResp] = await Promise.all([
-      fetch("/local/community/home_suivi_elec_ui/../data/capteurs_power.json"),
-      fetch("/local/community/home_suivi_elec_ui/../data/capteurs_selection.json")
-    ]);
+    // ✅ On interroge directement l’API interne
+    const resp = await fetch("/api/home_suivi_elec/get_sensors");
+    if (!resp.ok) throw new Error(`Erreur HTTP ${resp.status}`);
+    const sensors = await resp.json();
 
-    const powerData = powerResp.ok ? await powerResp.json() : [];
-    const selectionData = selectionResp.ok ? await selectionResp.json() : {};
-
-    let total = Array.isArray(powerData) ? powerData.length : 0;
+    let total = 0;
     let actifs = 0;
-    for (const integ of Object.values(selectionData)) {
-      actifs += integ.filter(c => c.enabled).length;
+
+    for (const list of Object.values(sensors)) {
+      total += list.length;
+      actifs += list.filter(c => c.enabled).length;
     }
 
     totalSpan.textContent = total;
-    actifsSpan.textContent = actifs;
-    coutSpan.textContent = `${(actifs * 0.12).toFixed(2)} €`;
+    actifsSpan.textContent = `${actifs} / ${total}`;
+    coutSpan.textContent = `${(actifs * 0.12).toFixed(2)} €`; // estimation fictive
     refreshSpan.textContent = new Date().toLocaleTimeString();
   } catch (err) {
     console.error("Erreur chargement résumé:", err);
+    totalSpan.textContent = "-";
+    actifsSpan.textContent = "-";
+    coutSpan.textContent = "0 €";
   }
 }
 
@@ -139,3 +142,4 @@ function selectAll(integration) {
 function deselectAll(integration) {
   document.querySelectorAll(`#content-configuration input[data-integration="${integration}"]`).forEach(cb => cb.checked = false);
 }
+EOF
