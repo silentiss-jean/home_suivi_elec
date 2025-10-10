@@ -5,19 +5,12 @@
 <title>Home Suivi Élec</title>
 <link rel="stylesheet" href="style.css">
 <style>
-body { font-family: "Segoe UI", Roboto, Arial, sans-serif; background-color: #f8f9fa; color: #222; margin: 20px; }
-h1 { text-align: center; color: #0078d4; margin-bottom: 20px; }
-nav#tabs { text-align: center; margin-bottom: 20px; }
-nav#tabs button { background-color: #0078d4; color: white; border: none; padding: 10px 15px; margin: 2px; border-radius: 5px; cursor: pointer; transition: 0.2s; }
-nav#tabs button:hover { background-color: #005fa3; }
 .tab-content { display: none; }
 .tab-content.active { display: block; }
-.card { background: white; padding: 15px; border-radius: 8px; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1); margin-bottom: 20px; }
-.integration-block { background: #fff; border-radius: 8px; padding: 10px 15px; margin-bottom: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
-.integration-block h3 { color: #0078d4; }
-.sensor { margin-left: 10px; margin-bottom: 3px; }
-button.primary { background-color: #28a745; color: white; border: none; padding: 8px 12px; border-radius: 5px; cursor: pointer; }
-button.primary:hover { background-color: #218838; }
+.integration-block { border: 1px solid #ccc; padding: 10px; margin-bottom: 10px; }
+.sensor { margin-left: 15px; }
+button { margin: 3px; }
+.card { padding: 10px; border: 1px solid #ddd; margin-bottom: 15px; }
 </style>
 </head>
 <body>
@@ -27,25 +20,17 @@ button.primary:hover { background-color: #218838; }
   <button onclick="showTab('home')">🏠 Accueil</button>
   <button onclick="showTab('detection')">🔍 Détection</button>
   <button onclick="showTab('configuration')">⚙️ Configuration</button>
-  <button onclick="showTab('customisation')">🎨 Customisation</button>
-  <button onclick="showTab('generation')">🧩 Génération cartes</button>
 </nav>
 
 <!-- 🏠 Accueil -->
 <div id="home" class="tab-content active">
   <h2>Résumé général</h2>
-  <div class="card" id="summaryCard">
-    <p id="summaryMessage">Sélectionnez et configurez vos capteurs pour que le résumé affiche des estimations</p>
-    <div id="summaryData" style="display:none">
-      <p><strong>Total capteurs détectés :</strong> <span id="totalCapteurs">0</span></p>
-      <p><strong>Capteurs sélectionnés :</strong> <span id="actifsCapteurs">0</span></p>
-      <p><strong>Coût énergétique estimé (HT) :</strong> <span id="coutHT">0 €</span></p>
-      <p><strong>Coût énergétique estimé (TTC) :</strong> <span id="coutTTC">0 €</span></p>
-      <p><strong>Consommation totale mesurée (W) :</strong> <span id="consommationW">0 W</span></p>
-      <p><strong>Delta avec mesure externe :</strong> <span id="deltaConsommation">0 W</span></p>
-      <p><strong>Dernier refresh :</strong> <span id="dernierRefresh">-</span></p>
-      <button id="refreshHome">🔄 Actualiser résumé</button>
-    </div>
+  <div class="card">
+    <p><strong>Total capteurs détectés :</strong> <span id="totalCapteurs">-</span></p>
+    <p><strong>Capteurs sélectionnés :</strong> <span id="actifsCapteurs">-</span></p>
+    <p><strong>Coût énergétique estimé :</strong> <span id="coutEstime">0 €</span></p>
+    <p><strong>Dernier refresh :</strong> <span id="dernierRefresh">-</span></p>
+    <button id="refreshHome">🔄 Actualiser résumé</button>
   </div>
 </div>
 
@@ -55,252 +40,45 @@ button.primary:hover { background-color: #218838; }
   <div class="card">
     <p><strong>Total capteurs détectés :</strong> <span id="total">-</span></p>
     <p><strong>Dernière mise à jour :</strong> <span id="lastRefresh">-</span></p>
-    <button id="refreshDetection">🔄 Rafraîchir</button>
+    <button id="refresh">🔄 Rafraîchir</button>
   </div>
   <div id="content-detection"></div>
 </div>
 
 <!-- ⚙️ Configuration -->
 <div id="configuration" class="tab-content">
-  <h2>Configuration des capteurs et options utilisateur</h2>
-  <button id="saveSelection" class="primary">💾 Sauvegarder la sélection</button>
-  <div id="content-configuration"></div>
-
-  <h3>Données utilisateur / Abonnement</h3>
-  <div id="userConfig">
-    <label>Abonnement mensuel HT (€) : <input type="number" id="abonnementHT"></label><br>
-    <label>Abonnement mensuel TTC (€) : <input type="number" id="abonnementTTC"></label><br>
-    <label>Type de contrat :
+  <h2>Configuration des capteurs et données utilisateur</h2>
+  <div class="card">
+    <h3>Données utilisateur / Abonnement</h3>
+    <label>Abonnement mensuel HT (€) : <input type="number" id="userHT" step="0.01"></label><br>
+    <label>Abonnement mensuel TTC (€) : <input type="number" id="userTTC" step="0.01"></label><br>
+    <label>Type de contrat : 
       <select id="typeContrat">
-        <option value="fixe">Prix fixe</option>
-        <option value="hp-hc">HP/HC</option>
+        <option value="prix_fixe">Prix fixe</option>
+        <option value="indexé">Indexé</option>
       </select>
     </label><br>
-    <div id="hpHCFields" style="display:none">
-      <label>Tarif HP (€) : <input type="number" id="tarifHP"></label><br>
-      <label>Tarif HC (€) : <input type="number" id="tarifHC"></label><br>
-      <label>Heures HP début : <input type="time" id="heuresHPDebut"></label><br>
-      <label>Heures HP fin : <input type="time" id="heuresHPFin"></label><br>
+    <label><input type="checkbox" id="useExternal"> Utiliser mesure externe (clé Atome ou saisie manuelle)</label><br>
+    <div id="externalInput" style="display:none; margin-left:15px;">
+      <label>Capteur HA compatible : <input type="text" id="externalSensor"></label><br>
+      <label>Ou saisie manuelle (W) : <input type="number" id="externalManual"></label>
     </div>
-    <label>Mesure totale consommation externe (W, optionnel) : <input type="number" id="consommationExterne"></label><br>
-    <button id="saveUserConfig" class="primary">💾 Sauvegarder les données</button>
+    <button id="saveUserData" class="primary">💾 Sauvegarder les données</button>
+  </div>
+
+  <div class="card">
+    <h3>Capteurs Home Assistant</h3>
+    <button id="saveSelection" class="primary">💾 Sauvegarder la sélection</button>
+    <div id="content-configuration"></div>
   </div>
 </div>
 
-<!-- 🎨 Customisation -->
-<div id="customisation" class="tab-content">
-  <h2>Personnalisation</h2>
-  <p>Options d’apparence et de thème à venir…</p>
-</div>
-
-<!-- 🧩 Génération -->
-<div id="generation" class="tab-content">
-  <h2>Génération des cartes Lovelace</h2>
-  <p>Prochainement : aperçu et génération automatique.</p>
-</div>
-
+<script src="app.js"></script>
 <script>
-// === Onglets ===
 function showTab(tab) {
   document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
   document.getElementById(tab).classList.add('active');
 }
-
-// === Accueil / résumé ===
-async function loadSummary() {
-  const summaryMessage = document.getElementById("summaryMessage");
-  const summaryData = document.getElementById("summaryData");
-  const totalSpan = document.getElementById("totalCapteurs");
-  const actifsSpan = document.getElementById("actifsCapteurs");
-  const coutHT = document.getElementById("coutHT");
-  const coutTTC = document.getElementById("coutTTC");
-  const consommationW = document.getElementById("consommationW");
-  const deltaConsommation = document.getElementById("deltaConsommation");
-  const refreshSpan = document.getElementById("dernierRefresh");
-
-  try {
-    const [powerResp, selectionResp, userResp] = await Promise.all([
-      fetch("/local/community/home_suivi_elec_ui/../data/capteurs_power.json"),
-      fetch("/local/community/home_suivi_elec_ui/../data/capteurs_selection.json"),
-      fetch("/local/community/home_suivi_elec_ui/../data/user_config.json")
-    ]);
-
-    if (!selectionResp.ok || !powerResp.ok) {
-      summaryMessage.style.display = "block";
-      summaryData.style.display = "none";
-      return;
-    }
-
-    const powerData = powerResp.ok ? await powerResp.json() : [];
-    const selectionData = selectionResp.ok ? await selectionResp.json() : {};
-    const userData = userResp.ok ? await userResp.json() : {};
-
-    let total = Array.isArray(powerData) ? powerData.length : 0;
-    let actifs = 0;
-    let consommationTotale = 0;
-
-    for (const integ of Object.values(selectionData)) {
-      actifs += integ.filter(c => c.enabled).length;
-      consommationTotale += integ.filter(c => c.enabled).reduce((sum, c) => sum + (c.value || 0), 0);
-    }
-
-    let delta = 0;
-    if (userData.consommationExterne) {
-      delta = userData.consommationExterne - consommationTotale;
-    }
-
-    totalSpan.textContent = total;
-    actifsSpan.textContent = `${actifs} / ${total}`;
-    coutHT.textContent = userData.abonnementHT ? `${userData.abonnementHT.toFixed(2)} €` : "-";
-    coutTTC.textContent = userData.abonnementTTC ? `${userData.abonnementTTC.toFixed(2)} €` : "-";
-    consommationW.textContent = `${consommationTotale.toFixed(2)} W`;
-    deltaConsommation.textContent = `${delta.toFixed(2)} W`;
-
-    summaryMessage.style.display = "none";
-    summaryData.style.display = "block";
-    refreshSpan.textContent = new Date().toLocaleTimeString();
-
-  } catch (err) {
-    console.error("Erreur chargement résumé:", err);
-  }
-}
-
-document.getElementById("refreshHome").onclick = loadSummary;
-loadSummary();
-
-// === Détection ===
-async function loadDetection() {
-  const content = document.getElementById("content-detection");
-  content.innerHTML = "Chargement...";
-  try {
-    const resp = await fetch("/api/home_suivi_elec/get_sensors");
-    if (!resp.ok) throw new Error(`Erreur HTTP ${resp.status}`);
-    const sensors = await resp.json();
-    content.innerHTML = "";
-    let total = 0;
-
-    for (const [integration, list] of Object.entries(sensors)) {
-      total += list.length;
-      const block = document.createElement("div");
-      block.className = "integration-block";
-      block.innerHTML = `<h3>${integration}</h3>`;
-      list.forEach(c => {
-        const div = document.createElement("div");
-        div.className = "sensor";
-        const displayValue = c.value ?? 0;
-        const displayUnit = c.unit || "?";
-        div.textContent = `${c.friendly_name} — ${c.area || "?"} [${displayValue} ${displayUnit}]`;
-        block.appendChild(div);
-      });
-      content.appendChild(block);
-    }
-
-    document.getElementById("total").textContent = total;
-    document.getElementById("lastRefresh").textContent = new Date().toLocaleTimeString();
-  } catch (err) {
-    console.error("Erreur détection:", err);
-    content.innerHTML = `<p style="color:red;">❌ ${err.message}</p>`;
-  }
-}
-
-document.getElementById("refreshDetection").onclick = loadDetection;
-
-// === Configuration ===
-async function loadConfiguration() {
-  const content = document.getElementById("content-configuration");
-  content.innerHTML = "Chargement...";
-  try {
-    const resp = await fetch("/api/home_suivi_elec/get_sensors");
-    if (!resp.ok) throw new Error(`Erreur HTTP ${resp.status}`);
-    const sensors = await resp.json();
-    content.innerHTML = "";
-
-    for (const [integration, list] of Object.entries(sensors)) {
-      const block = document.createElement("div");
-      block.className = "integration-block";
-      block.innerHTML = `<h3>${integration}</h3>
-        <button onclick="selectAll('${integration}')">Tout sélectionner</button>
-        <button onclick="deselectAll('${integration}')">Tout désélectionner</button>`;
-      list.forEach(c => {
-        const div = document.createElement("div");
-        div.className = "sensor";
-        const checkbox = document.createElement("input");
-        checkbox.type = "checkbox";
-        checkbox.checked = c.enabled;
-        checkbox.dataset.integration = integration;
-        checkbox.dataset.entityId = c.entity_id;
-        div.append(checkbox, document.createTextNode(` ${c.friendly_name} — ${c.area || "?"} [${c.value ?? 0} ${c.unit || "?"}]`));
-        block.appendChild(div);
-      });
-      content.appendChild(block);
-    }
-  } catch (err) {
-    console.error("Erreur config:", err);
-    content.innerHTML = `<p style="color:red;">❌ ${err.message}</p>`;
-  }
-}
-
-document.getElementById("saveSelection").onclick = async function () {
-  const selections = {};
-  document.querySelectorAll("#content-configuration input[type='checkbox']").forEach(cb => {
-    const integ = cb.dataset.integration;
-    selections[integ] ??= [];
-    selections[integ].push({ entity_id: cb.dataset.entityId, enabled: cb.checked });
-  });
-  try {
-    const resp = await fetch("/api/home_suivi_elec/save_selection", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(selections)
-    });
-    const result = await resp.json();
-    alert(result.success ? "✅ Sélection sauvegardée !" : "❌ Erreur sauvegarde");
-    loadSummary();
-  } catch (err) {
-    alert("❌ Erreur lors de la sauvegarde");
-    console.error(err);
-  }
-};
-
-// Sauvegarde des données utilisateur
-document.getElementById("saveUserConfig").onclick = async function () {
-  const userData = {
-    abonnementHT: parseFloat(document.getElementById("abonnementHT").value) || 0,
-    abonnementTTC: parseFloat(document.getElementById("abonnementTTC").value) || 0,
-    typeContrat: document.getElementById("typeContrat").value,
-    tarifHP: parseFloat(document.getElementById("tarifHP").value) || 0,
-    tarifHC: parseFloat(document.getElementById("tarifHC").value) || 0,
-    heuresHPDebut: document.getElementById("heuresHPDebut").value,
-    heuresHPFin: document.getElementById("heuresHPFin").value,
-    consommationExterne: parseFloat(document.getElementById("consommationExterne").value) || 0
-  };
-  try {
-    await fetch("/local/community/home_suivi_elec_ui/../data/user_config.json", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(userData)
-    });
-    alert("💾 Données utilisateur sauvegardées !");
-    loadSummary();
-  } catch (err) {
-    alert("❌ Erreur sauvegarde données utilisateur");
-    console.error(err);
-  }
-};
-
-// HP/HC toggle
-document.getElementById("typeContrat").onchange = function () {
-  document.getElementById("hpHCFields").style.display =
-    this.value === "hp-hc" ? "block" : "none";
-};
-
-// === Sélection d'onglet par défaut ===
-showTab('home');
-
-// === Outils sélection ===
-function selectAll(integration) { document.querySelectorAll(`#content-configuration input[data-integration="${integration}"]`).forEach(cb => cb.checked = true); }
-function deselectAll(integration) { document.querySelectorAll(`#content-configuration input[data-integration="${integration}"]`).forEach(cb => cb.checked = false); }
-
 </script>
 </body>
 </html>

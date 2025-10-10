@@ -1,67 +1,39 @@
 // -*- coding: utf-8 -*-
-// === 🏠 PAGE HOME / RÉSUMÉ GÉNÉRAL ===
+
+// === 🏠 PAGE HOME ===
 async function loadSummary() {
-  const summaryMessage = document.getElementById("summaryMessage");
-  const summaryData = document.getElementById("summaryData");
   const totalSpan = document.getElementById("totalCapteurs");
   const actifsSpan = document.getElementById("actifsCapteurs");
-  const coutHT = document.getElementById("coutHT");
-  const coutTTC = document.getElementById("coutTTC");
-  const consommationW = document.getElementById("consommationW");
-  const deltaConsommation = document.getElementById("deltaConsommation");
+  const coutSpan = document.getElementById("coutEstime");
   const refreshSpan = document.getElementById("dernierRefresh");
 
   try {
-    const [powerResp, selectionResp, userResp] = await Promise.all([
+    const [powerResp, selectionResp] = await Promise.all([
       fetch("/local/community/home_suivi_elec_ui/../data/capteurs_power.json"),
-      fetch("/local/community/home_suivi_elec_ui/../data/capteurs_selection.json"),
-      fetch("/local/community/home_suivi_elec_ui/../data/user_config.json")
+      fetch("/local/community/home_suivi_elec_ui/../data/capteurs_selection.json")
     ]);
-
-    if (!selectionResp.ok || !powerResp.ok) {
-      summaryMessage.style.display = "block";
-      summaryData.style.display = "none";
-      return;
-    }
 
     const powerData = powerResp.ok ? await powerResp.json() : [];
     const selectionData = selectionResp.ok ? await selectionResp.json() : {};
-    const userData = userResp.ok ? await userResp.json() : {};
 
     let total = Array.isArray(powerData) ? powerData.length : 0;
     let actifs = 0;
-    let consommationTotale = 0;
-
     for (const integ of Object.values(selectionData)) {
       actifs += integ.filter(c => c.enabled).length;
-      consommationTotale += integ.filter(c => c.enabled).reduce((sum, c) => sum + (c.value || 0), 0);
-    }
-
-    let delta = 0;
-    if (userData.consommationExterne) {
-      delta = userData.consommationExterne - consommationTotale;
     }
 
     totalSpan.textContent = total;
     actifsSpan.textContent = `${actifs} / ${total}`;
-    coutHT.textContent = userData.abonnementHT ? `${userData.abonnementHT.toFixed(2)} €` : "-";
-    coutTTC.textContent = userData.abonnementTTC ? `${userData.abonnementTTC.toFixed(2)} €` : "-";
-    consommationW.textContent = `${consommationTotale.toFixed(2)} W`;
-    deltaConsommation.textContent = `${delta.toFixed(2)} W`;
-
-    summaryMessage.style.display = "none";
-    summaryData.style.display = "block";
+    coutSpan.textContent = `${(actifs * 0.12).toFixed(2)} €`;
     refreshSpan.textContent = new Date().toLocaleTimeString();
-
   } catch (err) {
     console.error("Erreur chargement résumé:", err);
   }
 }
-
 document.getElementById("refreshHome").onclick = loadSummary;
 loadSummary();
 
-// === 🔍 DÉTECTION DES CAPTEURS ===
+// === 🔍 PAGE DÉTECTION ===
 async function loadDetection() {
   const content = document.getElementById("content-detection");
   content.innerHTML = "Chargement...";
@@ -95,12 +67,18 @@ async function loadDetection() {
     content.innerHTML = `<p style="color:red;">❌ ${err.message}</p>`;
   }
 }
+document.getElementById("refresh").onclick = loadDetection;
 
-document.getElementById("refreshDetection").onclick = loadDetection;
-
-// === ⚙️ CONFIGURATION DES CAPTEURS ===
+// === ⚙️ PAGE CONFIGURATION ===
 async function loadConfiguration() {
   const content = document.getElementById("content-configuration");
+  const useExternal = document.getElementById("useExternal");
+  const externalDiv = document.getElementById("externalInput");
+
+  useExternal.onchange = () => {
+    externalDiv.style.display = useExternal.checked ? "block" : "none";
+  };
+
   content.innerHTML = "Chargement...";
   try {
     const resp = await fetch("/api/home_suivi_elec/get_sensors");
@@ -108,13 +86,22 @@ async function loadConfiguration() {
     const sensors = await resp.json();
     content.innerHTML = "";
 
+    // Récupérer capteur externe s'il existe pour exclure
+    let externalId = null;
+    if (useExternal.checked) {
+      const extSensorInput = document.getElementById("externalSensor");
+      externalId = extSensorInput ? extSensorInput.value : null;
+    }
+
     for (const [integration, list] of Object.entries(sensors)) {
       const block = document.createElement("div");
       block.className = "integration-block";
       block.innerHTML = `<h3>${integration}</h3>
         <button onclick="selectAll('${integration}')">Tout sélectionner</button>
         <button onclick="deselectAll('${integration}')">Tout désélectionner</button>`;
+
       list.forEach(c => {
+        if (c.entity_id === externalId) return; // Exclure le capteur externe
         const div = document.createElement("div");
         div.className = "sensor";
         const checkbox = document.createElement("input");
@@ -133,14 +120,18 @@ async function loadConfiguration() {
   }
 }
 
-// Sauvegarde sélection capteurs
+// Sauvegarde de la sélection des capteurs
 document.getElementById("saveSelection").onclick = async function () {
   const selections = {};
   document.querySelectorAll("#content-configuration input[type='checkbox']").forEach(cb => {
     const integ = cb.dataset.integration;
     selections[integ] ??= [];
-    selections[integ].push({ entity_id: cb.dataset.entityId, enabled: cb.checked });
+    selections[integ].push({
+      entity_id: cb.dataset.entityId,
+      enabled: cb.checked
+    });
   });
+
   try {
     const resp = await fetch("/api/home_suivi_elec/save_selection", {
       method: "POST",
@@ -149,46 +140,39 @@ document.getElementById("saveSelection").onclick = async function () {
     });
     const result = await resp.json();
     alert(result.success ? "✅ Sélection sauvegardée !" : "❌ Erreur sauvegarde");
-    loadSummary();
   } catch (err) {
     alert("❌ Erreur lors de la sauvegarde");
     console.error(err);
   }
 };
 
-// Sauvegarde données utilisateur
-document.getElementById("saveUserConfig").onclick = async function () {
-  const userData = {
-    abonnementHT: parseFloat(document.getElementById("abonnementHT").value) || 0,
-    abonnementTTC: parseFloat(document.getElementById("abonnementTTC").value) || 0,
-    typeContrat: document.getElementById("typeContrat").value,
-    tarifHP: parseFloat(document.getElementById("tarifHP").value) || 0,
-    tarifHC: parseFloat(document.getElementById("tarifHC").value) || 0,
-    heuresHPDebut: document.getElementById("heuresHPDebut").value,
-    heuresHPFin: document.getElementById("heuresHPFin").value,
-    consommationExterne: parseFloat(document.getElementById("consommationExterne").value) || 0
+// Sauvegarde des données utilisateur / abonnement
+document.getElementById("saveUserData").onclick = async function() {
+  const data = {
+    ht: parseFloat(document.getElementById("userHT").value) || 0,
+    ttc: parseFloat(document.getElementById("userTTC").value) || 0,
+    type_contrat: document.getElementById("typeContrat").value,
+    mesure_externe: {
+      enabled: document.getElementById("useExternal").checked,
+      capteur: document.getElementById("externalSensor").value || null,
+      manuel: parseFloat(document.getElementById("externalManual").value) || null
+    }
   };
   try {
-    await fetch("/local/community/home_suivi_elec_ui/../data/user_config.json", {
+    const resp = await fetch("/api/home_suivi_elec/save_user_data", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(userData)
+      body: JSON.stringify(data)
     });
-    alert("💾 Données utilisateur sauvegardées !");
-    loadSummary();
-  } catch (err) {
-    alert("❌ Erreur sauvegarde données utilisateur");
+    const result = await resp.json();
+    alert(result.success ? "✅ Données utilisateur sauvegardées !" : "❌ Erreur sauvegarde");
+  } catch(err) {
+    alert("❌ Erreur lors de la sauvegarde");
     console.error(err);
   }
 };
 
-// HP/HC toggle
-document.getElementById("typeContrat").onchange = function () {
-  document.getElementById("hpHCFields").style.display =
-    this.value === "hp-hc" ? "block" : "none";
-};
-
-// Sélection globale par intégration
+// === OUTILS SÉLECTION ===
 function selectAll(integration) {
   document.querySelectorAll(`#content-configuration input[data-integration="${integration}"]`).forEach(cb => cb.checked = true);
 }
@@ -196,5 +180,6 @@ function deselectAll(integration) {
   document.querySelectorAll(`#content-configuration input[data-integration="${integration}"]`).forEach(cb => cb.checked = false);
 }
 
-// Onglet par défaut
-showTab('home');
+// Charger les onglets
+loadConfiguration();
+loadDetection();
