@@ -48,9 +48,14 @@ async def run_detect_local(hass: HomeAssistant, entry=None):
 
         # État courant depuis Home Assistant
         state = hass.states.get(entity_id)
-        unit = state.attributes.get("unit_of_measurement") if state else None
-        friendly_name = state.attributes.get("friendly_name") if state else entity.original_name or entity_id
-        value = state.state if state else None
+        if state:
+            friendly_name = state.attributes.get("friendly_name") or f"{entity_id}"
+            unit = state.attributes.get("unit_of_measurement") or None
+            value = state.state
+        else:
+            friendly_name = entity.original_name or entity_id
+            unit = None
+            value = None
 
         capteurs.append({
             "entity_id": entity_id,
