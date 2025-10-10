@@ -1,3 +1,4 @@
 .DS_Store
 releaseonmac.sh
 *.txt
+doc/
