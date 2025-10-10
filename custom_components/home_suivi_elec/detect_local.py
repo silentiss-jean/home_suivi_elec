@@ -15,12 +15,10 @@ async def run_detect_local(hass: HomeAssistant, entry=None):
     """Détecter les capteurs de puissance et sauvegarder leurs infos."""
     _LOGGER.info("🔍 Détection locale des capteurs de puissance (power)")
 
-    # --- Dossier de stockage ---
     data_dir = os.path.join(hass.config.path("custom_components"), "home_suivi_elec", "data")
     os.makedirs(data_dir, exist_ok=True)
     power_path = os.path.join(data_dir, "capteurs_power.json")
 
-    # --- Récupération des registres ---
     dev_reg = dr.async_get(hass)
     ent_reg = er.async_get(hass)
     area_reg = ar.async_get(hass)
@@ -28,7 +26,6 @@ async def run_detect_local(hass: HomeAssistant, entry=None):
     capteurs = []
 
     for entity in ent_reg.entities.values():
-        # Filtrer uniquement les capteurs de puissance
         if entity.domain != "sensor":
             continue
 
@@ -46,32 +43,39 @@ async def run_detect_local(hass: HomeAssistant, entry=None):
             area_obj = area_reg.async_get_area(device.area_id)
             area = area_obj.name if area_obj else None
 
-        # État courant depuis Home Assistant
+        # État courant
         state = hass.states.get(entity_id)
-        if state:
-            raw_name = state.attributes.get("friendly_name") or ""
-            unit = state.attributes.get("unit_of_measurement") or None
-            value = state.state
-        else:
-            raw_name = ""
-            unit = None
-            value = None
+        value = None
+        unit = None
+        raw_name = None
 
-        # Nom du device si présent (nom personnalisé si disponible)
+        if state:
+            raw_name = state.attributes.get("friendly_name")
+            unit = state.attributes.get("unit_of_measurement")
+            if state.state not in ("unknown", "unavailable"):
+                value = state.state
+
+        # Récupération du nom du device si existant
         device_display_name = None
         if device:
-            device_display_name = getattr(device, "name", None) or getattr(device, "name_by_user", None)
+            device_display_name = getattr(device, "name_by_user", None) or getattr(device, "name", None)
 
-        # Concatène device + raw_name si nécessaire pour obtenir le même affichage que l'UI
+        # Construction du nom
+        if not raw_name:
+            raw_name = entity.original_name or entity_id
+
         if device_display_name:
-            if raw_name and device_display_name not in raw_name:
-                friendly_name = f"{device_display_name} {raw_name}".strip()
-            elif raw_name:
-                friendly_name = raw_name
+            # Si friendly_name ne contient pas déjà le nom du device
+            if device_display_name.lower() not in raw_name.lower():
+                friendly_name = f"{device_display_name} {raw_name}"
             else:
-                friendly_name = f"{device_display_name} {entity_id}"
+                friendly_name = raw_name
         else:
-            friendly_name = raw_name or entity.original_name or entity_id
+            friendly_name = raw_name
+
+        # Nettoyage léger (éviter les doublons absurdes)
+        friendly_name = friendly_name.strip()
+        friendly_name = friendly_name.replace("sensor.", "").replace("_", " ")
 
         capteurs.append({
             "entity_id": entity_id,
@@ -82,7 +86,6 @@ async def run_detect_local(hass: HomeAssistant, entry=None):
             "value": value,
         })
 
-    # --- Sauvegarde dans un executor pour éviter le warning ---
     loop = asyncio.get_running_loop()
     await loop.run_in_executor(None, partial(_save_json, power_path, capteurs))
 
@@ -91,6 +94,5 @@ async def run_detect_local(hass: HomeAssistant, entry=None):
 
 
 def _save_json(path, data):
-    """Écriture JSON bloquante mais hors loop événementiel."""
     with open(path, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2, ensure_ascii=False)
