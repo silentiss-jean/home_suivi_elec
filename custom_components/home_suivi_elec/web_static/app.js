@@ -24,7 +24,7 @@ async function loadSummary() {
 
     totalSpan.textContent = total;
     actifsSpan.textContent = actifs;
-    coutSpan.textContent = `${(actifs * 0.12).toFixed(2)} €`; 
+    coutSpan.textContent = `${(actifs * 0.12).toFixed(2)} €`;
     refreshSpan.textContent = new Date().toLocaleTimeString();
   } catch (err) {
     console.error("Erreur chargement résumé:", err);
