@@ -5,75 +5,52 @@
   <title>Home Suivi Élec</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <style>
-    body {
-      font-family: system-ui, sans-serif;
-      margin: 1rem;
-      background: var(--primary-background-color, #f6f6f6);
-      color: var(--primary-text-color, #111);
-    }
-
+    body { font-family: system-ui, sans-serif; margin: 2rem; background: #f6f6f6; color: #111; }
     h1 { color: #ff9800; font-size: 1.8rem; }
-
-    .tabs {
-      display: flex;
-      margin-bottom: 1rem;
-      gap: 0.5rem;
-    }
-
-    .tab {
-      padding: 0.5rem 1rem;
-      background: #eee;
-      border-radius: 6px;
-      cursor: pointer;
-    }
-
-    .tab.active {
-      background: #ff9800;
-      color: white;
-    }
-
-    .container {
-      padding: 1rem;
-      border-radius: 8px;
-      background: white;
-      max-width: 900px;
-    }
-
-    .sensor-line {
-      margin: 0.2rem 0;
-    }
-
-    button {
-      margin-top: 1rem;
-      padding: 0.6rem 1rem;
-      border: none;
-      border-radius: 6px;
-      background-color: #ff9800;
-      color: white;
-      cursor: pointer;
-    }
-
-    #summary {
-      margin-bottom: 1rem;
-      font-weight: bold;
-    }
+    .tabs { display: flex; gap: 1rem; margin-bottom: 1rem; cursor: pointer; }
+    .tab { padding: 0.5rem 1rem; border-radius: 6px; background: #ddd; }
+    .tab.active { background: #ff9800; color: white; }
+    .content { display: none; background: white; padding: 1rem; border-radius: 8px; }
+    .content.active { display: block; }
+    .sensor { padding: 0.3rem 0; }
+    button { margin-top: 0.5rem; padding: 0.4rem 0.8rem; border: none; border-radius: 6px; background-color: #ff9800; color: white; cursor: pointer; }
   </style>
 </head>
 <body>
   <h1>⚡ Home Suivi Élec</h1>
 
   <div class="tabs">
-    <div id="tab-detection" class="tab active">Détection</div>
-    <div id="tab-configuration" class="tab">Configuration</div>
+    <div class="tab active" data-tab="detection">Détection</div>
+    <div class="tab" data-tab="configuration">Configuration</div>
+    <div class="tab" data-tab="customisation">Customisation</div>
+    <div class="tab" data-tab="generation">Génération cartes</div>
   </div>
 
-  <div id="summary" class="container">
-    Total capteurs détectés: 0<br>
-    Dernier refresh: -
+  <div id="detection" class="content active">
+    <p>Total capteurs détectés: <span id="total-detection">-</span></p>
+    <p>Dernière mise à jour: <span id="last-detection">-</span></p>
+    <div id="detection-list"></div>
+    <button id="refresh-detection">🔄 Rafraîchir</button>
   </div>
 
-  <div id="content" class="container">
-    Chargement...
+  <div id="configuration" class="content">
+    <p>Total capteurs détectés: <span id="total-config">-</span></p>
+    <p>Dernière mise à jour: <span id="last-config">-</span></p>
+    <div>
+      <button id="select-all">Tout sélectionner</button>
+      <button id="deselect-all">Tout désélectionner</button>
+    </div>
+    <div id="config-list"></div>
+  </div>
+
+  <div id="customisation" class="content">
+    <p>Paramètres de customisation (UI / thème / affichage)</p>
+  </div>
+
+  <div id="generation" class="content">
+    <p>Bouton générer les cartes Lovelace</p>
+    <button id="generate-cards">Générer</button>
+    <div id="generation-preview"></div>
   </div>
 
   <script type="module" src="app.js"></script>
