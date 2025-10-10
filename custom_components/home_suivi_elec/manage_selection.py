@@ -38,6 +38,7 @@ async def async_setup_selection_api(hass: HomeAssistant):
                     "friendly_name": c.get("friendly_name"),
                     "area": c.get("area"),
                     "unit": c.get("unit"),
+                    "value": c.get("value") if c.get("value") is not None else 0,
                     "enabled": True,
                 })
             return self.json(integrations)
@@ -69,6 +70,7 @@ def save_json(path, data):
     with open(path, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2, ensure_ascii=False)
 
+
 async def generate_selection(hass: HomeAssistant):
     """Génère le fichier capteurs_selection.json à partir de capteurs_power.json."""
     try:
@@ -87,6 +89,7 @@ async def generate_selection(hass: HomeAssistant):
                 "friendly_name": c.get("friendly_name"),
                 "area": c.get("area"),
                 "unit": c.get("unit"),
+                "value": c.get("value") if c.get("value") is not None else 0,
                 "enabled": True,
             })
 
