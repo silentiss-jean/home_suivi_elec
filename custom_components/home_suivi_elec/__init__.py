@@ -4,15 +4,17 @@
 import logging
 import os
 import shutil
+from functools import partial
 from homeassistant.core import HomeAssistant, ServiceCall, callback
 from homeassistant.config_entries import ConfigEntry
-from aiohttp import web
+from homeassistant.components.http import HomeAssistantView
 
 from .const import DOMAIN, CONF_AUTO_GENERATE
 from .detect_local import run_detect_local
 from .generator import run_all
 from .debug_json_sets import scan_sets
 from .options_flow import HomeSuiviElecOptionsFlow
+from . import manage_selection  # pour les API REST
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -20,7 +22,7 @@ _LOGGER = logging.getLogger(__name__)
 # SETUP PRINCIPAL
 # -----------------------------------------------------------------------------
 async def async_setup(hass: HomeAssistant, config: dict) -> bool:
-    _LOGGER.info("[SETUP] async_setup called")
+    _LOGGER.info("[SETUP] async_setup appelé")
     return True
 
 
@@ -44,37 +46,23 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             _LOGGER.exception("Erreur generate_lovelace_auto: %s", e)
 
     async def handle_generate_selection(call: ServiceCall):
-        from . import manage_selection
         try:
             await manage_selection.run_generate_selection(hass)
         except Exception as e:
             _LOGGER.exception("Erreur generate_selection: %s", e)
 
+    async def handle_copy_ui(call: ServiceCall):
+        _LOGGER.info("[SERVICE] copy_ui_files appelé manuellement")
+        await copy_ui_files(hass)
+        _LOGGER.info("[SERVICE] ✅ UI copiée avec succès")
+
     hass.services.async_register(DOMAIN, "generate_local_data", handle_generate_local_data)
     hass.services.async_register(DOMAIN, "generate_lovelace_auto", handle_generate_lovelace_auto)
     hass.services.async_register(DOMAIN, "generate_selection", handle_generate_selection)
+    hass.services.async_register(DOMAIN, "copy_ui_files", handle_copy_ui)
 
     # --- API REST pour capteurs
-    from . import manage_selection
-
-    async def handle_get_sensors(request):
-        try:
-            data = await manage_selection.get_sensors(hass)
-        except Exception as e:
-            data = {"error": str(e)}
-        return web.json_response(data)
-
-    hass.http.register_view(
-        type(
-            "HomeSuiviElecSensorsView",
-            (web.View,),
-            {
-                "name": "home_suivi_elec_sensors",
-                "url": "/api/home_suivi_elec/get_sensors",
-                "get": handle_get_sensors,
-            },
-        )
-    )
+    await manage_selection.async_setup_selection_api(hass)
 
     # --- Scan debug JSON
     scan_sets(hass)
@@ -83,7 +71,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     if hass.data[DOMAIN]["options"].get(CONF_AUTO_GENERATE, True):
         await run_all(hass, hass.data[DOMAIN]["options"])
 
-    # --- Copie UI simplifiée
+    # --- Copie UI au démarrage
     await copy_ui_files(hass)
 
     _LOGGER.info("[SETUP_ENTRY] ✅ Home Suivi Élec setup terminé")
