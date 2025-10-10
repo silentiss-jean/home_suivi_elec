@@ -18,19 +18,12 @@ async function loadSummary() {
       fetch("/local/community/home_suivi_elec_ui/../data/user_config.json")
     ]);
 
-    // Si rien n’est configuré → garder le message
-    if (!selectionResp.ok || !userResp.ok) {
-      summaryMessage.style.display = "block";
-      summaryData.style.display = "none";
-      return;
-    }
-
     const powerData = powerResp.ok ? await powerResp.json() : [];
-    const selectionData = await selectionResp.json();
-    const userData = await userResp.json();
+    const selectionData = selectionResp.ok ? await selectionResp.json() : {};
+    const userData = userResp.ok ? await userResp.json() : {};
 
-    // Si aucune donnée utilisateur => message
-    if (!userData || Object.keys(userData).length === 0) {
+    // Si aucune config => message d’invite
+    if (!selectionResp.ok || Object.keys(selectionData).length === 0) {
       summaryMessage.style.display = "block";
       summaryData.style.display = "none";
       return;
@@ -42,7 +35,9 @@ async function loadSummary() {
 
     for (const integ of Object.values(selectionData)) {
       actifs += integ.filter(c => c.enabled).length;
-      consommationTotale += integ.filter(c => c.enabled).reduce((sum, c) => sum + (c.value || 0), 0);
+      consommationTotale += integ
+        .filter(c => c.enabled)
+        .reduce((sum, c) => sum + (c.value || 0), 0);
     }
 
     let delta = 0;
@@ -54,7 +49,7 @@ async function loadSummary() {
     actifsSpan.textContent = `${actifs} / ${total}`;
     coutHT.textContent = userData.abonnementHT ? `${userData.abonnementHT.toFixed(2)} €` : "-";
     coutTTC.textContent = userData.abonnementTTC ? `${userData.abonnementTTC.toFixed(2)} €` : "-";
-    consommationW.textContent = consommationTotale ? `${consommationTotale.toFixed(2)} W` : "-";
+    consommationW.textContent = `${consommationTotale.toFixed(2)} W`;
     deltaConsommation.textContent = `${delta.toFixed(2)} W`;
 
     summaryMessage.style.display = "none";
@@ -63,8 +58,6 @@ async function loadSummary() {
 
   } catch (err) {
     console.error("Erreur chargement résumé:", err);
-    summaryMessage.style.display = "block";
-    summaryData.style.display = "none";
   }
 }
 
@@ -76,21 +69,38 @@ async function loadDetection() {
   const content = document.getElementById("content-detection");
   content.innerHTML = "Chargement...";
   try {
+    // Charger la config utilisateur pour exclure la mesure externe
+    let externalSensorId = null;
+    try {
+      const userResp = await fetch("/local/community/home_suivi_elec_ui/../data/user_config.json");
+      if (userResp.ok) {
+        const userData = await userResp.json();
+        externalSensorId = userData.capteurExterneEntityId || null;
+      }
+    } catch {}
+
     const resp = await fetch("/api/home_suivi_elec/get_sensors");
     if (!resp.ok) throw new Error(`Erreur HTTP ${resp.status}`);
     const sensors = await resp.json();
+
     content.innerHTML = "";
     let total = 0;
 
     for (const [integration, list] of Object.entries(sensors)) {
-      total += list.length;
+      // Exclure le capteur externe s’il est défini
+      const filtered = list.filter(c => c.entity_id !== externalSensorId);
+      if (filtered.length === 0) continue;
+      total += filtered.length;
+
       const block = document.createElement("div");
       block.className = "integration-block";
       block.innerHTML = `<h3>${integration}</h3>`;
-      list.forEach(c => {
+      filtered.forEach(c => {
         const div = document.createElement("div");
         div.className = "sensor";
-        div.textContent = `${c.friendly_name} — ${c.area || "?"} [${c.value ?? 0} ${c.unit || "?"}]`;
+        const displayValue = c.value ?? 0;
+        const displayUnit = c.unit || "?";
+        div.textContent = `${c.friendly_name} — ${c.area || "?"} [${displayValue} ${displayUnit}]`;
         block.appendChild(div);
       });
       content.appendChild(block);
@@ -111,18 +121,29 @@ async function loadConfiguration() {
   const content = document.getElementById("content-configuration");
   content.innerHTML = "Chargement...";
   try {
-    const resp = await fetch("/api/home_suivi_elec/get_sensors");
+    const [resp, userResp] = await Promise.all([
+      fetch("/api/home_suivi_elec/get_sensors"),
+      fetch("/local/community/home_suivi_elec_ui/../data/user_config.json")
+    ]);
+
     if (!resp.ok) throw new Error(`Erreur HTTP ${resp.status}`);
     const sensors = await resp.json();
+    const userData = userResp.ok ? await userResp.json() : {};
+    const externalSensorId = userData.capteurExterneEntityId || null;
+
     content.innerHTML = "";
 
     for (const [integration, list] of Object.entries(sensors)) {
+      const filtered = list.filter(c => c.entity_id !== externalSensorId);
+      if (filtered.length === 0) continue;
+
       const block = document.createElement("div");
       block.className = "integration-block";
       block.innerHTML = `<h3>${integration}</h3>
         <button onclick="selectAll('${integration}')">Tout sélectionner</button>
         <button onclick="deselectAll('${integration}')">Tout désélectionner</button>`;
-      list.forEach(c => {
+
+      filtered.forEach(c => {
         const div = document.createElement("div");
         div.className = "sensor";
         const checkbox = document.createElement("input");
@@ -130,7 +151,12 @@ async function loadConfiguration() {
         checkbox.checked = c.enabled;
         checkbox.dataset.integration = integration;
         checkbox.dataset.entityId = c.entity_id;
-        div.append(checkbox, document.createTextNode(\` \${c.friendly_name} — \${c.area || "?"} [\${c.value ?? 0} \${c.unit || "?"}]\`));
+        div.append(
+          checkbox,
+          document.createTextNode(
+            ` ${c.friendly_name} — ${c.area || "?"} [${c.value ?? 0} ${c.unit || "?"}]`
+          )
+        );
         block.appendChild(div);
       });
       content.appendChild(block);
@@ -141,67 +167,16 @@ async function loadConfiguration() {
   }
 }
 
-// Sauvegarde sélection capteurs
-document.getElementById("saveSelection").onclick = async function () {
-  const selections = {};
-  document.querySelectorAll("#content-configuration input[type='checkbox']").forEach(cb => {
-    const integ = cb.dataset.integration;
-    selections[integ] ??= [];
-    selections[integ].push({ entity_id: cb.dataset.entityId, enabled: cb.checked });
-  });
-  try {
-    const resp = await fetch("/api/home_suivi_elec/save_selection", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(selections)
-    });
-    const result = await resp.json();
-    alert(result.success ? "✅ Sélection sauvegardée !" : "❌ Erreur sauvegarde");
-    loadSummary();
-  } catch (err) {
-    alert("❌ Erreur lors de la sauvegarde");
-    console.error(err);
-  }
-};
-
-// Sauvegarde données utilisateur
-document.getElementById("saveUserConfig").onclick = async function () {
-  const userData = {
-    abonnementHT: parseFloat(document.getElementById("abonnementHT").value) || 0,
-    abonnementTTC: parseFloat(document.getElementById("abonnementTTC").value) || 0,
-    typeContrat: document.getElementById("typeContrat").value,
-    tarifHP: parseFloat(document.getElementById("tarifHP").value) || 0,
-    tarifHC: parseFloat(document.getElementById("tarifHC").value) || 0,
-    heuresHPDebut: document.getElementById("heuresHPDebut").value,
-    heuresHPFin: document.getElementById("heuresHPFin").value,
-    consommationExterne: parseFloat(document.getElementById("consommationExterne").value) || 0
-  };
-  try {
-    await fetch("/local/community/home_suivi_elec_ui/../data/user_config.json", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(userData)
-    });
-    alert("💾 Données utilisateur sauvegardées !");
-    loadSummary();
-  } catch (err) {
-    alert("❌ Erreur sauvegarde données utilisateur");
-    console.error(err);
-  }
-};
-
-// HP/HC toggle
-document.getElementById("typeContrat").onchange = function () {
-  document.getElementById("hpHCFields").style.display =
-    this.value === "hp-hc" ? "block" : "none";
-};
-
-// Sélection globale par intégration
+// === Outils de sélection ===
 function selectAll(integration) {
-  document.querySelectorAll(`#content-configuration input[data-integration="${integration}"]`).forEach(cb => cb.checked = true);
+  document
+    .querySelectorAll(`#content-configuration input[data-integration="${integration}"]`)
+    .forEach(cb => (cb.checked = true));
 }
 function deselectAll(integration) {
-  document.querySelectorAll(`#content-configuration input[data-integration="${integration}"]`).forEach(cb => cb.checked = false);
+  document
+    .querySelectorAll(`#content-configuration input[data-integration="${integration}"]`)
+    .forEach(cb => (cb.checked = false));
 }
 
 // Onglet par défaut
