@@ -2,33 +2,29 @@
 <html lang="fr">
 <head>
   <meta charset="UTF-8">
-  <title>Home Suivi Élec</title>
+  <title>Home Suivi Élec — Accueil</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <style>
-    body {
-      font-family: system-ui, sans-serif;
-      margin: 2rem;
-      background: var(--primary-background-color, #f6f6f6);
-      color: var(--primary-text-color, #111);
-    }
-    h1 { color: #ff9800; font-size: 1.8rem; }
-    .container { padding: 1rem; border-radius: 8px; background: white; }
-    .sensor { padding: 0.3rem 0; }
-    button {
-      margin-top: 1rem;
-      padding: 0.6rem 1rem;
-      border: none;
-      border-radius: 6px;
-      background-color: #ff9800;
-      color: white;
-      cursor: pointer;
-    }
+    body { font-family: system-ui, sans-serif; margin: 2rem; }
+    h1 { color: #ff9800; }
+    nav button { margin-right: 1rem; padding: 0.5rem 1rem; }
+    #summary { margin-top: 1rem; }
   </style>
 </head>
 <body>
   <h1>⚡ Home Suivi Élec</h1>
-  <div id="content" class="container">Chargement des capteurs...</div>
-  <button id="refresh">🔄 Recharger</button>
+  <nav>
+    <button onclick="window.location.href='detection.html'">Détection</button>
+    <button onclick="window.location.href='config.html'">Configuration</button>
+    <button onclick="window.location.href='custom.html'">Customisation</button>
+    <button onclick="window.location.href='generate.html'">Génération cartes</button>
+  </nav>
+  <div id="summary">
+    <p>Total capteurs détectés: <span id="total_sensors">0</span></p>
+    <p>Capteurs actifs: <span id="active_sensors">0</span></p>
+    <p>Coût énergétique estimé: <span id="cost_estimate">0</span> €</p>
+    <p>Dernier refresh: <span id="last_refresh">-</span></p>
+  </div>
 
   <script type="module" src="app.js"></script>
 </body>
