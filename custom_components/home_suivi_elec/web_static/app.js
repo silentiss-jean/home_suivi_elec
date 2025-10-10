@@ -18,14 +18,13 @@ async function loadSummary() {
 
     let total = Array.isArray(powerData) ? powerData.length : 0;
     let actifs = 0;
-
     for (const integ of Object.values(selectionData)) {
       actifs += integ.filter(c => c.enabled).length;
     }
 
     totalSpan.textContent = total;
     actifsSpan.textContent = actifs;
-    coutSpan.textContent = `${(actifs * 0.12).toFixed(2)} €`; // estimation fictive
+    coutSpan.textContent = `${(actifs * 0.12).toFixed(2)} €`; 
     refreshSpan.textContent = new Date().toLocaleTimeString();
   } catch (err) {
     console.error("Erreur chargement résumé:", err);
@@ -35,7 +34,6 @@ async function loadSummary() {
 document.getElementById("refreshHome").onclick = loadSummary;
 loadSummary();
 
-
 // === 🔍 PAGE DÉTECTION ===
 async function loadDetection() {
   const content = document.getElementById("content-detection");
@@ -44,7 +42,6 @@ async function loadDetection() {
     const resp = await fetch("/api/home_suivi_elec/get_sensors");
     if (!resp.ok) throw new Error(`Erreur HTTP ${resp.status}`);
     const sensors = await resp.json();
-
     content.innerHTML = "";
     let total = 0;
 
@@ -67,14 +64,12 @@ async function loadDetection() {
     document.getElementById("total").textContent = total;
     document.getElementById("lastRefresh").textContent = new Date().toLocaleTimeString();
   } catch (err) {
-    console.error("Erreur:", err);
+    console.error("Erreur détection:", err);
     content.innerHTML = `<p style="color:red;">❌ ${err.message}</p>`;
   }
 }
 
-const refreshBtn = document.getElementById("refresh");
-if (refreshBtn) refreshBtn.onclick = loadDetection;
-
+document.getElementById("refresh").onclick = loadDetection;
 
 // === ⚙️ PAGE CONFIGURATION ===
 async function loadConfiguration() {
@@ -101,7 +96,7 @@ async function loadConfiguration() {
         checkbox.checked = c.enabled;
         checkbox.dataset.integration = integration;
         checkbox.dataset.entityId = c.entity_id;
-        div.append(checkbox, document.createTextNode(` ${c.friendly_name} — ${c.area || "?"}`));
+        div.append(checkbox, document.createTextNode(` ${c.friendly_name} — ${c.area || "?"} [${c.value ?? 0} ${c.unit || "?"}]`));
         block.appendChild(div);
       });
       content.appendChild(block);
@@ -137,11 +132,10 @@ document.getElementById("saveSelection").onclick = async function () {
   }
 };
 
-
 // === OUTILS SÉLECTION ===
 function selectAll(integration) {
-  document.querySelectorAll(`input[type="checkbox"][data-integration="${integration}"]`).forEach(cb => cb.checked = true);
+  document.querySelectorAll(`#content-configuration input[data-integration="${integration}"]`).forEach(cb => cb.checked = true);
 }
 function deselectAll(integration) {
-  document.querySelectorAll(`input[type="checkbox"][data-integration="${integration}"]`).forEach(cb => cb.checked = false);
+  document.querySelectorAll(`#content-configuration input[data-integration="${integration}"]`).forEach(cb => cb.checked = false);
 }

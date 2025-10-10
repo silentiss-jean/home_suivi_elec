@@ -4,6 +4,14 @@
 <meta charset="UTF-8">
 <title>Home Suivi Élec</title>
 <link rel="stylesheet" href="style.css">
+<style>
+.tab-content { display: none; }
+.tab-content.active { display: block; }
+.integration-block { border: 1px solid #ccc; padding: 10px; margin-bottom: 10px; }
+.sensor { margin-left: 15px; }
+button { margin: 3px; }
+.card { padding: 10px; border: 1px solid #ddd; margin-bottom: 15px; }
+</style>
 </head>
 <body>
 <h1>⚡ Home Suivi Élec</h1>
@@ -21,7 +29,7 @@
   <h2>Résumé général</h2>
   <div class="card">
     <p><strong>Total capteurs détectés :</strong> <span id="totalCapteurs">-</span></p>
-    <p><strong>Capteurs actifs :</strong> <span id="actifsCapteurs">-</span></p>
+    <p><strong>Capteurs sélectionnés :</strong> <span id="actifsCapteurs">-</span></p>
     <p><strong>Coût énergétique estimé :</strong> <span id="coutEstime">0 €</span></p>
     <p><strong>Dernier refresh :</strong> <span id="dernierRefresh">-</span></p>
     <button id="refreshHome">🔄 Actualiser résumé</button>
@@ -42,7 +50,7 @@
 <!-- ⚙️ Configuration -->
 <div id="configuration" class="tab-content">
   <h2>Configuration des capteurs</h2>
-  <button id="saveSelection" class="primary">💾 Sauvegarder la sélection</button>
+  <button id="saveSelection">💾 Sauvegarder la sélection</button>
   <div id="content-configuration"></div>
 </div>
 
