@@ -42,7 +42,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     async def handle_generate_selection(call: ServiceCall):
         try:
-            await manage_selection.run_generate_selection(hass)
+            await manage_selection.generate_selection(hass)
         except Exception as e:
             _LOGGER.exception("Erreur generate_selection: %s", e)
 
@@ -66,11 +66,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     if hass.data[DOMAIN]["options"].get(CONF_AUTO_GENERATE, True):
         await run_all(hass, hass.data[DOMAIN]["options"])
 
-    # --- Générer capteurs_power.json au démarrage si absent
+    # --- Générer capteurs_power.json
     await run_detect_local(hass, entry)
 
-    # --- Générer capteurs_selection.json au démarrage via service existant
-    await hass.services.async_call(DOMAIN, "generate_selection", {}, blocking=True)
+    # --- Générer capteurs_selection.json
+    await manage_selection.generate_selection(hass)
 
     # --- Copie UI au démarrage sans bloquer le loop
     loop = asyncio.get_running_loop()
