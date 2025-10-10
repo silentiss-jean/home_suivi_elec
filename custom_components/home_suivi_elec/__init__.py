@@ -66,10 +66,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     if hass.data[DOMAIN]["options"].get(CONF_AUTO_GENERATE, True):
         await run_all(hass, hass.data[DOMAIN]["options"])
 
-    # --- Générer capteurs_power.json
+    # --- Générer capteurs_power.json puis capteurs_selection.json au démarrage
     await run_detect_local(hass, entry)
-
-    # --- Générer capteurs_selection.json
     await manage_selection.generate_selection(hass)
 
     # --- Copie UI au démarrage sans bloquer le loop
