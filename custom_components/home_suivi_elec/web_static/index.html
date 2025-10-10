@@ -1,58 +1,51 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-  <meta charset="UTF-8">
-  <title>Home Suivi Élec</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <style>
-    body { font-family: system-ui, sans-serif; margin: 2rem; background: #f6f6f6; color: #111; }
-    h1 { color: #ff9800; font-size: 1.8rem; }
-    .tabs { display: flex; gap: 1rem; margin-bottom: 1rem; cursor: pointer; }
-    .tab { padding: 0.5rem 1rem; border-radius: 6px; background: #ddd; }
-    .tab.active { background: #ff9800; color: white; }
-    .content { display: none; background: white; padding: 1rem; border-radius: 8px; }
-    .content.active { display: block; }
-    .sensor { padding: 0.3rem 0; }
-    button { margin-top: 0.5rem; padding: 0.4rem 0.8rem; border: none; border-radius: 6px; background-color: #ff9800; color: white; cursor: pointer; }
-  </style>
+<meta charset="UTF-8">
+<title>Home Suivi Élec</title>
+<style>
+.integration-block { border: 1px solid #ccc; padding: 10px; margin-bottom: 15px; }
+.sensor { margin-left: 10px; }
+.tab-content { display: none; }
+.tab-content.active { display: block; }
+button { margin-right: 5px; margin-bottom: 5px; }
+</style>
 </head>
 <body>
-  <h1>⚡ Home Suivi Élec</h1>
+<h1>⚡ Home Suivi Élec</h1>
+<div id="tabs">
+  <button onclick="showTab('detection')">Détection</button>
+  <button onclick="showTab('configuration')">Configuration</button>
+  <button onclick="showTab('customisation')">Customisation</button>
+  <button onclick="showTab('generation')">Génération cartes</button>
+</div>
 
-  <div class="tabs">
-    <div class="tab active" data-tab="detection">Détection</div>
-    <div class="tab" data-tab="configuration">Configuration</div>
-    <div class="tab" data-tab="customisation">Customisation</div>
-    <div class="tab" data-tab="generation">Génération cartes</div>
-  </div>
+<div id="detection" class="tab-content active">
+  <p>Total capteurs détectés: <span id="total">-</span></p>
+  <p>Dernière mise à jour: <span id="lastRefresh">-</span></p>
+  <button id="refresh">🔄 Rafraîchir</button>
+  <div id="content"></div>
+</div>
 
-  <div id="detection" class="content active">
-    <p>Total capteurs détectés: <span id="total-detection">-</span></p>
-    <p>Dernière mise à jour: <span id="last-detection">-</span></p>
-    <div id="detection-list"></div>
-    <button id="refresh-detection">🔄 Rafraîchir</button>
-  </div>
+<div id="configuration" class="tab-content">
+  <p>Configurez vos capteurs :</p>
+  <div id="content"></div>
+</div>
 
-  <div id="configuration" class="content">
-    <p>Total capteurs détectés: <span id="total-config">-</span></p>
-    <p>Dernière mise à jour: <span id="last-config">-</span></p>
-    <div>
-      <button id="select-all">Tout sélectionner</button>
-      <button id="deselect-all">Tout désélectionner</button>
-    </div>
-    <div id="config-list"></div>
-  </div>
+<div id="customisation" class="tab-content">
+  <p>Options de personnalisation de l'interface (à implémenter)</p>
+</div>
 
-  <div id="customisation" class="content">
-    <p>Paramètres de customisation (UI / thème / affichage)</p>
-  </div>
+<div id="generation" class="tab-content">
+  <p>Génération automatique des cartes Lovelace (à implémenter)</p>
+</div>
 
-  <div id="generation" class="content">
-    <p>Bouton générer les cartes Lovelace</p>
-    <button id="generate-cards">Générer</button>
-    <div id="generation-preview"></div>
-  </div>
-
-  <script type="module" src="app.js"></script>
+<script src="app.js"></script>
+<script>
+function showTab(tab) {
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+  document.getElementById(tab).classList.add('active');
+}
+</script>
 </body>
 </html>
