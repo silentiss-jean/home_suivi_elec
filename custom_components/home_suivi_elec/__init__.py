@@ -96,10 +96,17 @@ async def copy_ui_files(hass: HomeAssistant):
     dst = hass.config.path("www", "community", "home_suivi_elec_ui")
     os.makedirs(dst, exist_ok=True)
 
-    for f in os.listdir(src):
+    # ⚡ Utilisation d'un executor pour os.listdir afin de ne pas bloquer la boucle async
+    loop = hass.loop if hasattr(hass, 'loop') else None
+    import asyncio
+    loop = asyncio.get_running_loop()
+    files = await loop.run_in_executor(None, os.listdir, src)
+
+    for f in files:
         src_path = os.path.join(src, f)
         dst_path = os.path.join(dst, f)
         if os.path.isfile(src_path):
             await hass.async_add_executor_job(shutil.copy2, src_path, dst_path)
             _LOGGER.info(f"[UI] Copié : {src_path} → {dst_path}")
+
     _LOGGER.info("[UI] ✅ Interface copiée avec succès dans /www/community/home_suivi_elec_ui")
