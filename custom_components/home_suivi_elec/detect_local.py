@@ -49,13 +49,29 @@ async def run_detect_local(hass: HomeAssistant, entry=None):
         # État courant depuis Home Assistant
         state = hass.states.get(entity_id)
         if state:
-            friendly_name = state.attributes.get("friendly_name") or f"{entity_id}"
+            raw_name = state.attributes.get("friendly_name") or ""
             unit = state.attributes.get("unit_of_measurement") or None
             value = state.state
         else:
-            friendly_name = entity.original_name or entity_id
+            raw_name = ""
             unit = None
             value = None
+
+        # Nom du device si présent (nom personnalisé si disponible)
+        device_display_name = None
+        if device:
+            device_display_name = getattr(device, "name", None) or getattr(device, "name_by_user", None)
+
+        # Concatène device + raw_name si nécessaire pour obtenir le même affichage que l'UI
+        if device_display_name:
+            if raw_name and device_display_name not in raw_name:
+                friendly_name = f"{device_display_name} {raw_name}".strip()
+            elif raw_name:
+                friendly_name = raw_name
+            else:
+                friendly_name = f"{device_display_name} {entity_id}"
+        else:
+            friendly_name = raw_name or entity.original_name or entity_id
 
         capteurs.append({
             "entity_id": entity_id,
