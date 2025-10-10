@@ -3,41 +3,59 @@
 <head>
 <meta charset="UTF-8">
 <title>Home Suivi Élec</title>
-<style>
-.integration-block { border: 1px solid #ccc; padding: 10px; margin-bottom: 15px; }
-.sensor { margin-left: 10px; }
-.tab-content { display: none; }
-.tab-content.active { display: block; }
-button { margin-right: 5px; margin-bottom: 5px; }
-</style>
+<link rel="stylesheet" href="style.css">
 </head>
 <body>
 <h1>⚡ Home Suivi Élec</h1>
-<div id="tabs">
-  <button onclick="showTab('detection')">Détection</button>
-  <button onclick="showTab('configuration')">Configuration</button>
-  <button onclick="showTab('customisation')">Customisation</button>
-  <button onclick="showTab('generation')">Génération cartes</button>
+
+<nav id="tabs">
+  <button onclick="showTab('home')">🏠 Accueil</button>
+  <button onclick="showTab('detection')">🔍 Détection</button>
+  <button onclick="showTab('configuration')">⚙️ Configuration</button>
+  <button onclick="showTab('customisation')">🎨 Customisation</button>
+  <button onclick="showTab('generation')">🧩 Génération cartes</button>
+</nav>
+
+<!-- 🏠 Accueil -->
+<div id="home" class="tab-content active">
+  <h2>Résumé général</h2>
+  <div class="card">
+    <p><strong>Total capteurs détectés :</strong> <span id="totalCapteurs">-</span></p>
+    <p><strong>Capteurs actifs :</strong> <span id="actifsCapteurs">-</span></p>
+    <p><strong>Coût énergétique estimé :</strong> <span id="coutEstime">0 €</span></p>
+    <p><strong>Dernier refresh :</strong> <span id="dernierRefresh">-</span></p>
+    <button id="refreshHome">🔄 Actualiser résumé</button>
+  </div>
 </div>
 
-<div id="detection" class="tab-content active">
-  <p>Total capteurs détectés: <span id="total">-</span></p>
-  <p>Dernière mise à jour: <span id="lastRefresh">-</span></p>
-  <button id="refresh">🔄 Rafraîchir</button>
-  <div id="content"></div>
+<!-- 🔍 Détection -->
+<div id="detection" class="tab-content">
+  <h2>Détection des capteurs</h2>
+  <div class="card">
+    <p><strong>Total capteurs détectés :</strong> <span id="total">-</span></p>
+    <p><strong>Dernière mise à jour :</strong> <span id="lastRefresh">-</span></p>
+    <button id="refresh">🔄 Rafraîchir</button>
+  </div>
+  <div id="content-detection"></div>
 </div>
 
+<!-- ⚙️ Configuration -->
 <div id="configuration" class="tab-content">
-  <p>Configurez vos capteurs :</p>
-  <div id="content"></div>
+  <h2>Configuration des capteurs</h2>
+  <button id="saveSelection" class="primary">💾 Sauvegarder la sélection</button>
+  <div id="content-configuration"></div>
 </div>
 
+<!-- 🎨 Customisation -->
 <div id="customisation" class="tab-content">
-  <p>Options de personnalisation de l'interface (à implémenter)</p>
+  <h2>Personnalisation</h2>
+  <p>Options d’apparence et de thème à venir…</p>
 </div>
 
+<!-- 🧩 Génération -->
 <div id="generation" class="tab-content">
-  <p>Génération automatique des cartes Lovelace (à implémenter)</p>
+  <h2>Génération des cartes Lovelace</h2>
+  <p>Prochainement : aperçu et génération automatique.</p>
 </div>
 
 <script src="app.js"></script>
