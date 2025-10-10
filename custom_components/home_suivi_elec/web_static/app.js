@@ -20,12 +20,16 @@ async function loadSensors() {
       list.forEach(c => {
         const div = document.createElement("div");
         div.className = "sensor";
-        div.textContent = `${c.friendly_name} — ${c.area || "?"} [${c.unit || "?"}]`;
+        const displayValue = c.value !== null ? c.value : "?";
+        const displayUnit = c.unit || "?";
+        div.textContent = `${c.friendly_name} — ${c.area || "?"} [${displayValue} ${displayUnit}]`;
+
         const checkbox = document.createElement("input");
         checkbox.type = "checkbox";
         checkbox.checked = c.enabled;
         checkbox.dataset.integration = integration;
         checkbox.dataset.entityId = c.entity_id;
+
         div.prepend(checkbox);
         block.appendChild(div);
       });
@@ -48,5 +52,10 @@ function deselectAll(integration) {
   document.querySelectorAll(`input[type="checkbox"][data-integration="${integration}"]`).forEach(cb => cb.checked = false);
 }
 
-document.getElementById("refresh").onclick = loadSensors;
+// Bouton Rafraîchir
+const refreshBtn = document.getElementById("refresh");
+if (refreshBtn) {
+  refreshBtn.onclick = loadSensors;
+}
+
 loadSensors();
