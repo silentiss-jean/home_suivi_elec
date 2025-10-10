@@ -5,12 +5,19 @@
 <title>Home Suivi Élec</title>
 <link rel="stylesheet" href="style.css">
 <style>
+body { font-family: "Segoe UI", Roboto, Arial, sans-serif; background-color: #f8f9fa; color: #222; margin: 20px; }
+h1 { text-align: center; color: #0078d4; margin-bottom: 20px; }
+nav#tabs { text-align: center; margin-bottom: 20px; }
+nav#tabs button { background-color: #0078d4; color: white; border: none; padding: 10px 15px; margin: 2px; border-radius: 5px; cursor: pointer; transition: 0.2s; }
+nav#tabs button:hover { background-color: #005fa3; }
 .tab-content { display: none; }
 .tab-content.active { display: block; }
-.integration-block { border: 1px solid #ccc; padding: 10px; margin-bottom: 10px; }
-.sensor { margin-left: 15px; }
-button { margin: 3px; }
-.card { padding: 10px; border: 1px solid #ddd; margin-bottom: 15px; }
+.card { background: white; padding: 15px; border-radius: 8px; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1); margin-bottom: 20px; }
+.integration-block { background: #fff; border-radius: 8px; padding: 10px 15px; margin-bottom: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+.integration-block h3 { color: #0078d4; }
+.sensor { margin-left: 10px; margin-bottom: 3px; }
+button.primary { background-color: #28a745; color: white; border: none; padding: 8px 12px; border-radius: 5px; cursor: pointer; }
+button.primary:hover { background-color: #218838; }
 </style>
 </head>
 <body>
@@ -20,17 +27,25 @@ button { margin: 3px; }
   <button onclick="showTab('home')">🏠 Accueil</button>
   <button onclick="showTab('detection')">🔍 Détection</button>
   <button onclick="showTab('configuration')">⚙️ Configuration</button>
+  <button onclick="showTab('customisation')">🎨 Customisation</button>
+  <button onclick="showTab('generation')">🧩 Génération cartes</button>
 </nav>
 
 <!-- 🏠 Accueil -->
 <div id="home" class="tab-content active">
   <h2>Résumé général</h2>
-  <div class="card">
-    <p><strong>Total capteurs détectés :</strong> <span id="totalCapteurs">-</span></p>
-    <p><strong>Capteurs sélectionnés :</strong> <span id="actifsCapteurs">-</span></p>
-    <p><strong>Coût énergétique estimé :</strong> <span id="coutEstime">0 €</span></p>
-    <p><strong>Dernier refresh :</strong> <span id="dernierRefresh">-</span></p>
-    <button id="refreshHome">🔄 Actualiser résumé</button>
+  <div class="card" id="summaryCard">
+    <p id="summaryMessage" style="color:#555;">Sélectionnez et configurez vos capteurs pour que le résumé affiche des estimations</p>
+    <div id="summaryData" style="display:none">
+      <p><strong>Total capteurs détectés :</strong> <span id="totalCapteurs">-</span></p>
+      <p><strong>Capteurs sélectionnés :</strong> <span id="actifsCapteurs">-</span></p>
+      <p><strong>Coût énergétique estimé (HT) :</strong> <span id="coutHT">-</span></p>
+      <p><strong>Coût énergétique estimé (TTC) :</strong> <span id="coutTTC">-</span></p>
+      <p><strong>Consommation totale mesurée (W) :</strong> <span id="consommationW">-</span></p>
+      <p><strong>Delta avec mesure externe :</strong> <span id="deltaConsommation">-</span></p>
+      <p><strong>Dernier refresh :</strong> <span id="dernierRefresh">-</span></p>
+      <button id="refreshHome">🔄 Actualiser résumé</button>
+    </div>
   </div>
 </div>
 
@@ -40,45 +55,50 @@ button { margin: 3px; }
   <div class="card">
     <p><strong>Total capteurs détectés :</strong> <span id="total">-</span></p>
     <p><strong>Dernière mise à jour :</strong> <span id="lastRefresh">-</span></p>
-    <button id="refresh">🔄 Rafraîchir</button>
+    <button id="refreshDetection">🔄 Rafraîchir</button>
   </div>
   <div id="content-detection"></div>
 </div>
 
 <!-- ⚙️ Configuration -->
 <div id="configuration" class="tab-content">
-  <h2>Configuration des capteurs et données utilisateur</h2>
-  <div class="card">
-    <h3>Données utilisateur / Abonnement</h3>
-    <label>Abonnement mensuel HT (€) : <input type="number" id="userHT" step="0.01"></label><br>
-    <label>Abonnement mensuel TTC (€) : <input type="number" id="userTTC" step="0.01"></label><br>
-    <label>Type de contrat : 
+  <h2>Configuration des capteurs et options utilisateur</h2>
+  <button id="saveSelection" class="primary">💾 Sauvegarder la sélection</button>
+  <div id="content-configuration"></div>
+
+  <h3>Données utilisateur / Abonnement</h3>
+  <div id="userConfig">
+    <label>Abonnement mensuel HT (€) : <input type="number" id="abonnementHT"></label><br>
+    <label>Abonnement mensuel TTC (€) : <input type="number" id="abonnementTTC"></label><br>
+    <label>Type de contrat :
       <select id="typeContrat">
-        <option value="prix_fixe">Prix fixe</option>
-        <option value="indexé">Indexé</option>
+        <option value="fixe">Prix fixe</option>
+        <option value="hp-hc">HP/HC</option>
       </select>
     </label><br>
-    <label><input type="checkbox" id="useExternal"> Utiliser mesure externe (clé Atome ou saisie manuelle)</label><br>
-    <div id="externalInput" style="display:none; margin-left:15px;">
-      <label>Capteur HA compatible : <input type="text" id="externalSensor"></label><br>
-      <label>Ou saisie manuelle (W) : <input type="number" id="externalManual"></label>
+    <div id="hpHCFields" style="display:none">
+      <label>Tarif HP (€) : <input type="number" id="tarifHP"></label><br>
+      <label>Tarif HC (€) : <input type="number" id="tarifHC"></label><br>
+      <label>Heures HP début : <input type="time" id="heuresHPDebut"></label><br>
+      <label>Heures HP fin : <input type="time" id="heuresHPFin"></label><br>
     </div>
-    <button id="saveUserData" class="primary">💾 Sauvegarder les données</button>
-  </div>
-
-  <div class="card">
-    <h3>Capteurs Home Assistant</h3>
-    <button id="saveSelection" class="primary">💾 Sauvegarder la sélection</button>
-    <div id="content-configuration"></div>
+    <label>Mesure totale consommation externe (W, optionnel) : <input type="number" id="consommationExterne"></label><br>
+    <button id="saveUserConfig" class="primary">💾 Sauvegarder les données</button>
   </div>
 </div>
 
+<!-- 🎨 Customisation -->
+<div id="customisation" class="tab-content">
+  <h2>Personnalisation</h2>
+  <p>Options d’apparence et de thème à venir…</p>
+</div>
+
+<!-- 🧩 Génération -->
+<div id="generation" class="tab-content">
+  <h2>Génération des cartes Lovelace</h2>
+  <p>Prochainement : aperçu et génération automatique.</p>
+</div>
+
 <script src="app.js"></script>
-<script>
-function showTab(tab) {
-  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
-  document.getElementById(tab).classList.add('active');
-}
-</script>
 </body>
 </html>
