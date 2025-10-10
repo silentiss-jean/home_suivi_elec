@@ -1,3 +1,6 @@
+/* -*- coding: utf-8 -*- */
+
+/* === Body & Base === */
 body {
   font-family: "Segoe UI", Roboto, Arial, sans-serif;
   background-color: #f8f9fa;
@@ -31,6 +34,16 @@ nav#tabs button:hover {
   background-color: #005fa3;
 }
 
+/* === Onglets === */
+.tab-content {
+  display: none;
+}
+
+.tab-content.active {
+  display: block;
+}
+
+/* === Cartes & Sections === */
 .card {
   background: white;
   padding: 15px;
@@ -49,6 +62,7 @@ nav#tabs button:hover {
 
 .integration-block h3 {
   color: #0078d4;
+  margin-top: 0;
 }
 
 .sensor {
@@ -56,15 +70,49 @@ nav#tabs button:hover {
   margin-bottom: 3px;
 }
 
+/* === Boutons === */
+button {
+  margin: 3px;
+  padding: 6px 10px;
+  border-radius: 5px;
+  border: none;
+  cursor: pointer;
+}
+
 button.primary {
   background-color: #28a745;
   color: white;
-  border: none;
   padding: 8px 12px;
-  border-radius: 5px;
-  cursor: pointer;
 }
 
 button.primary:hover {
   background-color: #218838;
+}
+
+/* === Résumé général & informations utilisateurs === */
+#summaryMessage {
+  color: #888;
+  font-style: italic;
+  margin-bottom: 10px;
+}
+
+#summaryData p {
+  margin: 5px 0;
+}
+
+/* === HP/HC Fields === */
+#hpHCFields {
+  margin-top: 10px;
+  padding: 10px;
+  border: 1px dashed #ccc;
+  border-radius: 5px;
+  display: none;
+}
+
+input[type="text"], input[type="number"], select {
+  padding: 4px 6px;
+  margin: 2px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  width: 120px;
 }
