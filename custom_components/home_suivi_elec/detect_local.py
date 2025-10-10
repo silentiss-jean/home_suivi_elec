@@ -4,33 +4,30 @@
 import os
 import json
 import logging
-
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import device_registry as dr, entity_registry as er, area_registry as ar
 
 _LOGGER = logging.getLogger(__name__)
 
+DATA_DIR = None
+CAPTEURS_POWER_PATH = None
+
 async def run_detect_local(hass: HomeAssistant, entry=None):
-    """Détecter les capteurs de puissance et sauvegarder leurs infos."""
+    global DATA_DIR, CAPTEURS_POWER_PATH
     _LOGGER.info("🔍 Détection locale des capteurs de puissance (power)")
 
-    # --- Dossier de stockage ---
-    data_dir = os.path.join(hass.config.path("custom_components"), "home_suivi_elec", "data")
-    os.makedirs(data_dir, exist_ok=True)
-    power_path = os.path.join(data_dir, "capteurs_power.json")
+    DATA_DIR = os.path.join(hass.config.path("custom_components"), "home_suivi_elec", "data")
+    os.makedirs(DATA_DIR, exist_ok=True)
+    CAPTEURS_POWER_PATH = os.path.join(DATA_DIR, "capteurs_power.json")
 
-    # --- Récupération des registres ---
     dev_reg = dr.async_get(hass)
     ent_reg = er.async_get(hass)
     area_reg = ar.async_get(hass)
 
     capteurs = []
-
     for entity in ent_reg.entities.values():
-        # Filtrer uniquement les capteurs de puissance
         if entity.domain != "sensor":
             continue
-
         device_class = entity.device_class or entity.original_device_class
         if device_class != "power":
             continue
@@ -39,13 +36,10 @@ async def run_detect_local(hass: HomeAssistant, entry=None):
         integration = entity.platform or "unknown"
         device = dev_reg.async_get(entity.device_id) if entity.device_id else None
         area = None
-
-        # Récupération de la zone si disponible
         if device and device.area_id:
             area_obj = area_reg.async_get_area(device.area_id)
             area = area_obj.name if area_obj else None
 
-        # État courant depuis Home Assistant
         state = hass.states.get(entity_id)
         unit = state.attributes.get("unit_of_measurement") if state else None
         friendly_name = state.attributes.get("friendly_name") if state else entity.original_name or entity_id
@@ -60,13 +54,20 @@ async def run_detect_local(hass: HomeAssistant, entry=None):
             "value": value,
         })
 
-    # --- Sauvegarde ---
-    try:
-        with open(power_path, "w", encoding="utf-8") as f:
-            json.dump(capteurs, f, indent=2, ensure_ascii=False)
-        _LOGGER.info("📁 %d capteurs de puissance sauvegardés dans %s", len(capteurs), power_path)
-    except Exception as e:
-        _LOGGER.exception("❌ Erreur lors de la sauvegarde des capteurs : %s", e)
-        return
+    # Charger anciens capteurs pour détecter les nouveaux
+    anciens = []
+    if os.path.exists(CAPTEURS_POWER_PATH):
+        with open(CAPTEURS_POWER_PATH, "r", encoding="utf-8") as f:
+            anciens = json.load(f)
+    anciens_ids = {c["entity_id"] for c in anciens}
 
-    _LOGGER.info("✅ %d capteurs de puissance trouvés localement", len(capteurs))
+    nouveaux = [c for c in capteurs if c["entity_id"] not in anciens_ids]
+
+    # Sauvegarde
+    with open(CAPTEURS_POWER_PATH, "w", encoding="utf-8") as f:
+        json.dump(capteurs, f, indent=2, ensure_ascii=False)
+
+    _LOGGER.info("📁 %d capteurs de puissance sauvegardés dans %s", len(capteurs), CAPTEURS_POWER_PATH)
+    if nouveaux:
+        _LOGGER.info("✨ %d nouveaux capteurs détectés", len(nouveaux))
+    return nouveaux

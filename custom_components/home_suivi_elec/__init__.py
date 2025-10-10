@@ -7,24 +7,19 @@ import shutil
 from functools import partial
 from homeassistant.core import HomeAssistant, ServiceCall, callback
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.components.http import HomeAssistantView
-
 from .const import DOMAIN, CONF_AUTO_GENERATE
 from .detect_local import run_detect_local
 from .generator import run_all
 from .debug_json_sets import scan_sets
 from .options_flow import HomeSuiviElecOptionsFlow
 from . import manage_selection  # pour les API REST
+import asyncio
 
 _LOGGER = logging.getLogger(__name__)
 
-# -----------------------------------------------------------------------------
-# SETUP PRINCIPAL
-# -----------------------------------------------------------------------------
 async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     _LOGGER.info("[SETUP] async_setup appelé")
     return True
-
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     _LOGGER.info("[SETUP_ENTRY] Initialisation Home Suivi Élec")
@@ -71,42 +66,23 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     if hass.data[DOMAIN]["options"].get(CONF_AUTO_GENERATE, True):
         await run_all(hass, hass.data[DOMAIN]["options"])
 
-    # --- Copie UI au démarrage
-    await copy_ui_files(hass)
+    # --- Copie UI au démarrage (évite warning loop)
+    loop = asyncio.get_running_loop()
+    src = hass.config.path("custom_components", "home_suivi_elec", "web_static")
+    dst = hass.config.path("www", "community", "home_suivi_elec_ui")
+    await loop.run_in_executor(None, lambda: _copy_ui_blocking(src, dst))
 
     _LOGGER.info("[SETUP_ENTRY] ✅ Home Suivi Élec setup terminé")
     return True
 
-
-async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-    return True
-
+def _copy_ui_blocking(src, dst):
+    os.makedirs(dst, exist_ok=True)
+    for f in os.listdir(src):
+        src_path = os.path.join(src, f)
+        dst_path = os.path.join(dst, f)
+        if os.path.isfile(src_path):
+            shutil.copy2(src_path, dst_path)
 
 @callback
 def async_get_options_flow(config_entry: ConfigEntry):
     return HomeSuiviElecOptionsFlow(config_entry)
-
-
-# -----------------------------------------------------------------------------
-# COPIE FICHIERS UI
-# -----------------------------------------------------------------------------
-async def copy_ui_files(hass: HomeAssistant):
-    """Copie les fichiers HTML/JS vers /www/community/home_suivi_elec_ui"""
-    src = hass.config.path("custom_components", "home_suivi_elec", "web_static")
-    dst = hass.config.path("www", "community", "home_suivi_elec_ui")
-    os.makedirs(dst, exist_ok=True)
-
-    # ⚡ Utilisation d'un executor pour os.listdir afin de ne pas bloquer la boucle async
-    loop = hass.loop if hasattr(hass, 'loop') else None
-    import asyncio
-    loop = asyncio.get_running_loop()
-    files = await loop.run_in_executor(None, os.listdir, src)
-
-    for f in files:
-        src_path = os.path.join(src, f)
-        dst_path = os.path.join(dst, f)
-        if os.path.isfile(src_path):
-            await hass.async_add_executor_job(shutil.copy2, src_path, dst_path)
-            _LOGGER.info(f"[UI] Copié : {src_path} → {dst_path}")
-
-    _LOGGER.info("[UI] ✅ Interface copiée avec succès dans /www/community/home_suivi_elec_ui")
