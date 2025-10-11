@@ -1,4 +1,4 @@
- # -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 """Gestion REST des capteurs pour Home Suivi Élec (token compatible)."""
 
 import os
@@ -14,6 +14,8 @@ _LOGGER = logging.getLogger(__name__)
 DATA_DIR = os.path.join(os.path.dirname(__file__), "data")
 CAPTEURS_POWER_PATH = os.path.join(DATA_DIR, "capteurs_power.json")
 CAPTEURS_SELECTION_PATH = os.path.join(DATA_DIR, "capteurs_selection.json")
+USER_CONFIG_PATH = os.path.join(DATA_DIR, "user_config.json")
+LINKY_COMPATIBLE_PATH = os.path.join(DATA_DIR, "linky_compatible.json")  # Liste des intégrations compatibles Linky
 
 async def async_setup_selection_api(hass: HomeAssistant):
     """Expose endpoints REST protégés (token)"""
@@ -55,6 +57,31 @@ async def async_setup_selection_api(hass: HomeAssistant):
             _LOGGER.info("[REST] ✅ Sélection sauvegardée.")
             return self.json({"success": True})
 
+    class SaveUserConfigView(HomeAssistantView):
+        url = "/api/home_suivi_elec/save_user_config"
+        name = "api:home_suivi_elec:save_user_config"
+        requires_auth = False
+
+        async def post(self, request):
+            body = await request.json()
+            os.makedirs(DATA_DIR, exist_ok=True)
+            loop = asyncio.get_running_loop()
+            await loop.run_in_executor(None, partial(save_json, USER_CONFIG_PATH, body))
+            _LOGGER.info("[REST] 💾 Données utilisateur sauvegardées.")
+            return self.json({"success": True})
+
+    class GetUserConfigView(HomeAssistantView):
+        url = "/api/home_suivi_elec/get_user_config"
+        name = "api:home_suivi_elec:get_user_config"
+        requires_auth = False
+
+        async def get(self, request):
+            if not os.path.exists(USER_CONFIG_PATH):
+                return self.json({})
+            loop = asyncio.get_running_loop()
+            data = await loop.run_in_executor(None, partial(load_json, USER_CONFIG_PATH))
+            return self.json(data)
+
     class GetSummaryView(HomeAssistantView):
         url = "/api/home_suivi_elec/get_summary"
         name = "api:home_suivi_elec:get_summary"
@@ -73,6 +100,8 @@ async def async_setup_selection_api(hass: HomeAssistant):
 
     hass.http.register_view(GetSensorsView)
     hass.http.register_view(SaveSelectionView)
+    hass.http.register_view(SaveUserConfigView)
+    hass.http.register_view(GetUserConfigView)
     hass.http.register_view(GetSummaryView)
     _LOGGER.info("[REST] API capteurs prête avec summary.")
 

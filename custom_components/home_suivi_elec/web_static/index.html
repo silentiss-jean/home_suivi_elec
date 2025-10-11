@@ -12,12 +12,14 @@ nav#tabs button { background-color: #0078d4; color: white; border: none; padding
 nav#tabs button:hover { background-color: #005fa3; }
 .tab-content { display: none; }
 .tab-content.active { display: block; }
-.card { background: white; padding: 15px; border-radius: 8px; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1); margin-bottom: 20px; }
+.card { background: white; padding: 15px; border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,0.1); margin-bottom: 20px; }
 .integration-block { background: #fff; border-radius: 8px; padding: 10px 15px; margin-bottom: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
 .integration-block h3 { color: #0078d4; }
 .sensor { margin-left: 10px; margin-bottom: 3px; }
 button.primary { background-color: #28a745; color: white; border: none; padding: 8px 12px; border-radius: 5px; cursor: pointer; }
 button.primary:hover { background-color: #218838; }
+label { display: block; margin: 5px 0; }
+#externalFields { background: #eef4ff; border-radius: 8px; padding: 10px; margin-top: 8px; border-left: 3px solid #0078d4; }
 </style>
 </head>
 <body>
@@ -63,27 +65,41 @@ button.primary:hover { background-color: #218838; }
 <!-- ⚙️ Configuration -->
 <div id="configuration" class="tab-content">
   <h2>Configuration des capteurs et options utilisateur</h2>
-  <button id="saveSelection" class="primary">💾 Sauvegarder la sélection</button>
+  <button id="saveSelection" class="primary">💾 Sauvegarder la sélection et les données</button>
   <div id="content-configuration"></div>
 
   <h3>Données utilisateur / Abonnement</h3>
-  <div id="userConfig">
-    <label>Abonnement mensuel HT (€) : <input type="number" id="abonnementHT"></label><br>
-    <label>Abonnement mensuel TTC (€) : <input type="number" id="abonnementTTC"></label><br>
+  <div id="userConfig" class="card">
+    <label>Abonnement mensuel HT (€) : <input type="number" id="abonnementHT"></label>
+    <label>Abonnement mensuel TTC (€) : <input type="number" id="abonnementTTC"></label>
+
     <label>Type de contrat :
       <select id="typeContrat">
         <option value="fixe">Prix fixe</option>
         <option value="hp-hc">HP/HC</option>
       </select>
-    </label><br>
+    </label>
+
     <div id="hpHCFields" style="display:none">
-      <label>Tarif HP (€) : <input type="number" id="tarifHP"></label><br>
-      <label>Tarif HC (€) : <input type="number" id="tarifHC"></label><br>
-      <label>Heures HP début : <input type="time" id="heuresHPDebut"></label><br>
-      <label>Heures HP fin : <input type="time" id="heuresHPFin"></label><br>
+      <label>Tarif HP (€) : <input type="number" id="tarifHP"></label>
+      <label>Tarif HC (€) : <input type="number" id="tarifHC"></label>
+      <label>Heures HP début : <input type="time" id="heuresHPDebut"></label>
+      <label>Heures HP fin : <input type="time" id="heuresHPFin"></label>
     </div>
-    <label>Mesure totale consommation externe (W, optionnel) : <input type="number" id="consommationExterne"></label><br>
-    <button id="saveUserConfig" class="primary">💾 Sauvegarder les données</button>
+
+    <label>
+      <input type="checkbox" id="useExternal">
+      Utiliser une mesure externe (clé Atome / saisie manuelle)
+    </label>
+
+    <div id="externalFields" style="display:none">
+      <label>Capteur Home Assistant :
+        <select id="capteurExterneSelect"></select>
+      </label>
+      <label>ou saisie manuelle (W relevés) :
+        <input type="number" id="consommationExterne">
+      </label>
+    </div>
   </div>
 </div>
 
@@ -100,7 +116,6 @@ button.primary:hover { background-color: #218838; }
 </div>
 
 <script>
-// --- Gestion onglets ---
 function showTab(tab) {
   document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
   const selected = document.getElementById(tab);
