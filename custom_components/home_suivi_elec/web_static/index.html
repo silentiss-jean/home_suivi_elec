@@ -33,7 +33,6 @@ label { display: block; margin: 5px 0; }
   <button onclick="showTab('generation')">🧩 Génération cartes</button>
 </nav>
 
-<!-- 🏠 Accueil -->
 <div id="home" class="tab-content active">
   <h2>Résumé général</h2>
   <div class="card" id="summaryCard">
@@ -51,7 +50,6 @@ label { display: block; margin: 5px 0; }
   </div>
 </div>
 
-<!-- 🔍 Détection -->
 <div id="detection" class="tab-content">
   <h2>Détection des capteurs</h2>
   <div class="card">
@@ -62,54 +60,38 @@ label { display: block; margin: 5px 0; }
   <div id="content-detection"></div>
 </div>
 
-<!-- ⚙️ Configuration -->
 <div id="configuration" class="tab-content">
   <h2>Configuration des capteurs et options utilisateur</h2>
   <button id="saveSelection" class="primary">💾 Sauvegarder la sélection et les données</button>
   <div id="content-configuration"></div>
-
-  <h3>Données utilisateur / Abonnement</h3>
   <div id="userConfig" class="card">
-    <label>Abonnement mensuel HT (€) : <input type="number" id="abonnementHT"></label>
-    <label>Abonnement mensuel TTC (€) : <input type="number" id="abonnementTTC"></label>
-
+    <label>Abonnement HT (€) : <input type="number" id="abonnementHT"></label>
+    <label>Abonnement TTC (€) : <input type="number" id="abonnementTTC"></label>
     <label>Type de contrat :
       <select id="typeContrat">
         <option value="fixe">Prix fixe</option>
         <option value="hp-hc">HP/HC</option>
       </select>
     </label>
-
     <div id="hpHCFields" style="display:none">
       <label>Tarif HP (€) : <input type="number" id="tarifHP"></label>
       <label>Tarif HC (€) : <input type="number" id="tarifHC"></label>
       <label>Heures HP début : <input type="time" id="heuresHPDebut"></label>
       <label>Heures HP fin : <input type="time" id="heuresHPFin"></label>
     </div>
-
-    <label>
-      <input type="checkbox" id="useExternal">
-      Utiliser une mesure externe (clé Atome / saisie manuelle)
-    </label>
-
+    <label><input type="checkbox" id="useExternal"> Utiliser une mesure externe (clé Atome / saisie manuelle)</label>
     <div id="externalFields" style="display:none">
-      <label>Capteur Home Assistant :
-        <select id="capteurExterneSelect"></select>
-      </label>
-      <label>ou saisie manuelle (W relevés) :
-        <input type="number" id="consommationExterne">
-      </label>
+      <label>Capteur Home Assistant : <select id="capteurExterneSelect"></select></label>
+      <label>ou saisie manuelle (W relevés) : <input type="number" id="consommationExterne"></label>
     </div>
   </div>
 </div>
 
-<!-- 🎨 Customisation -->
 <div id="customisation" class="tab-content">
   <h2>Personnalisation</h2>
   <p>Options d’apparence et de thème à venir…</p>
 </div>
 
-<!-- 🧩 Génération -->
 <div id="generation" class="tab-content">
   <h2>Génération des cartes Lovelace</h2>
   <p>Prochainement : aperçu et génération automatique.</p>
@@ -121,7 +103,6 @@ function showTab(tab) {
   document.getElementById(tab).classList.add('active');
 }
 </script>
-
 <script src="app.js"></script>
 </body>
 </html>

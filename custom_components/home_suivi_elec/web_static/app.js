@@ -19,17 +19,22 @@ async function loadSummary() {
     ]);
 
     if (!selectionResp.ok || !powerResp.ok) {
-      console.warn("⛔ Fichiers de données manquants, attendre première configuration.");
       summaryMessage.style.display = "block";
       summaryData.style.display = "none";
       return;
     }
 
-    const powerData = await powerResp.json();
-    const selectionData = await selectionResp.json();
+    const powerData = powerResp.ok ? await powerResp.json() : [];
+    const selectionData = selectionResp.ok ? await selectionResp.json() : {};
     const userData = userResp.ok ? await userResp.json() : {};
 
-    let total = Array.isArray(powerData) ? powerData.length : 0;
+    if (!powerData.length || Object.keys(selectionData).length === 0) {
+      summaryMessage.style.display = "block";
+      summaryData.style.display = "none";
+      return;
+    }
+
+    let total = powerData.length;
     let actifs = 0;
     let consommationTotale = 0;
 
@@ -38,10 +43,7 @@ async function loadSummary() {
       consommationTotale += integ.filter(c => c.enabled).reduce((sum, c) => sum + (c.value || 0), 0);
     }
 
-    let delta = 0;
-    if (userData.consommationExterne) {
-      delta = userData.consommationExterne - consommationTotale;
-    }
+    let delta = userData.consommationExterne ? userData.consommationExterne - consommationTotale : 0;
 
     totalSpan.textContent = total;
     actifsSpan.textContent = `${actifs} / ${total}`;
@@ -80,14 +82,11 @@ async function loadDetection() {
       list.forEach(c => {
         const div = document.createElement("div");
         div.className = "sensor";
-        const displayValue = c.value ?? 0;
-        const displayUnit = c.unit || "?";
-        div.textContent = `${c.friendly_name} — ${c.area || "?"} [${displayValue} ${displayUnit}]`;
+        div.textContent = `${c.friendly_name} — ${c.area || "?"} [${c.value ?? 0} ${c.unit || "?"}]`;
         block.appendChild(div);
       });
       content.appendChild(block);
     }
-
     document.getElementById("total").textContent = total;
     document.getElementById("lastRefresh").textContent = new Date().toLocaleTimeString();
   } catch (err) {
@@ -98,5 +97,95 @@ async function loadDetection() {
 
 document.getElementById("refreshDetection").onclick = loadDetection;
 
-// Onglet par défaut
-showTab('home');
+// === ⚙️ CONFIGURATION ===
+async function loadConfiguration() {
+  const content = document.getElementById("content-configuration");
+  content.innerHTML = "Chargement...";
+  try {
+    const resp = await fetch("/api/home_suivi_elec/get_sensors");
+    if (!resp.ok) throw new Error(`Erreur HTTP ${resp.status}`);
+    const sensors = await resp.json();
+    content.innerHTML = "";
+
+    // Charger les capteurs standard (hors mesure externe)
+    const userResp = await fetch("/api/home_suivi_elec/get_file?name=user_config.json");
+    const userData = userResp.ok ? await userResp.json() : {};
+    let externalEntityId = userData.capteurExterne || null;
+
+    for (const [integration, list] of Object.entries(sensors)) {
+      const block = document.createElement("div");
+      block.className = "integration-block";
+      block.innerHTML = `<h3>${integration}</h3>
+        <button onclick="selectAll('${integration}')">Tout sélectionner</button>
+        <button onclick="deselectAll('${integration}')">Tout désélectionner</button>`;
+      list.forEach(c => {
+        if (c.entity_id === externalEntityId) return; // Exclure mesure externe
+        const div = document.createElement("div");
+        div.className = "sensor";
+        const checkbox = document.createElement("input");
+        checkbox.type = "checkbox";
+        checkbox.checked = c.enabled;
+        checkbox.dataset.integration = integration;
+        checkbox.dataset.entityId = c.entity_id;
+        div.append(checkbox, document.createTextNode(` ${c.friendly_name} — ${c.area || "?"} [${c.value ?? 0} ${c.unit || "?"}]`));
+        block.appendChild(div);
+      });
+      content.appendChild(block);
+    }
+  } catch (err) {
+    console.error("Erreur config:", err);
+    content.innerHTML = `<p style="color:red;">❌ ${err.message}</p>`;
+  }
+}
+
+// Sauvegarde sélection et user config
+document.getElementById("saveSelection").onclick = async function () {
+  const selections = {};
+  document.querySelectorAll("#content-configuration input[type='checkbox']").forEach(cb => {
+    const integ = cb.dataset.integration;
+    selections[integ] ??= [];
+    selections[integ].push({ entity_id: cb.dataset.entityId, enabled: cb.checked });
+  });
+  const userData = {
+    abonnementHT: parseFloat(document.getElementById("abonnementHT").value) || 0,
+    abonnementTTC: parseFloat(document.getElementById("abonnementTTC").value) || 0,
+    typeContrat: document.getElementById("typeContrat").value,
+    tarifHP: parseFloat(document.getElementById("tarifHP").value) || 0,
+    tarifHC: parseFloat(document.getElementById("tarifHC").value) || 0,
+    heuresHPDebut: document.getElementById("heuresHPDebut").value,
+    heuresHPFin: document.getElementById("heuresHPFin").value,
+    consommationExterne: parseFloat(document.getElementById("consommationExterne").value) || 0,
+    capteurExterne: document.getElementById("capteurExterneSelect")?.value || null
+  };
+  try {
+    await fetch("/api/home_suivi_elec/save_selection", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(selections)
+    });
+    await fetch("/api/home_suivi_elec/get_file?name=user_config.json", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(userData)
+    });
+    alert("💾 Sélection et données utilisateur sauvegardées !");
+    loadSummary();
+  } catch (err) {
+    alert("❌ Erreur lors de la sauvegarde");
+    console.error(err);
+  }
+};
+
+// HP/HC toggle
+document.getElementById("typeContrat").onchange = function () {
+  document.getElementById("hpHCFields").style.display =
+    this.value === "hp-hc" ? "block" : "none";
+};
+
+// Sélection globale par intégration
+function selectAll(integration) {
+  document.querySelectorAll(`#content-configuration input[data-integration="${integration}"]`).forEach(cb => cb.checked = true);
+}
+function deselectAll(integration) {
+  document.querySelectorAll(`#content-configuration input[data-integration="${integration}"]`).forEach(cb => cb.checked = false);
+}
