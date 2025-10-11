@@ -1,17 +1,22 @@
-/* -*- coding: utf-8 -*- */
+/* === 🎨 Home Suivi Élec - Style global === */
 
-/* === Body & Base === */
 body {
   font-family: "Segoe UI", Roboto, Arial, sans-serif;
   background-color: #f8f9fa;
   color: #222;
   margin: 20px;
+  line-height: 1.6;
 }
 
+/* === Titres et navigation === */
 h1 {
   text-align: center;
   color: #0078d4;
   margin-bottom: 20px;
+}
+
+h2, h3 {
+  color: #005fa3;
 }
 
 nav#tabs {
@@ -24,17 +29,18 @@ nav#tabs button {
   color: white;
   border: none;
   padding: 10px 15px;
-  margin: 2px;
-  border-radius: 5px;
+  margin: 3px;
+  border-radius: 6px;
   cursor: pointer;
-  transition: 0.2s;
+  transition: background-color 0.2s, transform 0.1s;
 }
 
 nav#tabs button:hover {
   background-color: #005fa3;
+  transform: scale(1.03);
 }
 
-/* === Onglets === */
+/* === Sections & cartes === */
 .tab-content {
   display: none;
 }
@@ -43,76 +49,128 @@ nav#tabs button:hover {
   display: block;
 }
 
-/* === Cartes & Sections === */
 .card {
   background: white;
-  padding: 15px;
-  border-radius: 8px;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+  padding: 15px 20px;
+  border-radius: 10px;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.08);
   margin-bottom: 20px;
 }
 
+/* === Intégrations et capteurs === */
 .integration-block {
-  background: #fff;
+  background: #ffffff;
   border-radius: 8px;
   padding: 10px 15px;
   margin-bottom: 10px;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
 }
 
 .integration-block h3 {
   color: #0078d4;
-  margin-top: 0;
+  margin-bottom: 8px;
 }
 
 .sensor {
-  margin-left: 10px;
-  margin-bottom: 3px;
+  margin-left: 12px;
+  margin-bottom: 4px;
+  color: #333;
 }
 
 /* === Boutons === */
-button {
-  margin: 3px;
-  padding: 6px 10px;
-  border-radius: 5px;
-  border: none;
-  cursor: pointer;
-}
-
 button.primary {
   background-color: #28a745;
   color: white;
-  padding: 8px 12px;
+  border: none;
+  padding: 8px 14px;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: background-color 0.2s;
 }
 
 button.primary:hover {
   background-color: #218838;
 }
 
-/* === Résumé général & informations utilisateurs === */
+button.secondary {
+  background-color: #6c757d;
+  color: white;
+  border: none;
+  padding: 8px 14px;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+button.secondary:hover {
+  background-color: #565e64;
+}
+
+/* === Formulaires === */
+label {
+  display: block;
+  margin: 6px 0;
+  font-weight: 500;
+}
+
+input[type="number"],
+input[type="time"],
+select {
+  padding: 5px 8px;
+  margin-left: 5px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  min-width: 100px;
+}
+
+input[type="checkbox"] {
+  transform: scale(1.1);
+  margin-right: 6px;
+}
+
+#hpHCFields {
+  background: #f1f6ff;
+  padding: 10px;
+  border-left: 3px solid #0078d4;
+  border-radius: 6px;
+  margin-top: 8px;
+}
+
+/* === Bloc mesure externe === */
+#externalFields {
+  background: #eef4ff;
+  border-radius: 8px;
+  padding: 10px;
+  margin-top: 8px;
+  border-left: 3px solid #0078d4;
+}
+
+/* === Messages & alertes === */
 #summaryMessage {
-  color: #888;
+  color: #555;
   font-style: italic;
   margin-bottom: 10px;
 }
 
-#summaryData p {
-  margin: 5px 0;
+p.error {
+  color: red;
+  font-weight: bold;
 }
 
-/* === HP/HC Fields === */
-#hpHCFields {
-  margin-top: 10px;
-  padding: 10px;
-  border: 1px dashed #ccc;
-  border-radius: 5px;
-  display: none;
+/* === Tableaux / Valeurs === */
+p strong {
+  color: #004d8b;
 }
 
-input[type="text"], input[type="number"], select {
-  padding: 4px 6px;
-  margin: 2px;
-  border: 1px solid #ccc;
-  border-radius: 4px;
-  width: 120px;
+span {
+  font-weight: bold;
+  color: #111;
+}
+
+/* === Animation légère === */
+.card, .integration-block {
+  transition: box-shadow 0.2s ease-in-out;
+}
+
+.card:hover, .integration-block:hover {
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.1);
 }
