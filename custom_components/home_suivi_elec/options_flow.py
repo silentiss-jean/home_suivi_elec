@@ -1,6 +1,3 @@
-# -*- coding: utf-8 -*-
-"""Options Flow – Home Suivi Élec"""
-
 from homeassistant import config_entries
 import voluptuous as vol
 from homeassistant.helpers import config_validation as cv
@@ -26,15 +23,9 @@ class HomeSuiviElecOptionsFlow(config_entries.OptionsFlow):
 
     async def async_step_init(self, user_input=None):
         _LOGGER.debug("[OPTIONS_FLOW] async_step_init called, user_input: %s", user_input)
-
-        # --- Étape 1 : si utilisateur a validé ---
         if user_input is not None:
-            # ⚙️ Fusion : on garde les options existantes (ex : externalCapteur) non visibles ici
-            merged = {**self.config_entry.options, **user_input}
-            _LOGGER.info("[OPTIONS_FLOW] Fusion options existantes + nouvelles valeurs : %s", merged)
-            return self.async_create_entry(title="", data=merged)
+            return self.async_create_entry(title="", data=user_input)
 
-        # --- Étape 2 : sinon, on affiche le formulaire normal ---
         data = self.config_entry.options or {}
         type_contrat = data.get(CONF_TYPE_CONTRAT, "prix_unique")
         defaults = DEFAULTS.get(type_contrat, {})
