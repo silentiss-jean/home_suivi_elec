@@ -12,10 +12,12 @@ async function loadSummary() {
   const refreshSpan = document.getElementById("dernierRefresh");
 
   try {
+    // On lit directement les fichiers du dossier data de l’intégration
+    const base = "/local/community/home_suivi_elec/data";
     const [powerResp, selectionResp, userResp] = await Promise.all([
-      fetch("/api/home_suivi_elec/get_file?name=capteurs_power.json"),
-      fetch("/api/home_suivi_elec/get_file?name=capteurs_selection.json"),
-      fetch("/api/home_suivi_elec/get_user_config")
+      fetch(`${base}/capteurs_power.json`),
+      fetch(`${base}/capteurs_selection.json`),
+      fetch(`${base}/user_config.json`)
     ]);
 
     if (!powerResp.ok || !selectionResp.ok) {
@@ -50,17 +52,17 @@ async function loadSummary() {
     coutTTC.textContent = userData.abonnementTTC ? `${userData.abonnementTTC.toFixed(2)} €` : "-";
     consommationW.textContent = `${consommationTotale.toFixed(2)} W`;
     deltaConsommation.textContent = `${delta.toFixed(2)} W`;
+    refreshSpan.textContent = new Date().toLocaleTimeString();
 
     summaryMessage.style.display = "none";
     summaryData.style.display = "block";
-    refreshSpan.textContent = new Date().toLocaleTimeString();
+
   } catch (err) {
     console.error("Erreur chargement résumé:", err);
+    summaryMessage.style.display = "block";
+    summaryData.style.display = "none";
   }
 }
-
-document.getElementById("refreshHome").onclick = loadSummary;
-loadSummary();
 
 // === 🔍 DÉTECTION DES CAPTEURS ===
 async function loadDetection() {
@@ -79,7 +81,6 @@ async function loadDetection() {
       block.className = "integration-block";
       block.innerHTML = `<h3>${integration}</h3>`;
       list.forEach(c => {
-        if (c.entity_id === "sensor.atome") return; // ⚠️ exclure clé Atome
         const div = document.createElement("div");
         div.className = "sensor";
         const displayValue = c.value ?? 0;
@@ -98,20 +99,19 @@ async function loadDetection() {
   }
 }
 
-document.getElementById("refreshDetection").onclick = loadDetection;
+// Chargement automatique au démarrage
+document.addEventListener("DOMContentLoaded", () => {
+  loadDetection(); // plus besoin de cliquer sur Rafraîchir
+});
 
-// === ⚙️ CONFIGURATION DES CAPTEURS ===
+// === CONFIGURATION ===
 async function loadConfiguration() {
   const content = document.getElementById("content-configuration");
   content.innerHTML = "Chargement...";
   try {
-    const [resp, userResp] = await Promise.all([
-      fetch("/api/home_suivi_elec/get_sensors"),
-      fetch("/api/home_suivi_elec/get_user_config")
-    ]);
+    const resp = await fetch("/api/home_suivi_elec/get_sensors");
     if (!resp.ok) throw new Error(`Erreur HTTP ${resp.status}`);
     const sensors = await resp.json();
-    const userData = userResp.ok ? await userResp.json() : {};
     content.innerHTML = "";
 
     for (const [integration, list] of Object.entries(sensors)) {
@@ -121,7 +121,6 @@ async function loadConfiguration() {
         <button onclick="selectAll('${integration}')">Tout sélectionner</button>
         <button onclick="deselectAll('${integration}')">Tout désélectionner</button>`;
       list.forEach(c => {
-        if (c.entity_id === userData.entityIdExterne) return; // ⚠️ exclure mesure externe
         const div = document.createElement("div");
         div.className = "sensor";
         const checkbox = document.createElement("input");
@@ -129,31 +128,18 @@ async function loadConfiguration() {
         checkbox.checked = c.enabled;
         checkbox.dataset.integration = integration;
         checkbox.dataset.entityId = c.entity_id;
-        div.append(
-          checkbox,
-          document.createTextNode(` ${c.friendly_name} — ${c.area || "?"} [${c.value ?? 0} ${c.unit || "?"}]`)
-        );
+        div.append(checkbox, document.createTextNode(` ${c.friendly_name} — ${c.area || "?"} [${c.value ?? 0} ${c.unit || "?"}]`));
         block.appendChild(div);
       });
       content.appendChild(block);
     }
-
-    // Pré-remplir les champs utilisateur
-    document.getElementById("abonnementHT").value = userData.abonnementHT || "";
-    document.getElementById("abonnementTTC").value = userData.abonnementTTC || "";
-    document.getElementById("typeContrat").value = userData.typeContrat || "fixe";
-    document.getElementById("tarifHP").value = userData.tarifHP || "";
-    document.getElementById("tarifHC").value = userData.tarifHC || "";
-    document.getElementById("heuresHPDebut").value = userData.heuresHPDebut || "";
-    document.getElementById("heuresHPFin").value = userData.heuresHPFin || "";
-    document.getElementById("consommationExterne").value = userData.consommationExterne || "";
-
   } catch (err) {
     console.error("Erreur config:", err);
     content.innerHTML = `<p style="color:red;">❌ ${err.message}</p>`;
   }
 }
 
+// Sauvegarde sélection capteurs
 document.getElementById("saveSelection").onclick = async function () {
   const selections = {};
   document.querySelectorAll("#content-configuration input[type='checkbox']").forEach(cb => {
@@ -176,39 +162,13 @@ document.getElementById("saveSelection").onclick = async function () {
   }
 };
 
-document.getElementById("saveUserConfig").onclick = async function () {
-  const userData = {
-    abonnementHT: parseFloat(document.getElementById("abonnementHT").value) || 0,
-    abonnementTTC: parseFloat(document.getElementById("abonnementTTC").value) || 0,
-    typeContrat: document.getElementById("typeContrat").value,
-    tarifHP: parseFloat(document.getElementById("tarifHP").value) || 0,
-    tarifHC: parseFloat(document.getElementById("tarifHC").value) || 0,
-    heuresHPDebut: document.getElementById("heuresHPDebut").value,
-    heuresHPFin: document.getElementById("heuresHPFin").value,
-    consommationExterne: parseFloat(document.getElementById("consommationExterne").value) || 0
-  };
-  try {
-    const resp = await fetch("/api/home_suivi_elec/save_user_config", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(userData)
-    });
-    const result = await resp.json();
-    alert(result.success ? "💾 Données utilisateur sauvegardées !" : "❌ Erreur sauvegarde");
-    loadSummary();
-  } catch (err) {
-    alert("❌ Erreur sauvegarde données utilisateur");
-    console.error(err);
-  }
-};
-
 // HP/HC toggle
 document.getElementById("typeContrat").onchange = function () {
   document.getElementById("hpHCFields").style.display =
     this.value === "hp-hc" ? "block" : "none";
 };
 
-// Outils sélection
+// Sélection globale
 function selectAll(integration) {
   document.querySelectorAll(`#content-configuration input[data-integration="${integration}"]`).forEach(cb => cb.checked = true);
 }
