@@ -99,6 +99,15 @@ button.primary:hover { background-color: #218838; }
   <p>Prochainement : aperçu et génération automatique.</p>
 </div>
 
+<script>
+// --- Gestion onglets ---
+function showTab(tab) {
+  document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+  const selected = document.getElementById(tab);
+  if (selected) selected.classList.add('active');
+}
+</script>
+
 <script src="app.js"></script>
 </body>
 </html>
