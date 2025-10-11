@@ -12,21 +12,22 @@ async function loadSummary() {
   const refreshSpan = document.getElementById("dernierRefresh");
 
   try {
-    // On lit directement les fichiers locaux JSON produits par l’intégration
+    // ✅ Correction des chemins (community/home_suivi_elec/data)
     const [powerResp, selectionResp, userResp] = await Promise.all([
-      fetch("/local/community/home_suivi_elec_ui/../data/capteurs_power.json"),
-      fetch("/local/community/home_suivi_elec_ui/../data/capteurs_selection.json"),
-      fetch("/local/community/home_suivi_elec_ui/../data/user_config.json")
+      fetch("/local/community/home_suivi_elec/data/capteurs_power.json"),
+      fetch("/local/community/home_suivi_elec/data/capteurs_selection.json"),
+      fetch("/local/community/home_suivi_elec/data/user_config.json")
     ]);
 
-    if (!selectionResp.ok || !powerResp.ok) {
+    if (!powerResp.ok || !selectionResp.ok) {
+      console.warn("⛔ Fichiers de données manquants, attendre première configuration.");
       summaryMessage.style.display = "block";
       summaryData.style.display = "none";
       return;
     }
 
-    const powerData = powerResp.ok ? await powerResp.json() : [];
-    const selectionData = selectionResp.ok ? await selectionResp.json() : {};
+    const powerData = await powerResp.json();
+    const selectionData = await selectionResp.json();
     const userData = userResp.ok ? await userResp.json() : {};
 
     let total = Array.isArray(powerData) ? powerData.length : 0;
@@ -57,6 +58,8 @@ async function loadSummary() {
 
   } catch (err) {
     console.error("Erreur chargement résumé:", err);
+    summaryMessage.style.display = "block";
+    summaryData.style.display = "none";
   }
 }
 
@@ -172,7 +175,7 @@ function deselectAll(integration) {
   document.querySelectorAll(`#content-configuration input[data-integration="${integration}"]`).forEach(cb => cb.checked = false);
 }
 
-// Onglet par défaut
+// === Onglet par défaut ===
 function showTab(tab) {
   document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
   document.getElementById(tab).classList.add('active');
