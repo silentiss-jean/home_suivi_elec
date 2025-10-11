@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+ # -*- coding: utf-8 -*-
 """Gestion REST des capteurs pour Home Suivi Élec (token compatible)."""
 
 import os
@@ -14,11 +14,9 @@ _LOGGER = logging.getLogger(__name__)
 DATA_DIR = os.path.join(os.path.dirname(__file__), "data")
 CAPTEURS_POWER_PATH = os.path.join(DATA_DIR, "capteurs_power.json")
 CAPTEURS_SELECTION_PATH = os.path.join(DATA_DIR, "capteurs_selection.json")
-USER_CONFIG_PATH = os.path.join(DATA_DIR, "user_config.json")
-
 
 async def async_setup_selection_api(hass: HomeAssistant):
-    """Expose endpoints REST pour Home Suivi Élec."""
+    """Expose endpoints REST protégés (token)"""
 
     class GetSensorsView(HomeAssistantView):
         url = "/api/home_suivi_elec/get_sensors"
@@ -57,43 +55,34 @@ async def async_setup_selection_api(hass: HomeAssistant):
             _LOGGER.info("[REST] ✅ Sélection sauvegardée.")
             return self.json({"success": True})
 
-    class GetFileView(HomeAssistantView):
-        """Permet au front d’accéder aux fichiers JSON existants."""
-        url = "/api/home_suivi_elec/get_file"
-        name = "api:home_suivi_elec:get_file"
+    class GetSummaryView(HomeAssistantView):
+        url = "/api/home_suivi_elec/get_summary"
+        name = "api:home_suivi_elec:get_summary"
         requires_auth = False
 
         async def get(self, request):
-            params = request.query
-            name = params.get("name")
-            path_map = {
-                "capteurs_power.json": CAPTEURS_POWER_PATH,
-                "capteurs_selection.json": CAPTEURS_SELECTION_PATH,
-                "user_config.json": USER_CONFIG_PATH
-            }
-            path = path_map.get(name)
-            if not path or not os.path.exists(path):
-                _LOGGER.warning(f"[REST] Fichier demandé introuvable : {name}")
-                return self.json({})
             loop = asyncio.get_running_loop()
-            data = await loop.run_in_executor(None, partial(load_json, path))
-            return self.json(data)
+            power = await loop.run_in_executor(None, partial(load_json, CAPTEURS_POWER_PATH)) if os.path.exists(CAPTEURS_POWER_PATH) else []
+            selection = await loop.run_in_executor(None, partial(load_json, CAPTEURS_SELECTION_PATH)) if os.path.exists(CAPTEURS_SELECTION_PATH) else {}
+            total = len(power)
+            selected = sum(len([c for c in v if c.get("enabled")]) for v in selection.values())
+            return self.json({
+                "total": total,
+                "selected": selected
+            })
 
     hass.http.register_view(GetSensorsView)
     hass.http.register_view(SaveSelectionView)
-    hass.http.register_view(GetFileView)
-    _LOGGER.info("[REST] API capteurs prête avec accès fichiers.")
-
+    hass.http.register_view(GetSummaryView)
+    _LOGGER.info("[REST] API capteurs prête avec summary.")
 
 def load_json(path):
     with open(path, "r", encoding="utf-8") as f:
         return json.load(f)
 
-
 def save_json(path, data):
     with open(path, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2, ensure_ascii=False)
-
 
 async def generate_selection(hass: HomeAssistant):
     """Génère capteurs_selection.json à partir de capteurs_power.json."""
