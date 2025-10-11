@@ -1,5 +1,4 @@
 // -*- coding: utf-8 -*-
-
 // === 🏠 PAGE HOME / RÉSUMÉ GÉNÉRAL ===
 async function loadSummary() {
   const summaryMessage = document.getElementById("summaryMessage");
@@ -13,13 +12,14 @@ async function loadSummary() {
   const refreshSpan = document.getElementById("dernierRefresh");
 
   try {
+    // On lit directement les fichiers locaux JSON produits par l’intégration
     const [powerResp, selectionResp, userResp] = await Promise.all([
-      fetch("/api/home_suivi_elec/get_file?name=capteurs_power.json"),
-      fetch("/api/home_suivi_elec/get_file?name=capteurs_selection.json"),
-      fetch("/api/home_suivi_elec/get_user_config")
+      fetch("/local/community/home_suivi_elec_ui/../data/capteurs_power.json"),
+      fetch("/local/community/home_suivi_elec_ui/../data/capteurs_selection.json"),
+      fetch("/local/community/home_suivi_elec_ui/../data/user_config.json")
     ]);
 
-    if (!powerResp.ok || !selectionResp.ok) {
+    if (!selectionResp.ok || !powerResp.ok) {
       summaryMessage.style.display = "block";
       summaryData.style.display = "none";
       return;
@@ -34,12 +34,15 @@ async function loadSummary() {
     let consommationTotale = 0;
 
     for (const integ of Object.values(selectionData)) {
-      actifs += integ.filter(c => c.enabled).length;
-      consommationTotale += integ.filter(c => c.enabled).reduce((sum, c) => sum + (c.value || 0), 0);
+      const actifsList = integ.filter(c => c.enabled);
+      actifs += actifsList.length;
+      consommationTotale += actifsList.reduce((sum, c) => sum + (c.value || 0), 0);
     }
 
     let delta = 0;
-    if (userData.consommationExterne) delta = userData.consommationExterne - consommationTotale;
+    if (userData.consommationExterne) {
+      delta = userData.consommationExterne - consommationTotale;
+    }
 
     totalSpan.textContent = total;
     actifsSpan.textContent = `${actifs} / ${total}`;
@@ -60,7 +63,6 @@ async function loadSummary() {
 document.getElementById("refreshHome").onclick = loadSummary;
 loadSummary();
 
-
 // === 🔍 DÉTECTION DES CAPTEURS ===
 async function loadDetection() {
   const content = document.getElementById("content-detection");
@@ -80,7 +82,9 @@ async function loadDetection() {
       list.forEach(c => {
         const div = document.createElement("div");
         div.className = "sensor";
-        div.textContent = `${c.friendly_name} — ${c.area || "?"} [${c.value ?? 0} ${c.unit || "?"}]`;
+        const displayValue = c.value ?? 0;
+        const displayUnit = c.unit || "?";
+        div.textContent = `${c.friendly_name} — ${c.area || "?"} [${displayValue} ${displayUnit}]`;
         block.appendChild(div);
       });
       content.appendChild(block);
@@ -93,49 +97,26 @@ async function loadDetection() {
     content.innerHTML = `<p style="color:red;">❌ ${err.message}</p>`;
   }
 }
+
 document.getElementById("refreshDetection").onclick = loadDetection;
 
-
-// === ⚙️ CONFIGURATION DES CAPTEURS ===
+// === ⚙️ CONFIGURATION ===
 async function loadConfiguration() {
   const content = document.getElementById("content-configuration");
   content.innerHTML = "Chargement...";
   try {
-    const [resp, userResp] = await Promise.all([
-      fetch("/api/home_suivi_elec/get_sensors"),
-      fetch("/api/home_suivi_elec/get_user_config")
-    ]);
+    const resp = await fetch("/api/home_suivi_elec/get_sensors");
     if (!resp.ok) throw new Error(`Erreur HTTP ${resp.status}`);
-
     const sensors = await resp.json();
-    const userData = userResp.ok ? await userResp.json() : {};
     content.innerHTML = "";
 
-    // --- Remplissage auto du formulaire utilisateur ---
-    document.getElementById("abonnementHT").value = userData.abonnementHT || "";
-    document.getElementById("abonnementTTC").value = userData.abonnementTTC || "";
-    document.getElementById("typeContrat").value = userData.typeContrat || "fixe";
-    document.getElementById("tarifHP").value = userData.tarifHP || "";
-    document.getElementById("tarifHC").value = userData.tarifHC || "";
-    document.getElementById("heuresHPDebut").value = userData.heuresHPDebut || "";
-    document.getElementById("heuresHPFin").value = userData.heuresHPFin || "";
-
-    if (userData.typeContrat === "hp-hc") document.getElementById("hpHCFields").style.display = "block";
-
-    // --- Exclusion du capteur externe si utilisé ---
-    const capteurExterne = userData.capteurExterne || null;
-
     for (const [integration, list] of Object.entries(sensors)) {
-      const visibles = list.filter(c => c.entity_id !== capteurExterne);
-      if (visibles.length === 0) continue;
-
       const block = document.createElement("div");
       block.className = "integration-block";
       block.innerHTML = `<h3>${integration}</h3>
         <button onclick="selectAll('${integration}')">Tout sélectionner</button>
         <button onclick="deselectAll('${integration}')">Tout désélectionner</button>`;
-
-      visibles.forEach(c => {
+      list.forEach(c => {
         const div = document.createElement("div");
         div.className = "sensor";
         const checkbox = document.createElement("input");
@@ -148,35 +129,13 @@ async function loadConfiguration() {
       });
       content.appendChild(block);
     }
-
-    // --- Liste déroulante capteurs externes disponibles ---
-    const externalSelect = document.getElementById("capteurExterneSelect");
-    externalSelect.innerHTML = `<option value="">(Aucun)</option>`;
-    Object.entries(sensors).forEach(([integration, list]) => {
-      list.forEach(c => {
-        const opt = document.createElement("option");
-        opt.value = c.entity_id;
-        opt.textContent = `${c.friendly_name} (${integration})`;
-        if (c.entity_id === capteurExterne) opt.selected = true;
-        externalSelect.appendChild(opt);
-      });
-    });
-
-    document.getElementById("useExternal").checked = !!capteurExterne;
-    document.getElementById("externalFields").style.display = capteurExterne ? "block" : "none";
-
   } catch (err) {
     console.error("Erreur config:", err);
     content.innerHTML = `<p style="color:red;">❌ ${err.message}</p>`;
   }
 }
 
-document.getElementById("useExternal").onchange = function () {
-  document.getElementById("externalFields").style.display = this.checked ? "block" : "none";
-};
-
-
-// === Sauvegarde Sélection + Données utilisateur ===
+// Sauvegarde sélection capteurs
 document.getElementById("saveSelection").onclick = async function () {
   const selections = {};
   document.querySelectorAll("#content-configuration input[type='checkbox']").forEach(cb => {
@@ -184,27 +143,14 @@ document.getElementById("saveSelection").onclick = async function () {
     selections[integ] ??= [];
     selections[integ].push({ entity_id: cb.dataset.entityId, enabled: cb.checked });
   });
-
-  const userData = {
-    abonnementHT: parseFloat(document.getElementById("abonnementHT").value) || 0,
-    abonnementTTC: parseFloat(document.getElementById("abonnementTTC").value) || 0,
-    typeContrat: document.getElementById("typeContrat").value,
-    tarifHP: parseFloat(document.getElementById("tarifHP").value) || 0,
-    tarifHC: parseFloat(document.getElementById("tarifHC").value) || 0,
-    heuresHPDebut: document.getElementById("heuresHPDebut").value,
-    heuresHPFin: document.getElementById("heuresHPFin").value,
-    useExternal: document.getElementById("useExternal").checked,
-    capteurExterne: document.getElementById("capteurExterneSelect").value || null,
-    consommationExterne: parseFloat(document.getElementById("consommationExterne").value) || 0
-  };
-
   try {
-    await fetch("/api/home_suivi_elec/save_selection", {
+    const resp = await fetch("/api/home_suivi_elec/save_selection", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ selections, userData })
+      body: JSON.stringify(selections)
     });
-    alert("💾 Données et sélection sauvegardées !");
+    const result = await resp.json();
+    alert(result.success ? "✅ Sélection sauvegardée !" : "❌ Erreur sauvegarde");
     loadSummary();
   } catch (err) {
     alert("❌ Erreur lors de la sauvegarde");
@@ -212,7 +158,13 @@ document.getElementById("saveSelection").onclick = async function () {
   }
 };
 
-// Sélection rapide
+// HP/HC toggle
+document.getElementById("typeContrat").onchange = function () {
+  document.getElementById("hpHCFields").style.display =
+    this.value === "hp-hc" ? "block" : "none";
+};
+
+// === Sélection globale ===
 function selectAll(integration) {
   document.querySelectorAll(`#content-configuration input[data-integration="${integration}"]`).forEach(cb => cb.checked = true);
 }
@@ -220,5 +172,9 @@ function deselectAll(integration) {
   document.querySelectorAll(`#content-configuration input[data-integration="${integration}"]`).forEach(cb => cb.checked = false);
 }
 
-// Démarrage
+// Onglet par défaut
+function showTab(tab) {
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+  document.getElementById(tab).classList.add('active');
+}
 showTab('home');
