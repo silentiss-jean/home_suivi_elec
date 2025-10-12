@@ -1,5 +1,4 @@
 /* === 🎨 Home Suivi Élec - Style global === */
-
 body {
   font-family: "Segoe UI", Roboto, Arial, sans-serif;
   background-color: #f8f9fa;
@@ -59,7 +58,7 @@ nav#tabs button:hover {
 
 /* === Intégrations et capteurs === */
 .integration-block {
-  background: #ffffff;
+  background: #fff;
   border-radius: 8px;
   padding: 10px 15px;
   margin-bottom: 10px;
@@ -127,21 +126,13 @@ input[type="checkbox"] {
   margin-right: 6px;
 }
 
-#hpHCFields {
-  background: #f1f6ff;
+/* === HP/HC et mesure externe === */
+#hpHCFields, #externalFields {
+  background: #eef4ff;
   padding: 10px;
   border-left: 3px solid #0078d4;
   border-radius: 6px;
   margin-top: 8px;
-}
-
-/* === Bloc mesure externe === */
-#externalFields {
-  background: #eef4ff;
-  border-radius: 8px;
-  padding: 10px;
-  margin-top: 8px;
-  border-left: 3px solid #0078d4;
 }
 
 /* === Messages & alertes === */

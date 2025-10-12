@@ -5,7 +5,6 @@
 function normalizeSensors(sensorsRaw) {
   if (!sensorsRaw) return {};
   if (Array.isArray(sensorsRaw)) {
-    // array -> regrouper par integration
     return sensorsRaw.reduce((acc, c) => {
       const integ = c.integration || "unknown";
       acc[integ] ??= [];
@@ -13,10 +12,7 @@ function normalizeSensors(sensorsRaw) {
       return acc;
     }, {});
   }
-  // si c'est déjà un object (integration -> list)
-  if (typeof sensorsRaw === "object") {
-    return sensorsRaw;
-  }
+  if (typeof sensorsRaw === "object") return sensorsRaw;
   return {};
 }
 
@@ -46,7 +42,6 @@ async function loadSummary() {
   const refreshSpan = document.getElementById("dernierRefresh");
 
   try {
-    // on récupère uniquement via les endpoints API (ne pas dépendre des fichiers /local)
     const [sensorsResp, optionsResp] = await Promise.all([
       fetch("/api/home_suivi_elec/get_sensors"),
       fetch("/api/home_suivi_elec/get_user_options")
@@ -64,9 +59,8 @@ async function loadSummary() {
     const totalSensors = countTotalFromGrouped(groupedSensors);
 
     const userData = optionsResp.ok ? await optionsResp.json() : {};
-
-    // n'affiche le résumé que s'il y a une selection enregistrée dans options
     const selectionData = userData.selection || {};
+
     if (!selectionData || Object.keys(selectionData).length === 0) {
       summaryMessage.style.display = "block";
       summaryMessage.textContent = "Aucune configuration sauvegardée pour le moment.";
@@ -74,14 +68,12 @@ async function loadSummary() {
       return;
     }
 
-    // calcul consommation et actifs en s'appuyant sur les valeurs live des capteurs
     let actifs = 0;
     let consommationTotale = 0;
     for (const [integration, list] of Object.entries(selectionData)) {
       for (const s of list) {
         if (s.enabled) {
           actifs += 1;
-          // récupérer la valeur actuelle depuis groupedSensors
           const val = findSensorValue(s.entity_id, groupedSensors);
           consommationTotale += Number(val || 0);
         }
@@ -95,8 +87,8 @@ async function loadSummary() {
 
     totalSpan.textContent = totalSensors;
     actifsSpan.textContent = `${actifs} / ${totalSensors}`;
-    coutHT.textContent = userData.abonnementHT ? `${Number(userData.abonnementHT).toFixed(2)} €` : "-";
-    coutTTC.textContent = userData.abonnementTTC ? `${Number(userData.abonnementTTC).toFixed(2)} €` : "-";
+    coutHT.textContent = userData.abonnementHT != null ? `${Number(userData.abonnementHT).toFixed(2)} €` : "0 €";
+    coutTTC.textContent = userData.abonnementTTC != null ? `${Number(userData.abonnementTTC).toFixed(2)} €` : "0 €";
     consommationW.textContent = `${consommationTotale.toFixed(2)} W`;
     deltaConsommation.textContent = `${delta.toFixed(2)} W`;
     refreshSpan.textContent = new Date().toLocaleTimeString();
@@ -162,11 +154,9 @@ async function loadConfiguration() {
     const grouped = normalizeSensors(sensorsRaw);
 
     const userData = optionsResp.ok ? await optionsResp.json() : {};
-    // selectionData venant des options (si sauvegardée) sinon on construit une structure par défaut
     let selectionData = userData.selection || {};
 
     if (!selectionData || Object.keys(selectionData).length === 0) {
-      // créer structure par défaut (tous décochés) sans l'écrire côté serveur
       selectionData = {};
       for (const [integration, list] of Object.entries(grouped)) {
         selectionData[integration] = (list || []).map(c => ({ entity_id: c.entity_id, enabled: false }));
@@ -174,6 +164,71 @@ async function loadConfiguration() {
     }
 
     content.innerHTML = "";
+
+    // --- Bloc capteurs externes ---
+    const useExternal = userData.useExternal ?? false;
+    const externalCapteur = userData.externalCapteur || "";
+    const externalBlock = document.createElement("div");
+    externalBlock.id = "externalBlock";
+    externalBlock.className = "card";
+    externalBlock.innerHTML = `
+      <label>
+        <input type="checkbox" id="useExternalConfig" ${useExternal ? "checked" : ""}>
+        Utiliser une mesure externe (clé Atome / saisie manuelle)
+      </label>
+      <div id="externalFieldsConfig" style="display:${useExternal ? "block" : "none"}">
+        <label>Capteur Home Assistant :
+          <select id="capteurExterneSelectConfig"></select>
+        </label>
+        <label>ou saisie manuelle (W relevés) :
+          <input type="number" id="consommationExterneConfig" value="${userData.consommationExterne || 0}">
+        </label>
+        <button id="saveExternal" class="primary">💾 Sauvegarder capteur externe</button>
+      </div>
+    `;
+    content.appendChild(externalBlock);
+
+    const selectExterne = document.getElementById("capteurExterneSelectConfig");
+    for (const list of Object.values(grouped)) {
+      (list || []).forEach(c => {
+        const option = document.createElement("option");
+        option.value = c.entity_id;
+        option.textContent = `${c.friendly_name} — ${c.area || "?"}`;
+        if (c.entity_id === externalCapteur) option.selected = true;
+        selectExterne.appendChild(option);
+      });
+    }
+
+    // --- Sauvegarde capteur externe ---
+    document.getElementById("saveExternal").onclick = async function() {
+      try {
+        const newExternal = document.getElementById("capteurExterneSelectConfig").value;
+        const useExt = document.getElementById("useExternalConfig").checked;
+        const data = {
+          externalCapteur: newExternal,
+          useExternal: useExt,
+          consommationExterne: parseFloat(document.getElementById("consommationExterneConfig").value) || 0,
+          selection: selectionData
+        };
+        await fetch("/api/home_suivi_elec/save_user_options", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(data)
+        });
+        await loadConfiguration();
+        alert("💾 Capteur externe sauvegardé !");
+      } catch (err) {
+        console.error(err);
+        alert("❌ Erreur sauvegarde capteur externe");
+      }
+    };
+
+    // --- Toggle externe ---
+    document.getElementById("useExternalConfig").onchange = function() {
+      document.getElementById("externalFieldsConfig").style.display = this.checked ? "block" : "none";
+    };
+
+    // --- Bloc capteurs principaux ---
     for (const [integration, list] of Object.entries(grouped)) {
       const block = document.createElement("div");
       block.className = "integration-block";
@@ -181,13 +236,12 @@ async function loadConfiguration() {
         <button onclick="selectAll('${integration}')">Tout sélectionner</button>
         <button onclick="deselectAll('${integration}')">Tout désélectionner</button>`;
       (list || []).forEach(c => {
-        // si capteur externe selectionné on peut le masquer (optionnel)
-        if (userData.externalCapteur && c.entity_id === userData.externalCapteur) return;
         const div = document.createElement("div");
         div.className = "sensor";
         const checkbox = document.createElement("input");
         checkbox.type = "checkbox";
         checkbox.checked = selectionData[integration]?.find(s => s.entity_id === c.entity_id)?.enabled ?? false;
+        checkbox.disabled = c.entity_id === externalCapteur; // inselectionnable si externe
         checkbox.dataset.integration = integration;
         checkbox.dataset.entityId = c.entity_id;
         div.append(checkbox, document.createTextNode(` ${c.friendly_name} — ${c.area || "?"} [${c.value ?? 0} ${c.unit || "?"}]`));
@@ -196,35 +250,13 @@ async function loadConfiguration() {
       content.appendChild(block);
     }
 
-    // Données utilisateur (pré-remplir champs depuis options si présents)
-    document.getElementById("abonnementHT").value = userData.abonnementHT ?? "";
-    document.getElementById("abonnementTTC").value = userData.abonnementTTC ?? "";
-    document.getElementById("typeContrat").value = userData.typeContrat ?? "fixe";
-    document.getElementById("typeContrat").dispatchEvent(new Event('change'));
-    document.getElementById("consommationExterne").value = userData.consommationExterne ?? "";
-    document.getElementById("useExternal").checked = Boolean(userData.useExternal);
-    document.getElementById("externalFields").style.display = userData.useExternal ? "block" : "none";
-
-    const selectExterne = document.getElementById("capteurExterneSelect");
-    selectExterne.innerHTML = "";
-    // liste déroulante contient tous les capteurs disponibles
-    for (const list of Object.values(grouped)) {
-      (list || []).forEach(c => {
-        const option = document.createElement("option");
-        option.value = c.entity_id;
-        option.textContent = `${c.friendly_name} — ${c.area || "?"}`;
-        selectExterne.appendChild(option);
-      });
-    }
-    if (userData.externalCapteur) selectExterne.value = userData.externalCapteur;
-
   } catch (err) {
     console.error("Erreur config:", err);
     content.innerHTML = `<p style="color:red;">❌ ${err.message}</p>`;
   }
 }
 
-// --- Sauvegarde unique ---
+// --- Sauvegarde globale ---
 document.getElementById("saveSelection").onclick = async function() {
   try {
     const selections = {};
@@ -242,13 +274,12 @@ document.getElementById("saveSelection").onclick = async function() {
       tarifHC: parseFloat(document.getElementById("tarifHC").value) || 0,
       heuresHPDebut: document.getElementById("heuresHPDebut").value || "",
       heuresHPFin: document.getElementById("heuresHPFin").value || "",
-      useExternal: document.getElementById("useExternal").checked,
-      externalCapteur: document.getElementById("capteurExterneSelect").value || "",
-      consommationExterne: parseFloat(document.getElementById("consommationExterne").value) || 0,
-      selection: selections // stocker la selection dans les options (utile pour résumé)
+      useExternal: document.getElementById("useExternalConfig")?.checked ?? false,
+      externalCapteur: document.getElementById("capteurExterneSelectConfig")?.value || "",
+      consommationExterne: parseFloat(document.getElementById("consommationExterneConfig")?.value) || 0,
+      selection: selections
     };
 
-    // On met à jour à la fois les options (ConfigEntry) ET le fichier selection pour compatibilité
     await Promise.all([
       fetch("/api/home_suivi_elec/save_user_options", {
         method: "POST",
@@ -263,7 +294,6 @@ document.getElementById("saveSelection").onclick = async function() {
     ]);
 
     alert("💾 Données sauvegardées !");
-    // recharger pour afficher le résumé et la config actualisée
     await loadSummary();
     await loadConfiguration();
 
@@ -271,12 +301,6 @@ document.getElementById("saveSelection").onclick = async function() {
     alert("❌ Erreur sauvegarde configuration");
     console.error(err);
   }
-};
-
-// --- Toggle externe ---
-document.getElementById("useExternal").onchange = function() {
-  const fields = document.getElementById("externalFields");
-  fields.style.display = this.checked ? "block" : "none";
 };
 
 // --- Toggle HP/HC ---
@@ -292,6 +316,10 @@ function selectAll(integration) {
 function deselectAll(integration) {
   document.querySelectorAll(`#content-configuration input[data-integration="${integration}"]`).forEach(cb => cb.checked = false);
 }
+
+// --- Boutons de rafraîchissement ---
+document.getElementById("refreshHome").onclick = loadSummary;
+document.getElementById("refreshDetection").onclick = loadDetection;
 
 // --- Chargement automatique ---
 document.addEventListener("DOMContentLoaded", () => {

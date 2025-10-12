@@ -127,10 +127,18 @@ async def async_setup_selection_api(hass: HomeAssistant):
         async def get(self, request):
             try:
                 entries = hass.config_entries.async_entries("home_suivi_elec")
+                _LOGGER.debug("[REST] 🔍 ConfigEntry trouvée: %s", entries)
                 if not entries:
                     return self.json({})
                 entry: ConfigEntry = entries[0]
-                return self.json(entry.options or {})
+                # ⚠️ sécurisation pour éviter l’erreur 500
+                try:
+                    options_dict = dict(entry.options) if entry.options else {}
+                    _LOGGER.debug("[REST] 🔍 Options actuelles: %s", options_dict)
+                    return self.json(options_dict)
+                except Exception as e:
+                    _LOGGER.exception("[DEBUG get_user_options] Erreur sérialisation options: %s", e)
+                    return self.json({"error": "serialization_failed"})
             except Exception as e:
                 _LOGGER.exception("Erreur get_user_options: %s", e)
                 return self.json({})

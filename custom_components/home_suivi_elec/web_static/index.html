@@ -19,7 +19,7 @@ nav#tabs button:hover { background-color: #005fa3; }
 button.primary { background-color: #28a745; color: white; border: none; padding: 8px 12px; border-radius: 5px; cursor: pointer; }
 button.primary:hover { background-color: #218838; }
 label { display: block; margin: 5px 0; }
-#externalFields { background: #eef4ff; border-radius: 8px; padding: 10px; margin-top: 8px; border-left: 3px solid #0078d4; }
+#externalFieldsConfig { background: #eef4ff; border-radius: 8px; padding: 10px; margin-top: 8px; border-left: 3px solid #0078d4; }
 </style>
 </head>
 <body>
@@ -46,7 +46,7 @@ label { display: block; margin: 5px 0; }
       <p><strong>Consommation totale mesurée (W) :</strong> <span id="consommationW">-</span></p>
       <p><strong>Delta avec mesure externe :</strong> <span id="deltaConsommation">-</span></p>
       <p><strong>Dernier refresh :</strong> <span id="dernierRefresh">-</span></p>
-      <button id="refreshHome">🔄 Actualiser résumé</button>
+      <button id="refreshHome" class="primary">🔄 Actualiser résumé</button>
     </div>
   </div>
 </div>
@@ -57,7 +57,7 @@ label { display: block; margin: 5px 0; }
   <div class="card">
     <p><strong>Total capteurs détectés :</strong> <span id="total">-</span></p>
     <p><strong>Dernière mise à jour :</strong> <span id="lastRefresh">-</span></p>
-    <button id="refreshDetection">🔄 Rafraîchir</button>
+    <button id="refreshDetection" class="primary">🔄 Rafraîchir</button>
   </div>
   <div id="content-detection"></div>
 </div>
@@ -65,11 +65,13 @@ label { display: block; margin: 5px 0; }
 <!-- ⚙️ Configuration -->
 <div id="configuration" class="tab-content">
   <h2>Configuration des capteurs et options utilisateur</h2>
-  <button id="saveSelection" class="primary">💾 Sauvegarder la sélection et les données</button>
+
+  <!-- Zone générée dynamiquement -->
   <div id="content-configuration"></div>
 
-  <h3>Données utilisateur / Abonnement</h3>
+  <!-- Données utilisateur / abonnement -->
   <div id="userConfig" class="card">
+    <h3>Données utilisateur / Abonnement</h3>
     <label>Abonnement mensuel HT (€) : <input type="number" id="abonnementHT"></label>
     <label>Abonnement mensuel TTC (€) : <input type="number" id="abonnementTTC"></label>
 
@@ -86,21 +88,9 @@ label { display: block; margin: 5px 0; }
       <label>Heures HP début : <input type="time" id="heuresHPDebut"></label>
       <label>Heures HP fin : <input type="time" id="heuresHPFin"></label>
     </div>
-
-    <label>
-      <input type="checkbox" id="useExternal">
-      Utiliser une mesure externe (clé Atome / saisie manuelle)
-    </label>
-
-    <div id="externalFields" style="display:none">
-      <label>Capteur Home Assistant :
-        <select id="capteurExterneSelect"></select>
-      </label>
-      <label>ou saisie manuelle (W relevés) :
-        <input type="number" id="consommationExterne">
-      </label>
-    </div>
   </div>
+
+  <button id="saveSelection" class="primary">💾 Sauvegarder la sélection et les données</button>
 </div>
 
 <!-- 🎨 Customisation -->
