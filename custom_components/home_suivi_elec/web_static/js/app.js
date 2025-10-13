@@ -56,9 +56,35 @@ window.deselectAll = function(integration) {
   document.querySelectorAll(`#content-configuration input[data-integration="${integration}"]`).forEach(cb => cb.checked = false);
 };
 
-// Chargement automatique
-document.addEventListener("DOMContentLoaded", () => {
+// Chargement automatique avec initialisation du type de contrat
+document.addEventListener("DOMContentLoaded", async () => {
   loadDetection();
+  try {
+    const resp = await fetch("/api/home_suivi_elec/get_user_options");
+    const userData = resp.ok ? await resp.json() : {};
+    const typeSel = document.getElementById("typeContrat");
+    const hpHCFields = document.getElementById("hpHCFields");
+    if (typeSel && hpHCFields) {
+      typeSel.value = userData.typeContrat || "fixe";
+      hpHCFields.style.display = (typeSel.value === "hp-hc") ? "block" : "none";
+    }
+    // Optionnel: pré-remplir les champs avec les valeurs courantes
+    const setVal = (id, v) => { const el = document.getElementById(id); if (el != null && v != null) el.value = v; };
+    setVal("abonnementHT", userData.abonnementHT);
+    setVal("abonnementTTC", userData.abonnementTTC);
+    setVal("tarifHP", userData.tarifHP);
+    setVal("tarifHC", userData.tarifHC);
+    setVal("heuresHPDebut", userData.heuresHPDebut);
+    setVal("heuresHPFin", userData.heuresHPFin);
+    const useExt = document.getElementById("useExternalConfig");
+    if (useExt) useExt.checked = !!userData.useExternal;
+    const capSel = document.getElementById("capteurExterneSelectConfig");
+    if (capSel && userData.externalCapteur != null) capSel.value = userData.externalCapteur;
+    const consExt = document.getElementById("consommationExterneConfig");
+    if (consExt && userData.consommationExterne != null) consExt.value = userData.consommationExterne;
+  } catch (e) {
+    console.warn("Chargement options UI échoué:", e);
+  }
   loadSummary();
   loadConfiguration();
 });

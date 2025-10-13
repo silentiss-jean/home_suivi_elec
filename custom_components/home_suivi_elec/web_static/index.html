@@ -33,23 +33,61 @@ label { display: block; margin: 5px 0; }
   <button onclick="showTab('generation')">🧩 Génération cartes</button>
 </nav>
 
+
 <!-- 🏠 Accueil -->
 <div id="home" class="tab-content active">
   <h2>Résumé général</h2>
+
   <div class="card" id="summaryCard">
     <p id="summaryMessage" style="color:#555;">Sélectionnez et configurez vos capteurs pour que le résumé affiche des estimations</p>
+
     <div id="summaryData" style="display:none">
+
+      <!-- Infos générales -->
       <p><strong>Total capteurs détectés :</strong> <span id="totalCapteurs">-</span></p>
       <p><strong>Capteurs sélectionnés :</strong> <span id="actifsCapteurs">-</span></p>
-      <p><strong>Coût énergétique estimé (HT) :</strong> <span id="coutHT">-</span></p>
-      <p><strong>Coût énergétique estimé (TTC) :</strong> <span id="coutTTC">-</span></p>
-      <p><strong>Consommation totale mesurée (W) :</strong> <span id="consommationW">-</span></p>
-      <p><strong>Delta avec mesure externe :</strong> <span id="deltaConsommation">-</span></p>
+      <p><strong>Type contrat :</strong> <span id="typeContratSummary">-</span></p>
+      <p><strong>Abonnement HT :</strong> <span id="abonnementHTSummary">0.00</span> €</p>
+      <p><strong>Abonnement TTC :</strong> <span id="abonnementTTCSummary">0.00</span> €</p>
+
+      <!-- Conteneur dynamique des tarifs (AJOUT) -->
+      <div id="tarifsSummary"></div>
+
       <p><strong>Dernier refresh :</strong> <span id="dernierRefresh">-</span></p>
+
+      <!-- Mesure externe -->
+      <p id="externalTitle">Mesure externe : désactivée</p>
+
+      <!-- Tableaux détaillés -->
+      <h3>Capteurs sélectionnés</h3>
+      <table id="summarySelectedSensors">
+        <thead>
+          <tr><th>Période</th><th>kWh</th><th>Coût HT (€)</th><th>Coût TTC (€)</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+
+      <h3>Mesure externe</h3>
+      <table id="summaryExternalSensors">
+        <thead>
+          <tr><th>Période</th><th>kWh</th><th>Coût HT (€)</th><th>Coût TTC (€)</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+
+      <h3>Delta (externe − interne)</h3>
+      <table id="summaryDeltaSensors">
+        <thead>
+          <tr><th>Période</th><th>kWh</th><th>Coût HT (€)</th><th>Coût TTC (€)</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+
       <button id="refreshHome" class="primary">🔄 Actualiser résumé</button>
     </div>
   </div>
 </div>
+
 
 <!-- 🔍 Détection -->
 <div id="detection" class="tab-content">

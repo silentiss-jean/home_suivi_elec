@@ -25,7 +25,7 @@ async def async_setup_selection_api(hass: HomeAssistant):
     class GetSensorsView(HomeAssistantView):
         url = "/api/home_suivi_elec/get_sensors"
         name = "api:home_suivi_elec:get_sensors"
-        requires_auth = False
+        requires_auth = False  # on conserve le comportement actuel
 
         async def get(self, request):
             try:
@@ -35,7 +35,7 @@ async def async_setup_selection_api(hass: HomeAssistant):
                 loop = asyncio.get_running_loop()
                 data = await loop.run_in_executor(None, partial(load_json, CAPTEURS_POWER_PATH))
                 integrations = {}
-                for c in data:
+                for c in data or []:
                     integ = c.get("integration", "unknown")
                     integrations.setdefault(integ, []).append({
                         "entity_id": c.get("entity_id"),
@@ -53,7 +53,7 @@ async def async_setup_selection_api(hass: HomeAssistant):
     class SaveSelectionView(HomeAssistantView):
         url = "/api/home_suivi_elec/save_selection"
         name = "api:home_suivi_elec:save_selection"
-        requires_auth = False
+        requires_auth = False  # inchangé
 
         async def post(self, request):
             try:
@@ -71,7 +71,7 @@ async def async_setup_selection_api(hass: HomeAssistant):
     class GetSelectionView(HomeAssistantView):
         url = "/api/home_suivi_elec/get_selection"
         name = "api:home_suivi_elec:get_selection"
-        requires_auth = False
+        requires_auth = False  # inchangé
 
         async def get(self, request):
             try:
@@ -88,7 +88,7 @@ async def async_setup_selection_api(hass: HomeAssistant):
     class GetUserConfigView(HomeAssistantView):
         url = "/api/home_suivi_elec/get_user_config"
         name = "api:home_suivi_elec:get_user_config"
-        requires_auth = False
+        requires_auth = False  # inchangé
 
         async def get(self, request):
             try:
@@ -104,7 +104,7 @@ async def async_setup_selection_api(hass: HomeAssistant):
     class SaveUserConfigView(HomeAssistantView):
         url = "/api/home_suivi_elec/save_user_config"
         name = "api:home_suivi_elec:save_user_config"
-        requires_auth = False
+        requires_auth = False  # inchangé
 
         async def post(self, request):
             try:
@@ -122,7 +122,7 @@ async def async_setup_selection_api(hass: HomeAssistant):
     class GetUserOptionsView(HomeAssistantView):
         url = "/api/home_suivi_elec/get_user_options"
         name = "api:home_suivi_elec:get_user_options"
-        requires_auth = False
+        requires_auth = False  # conservé pour ne rien casser
 
         async def get(self, request):
             try:
@@ -130,15 +130,45 @@ async def async_setup_selection_api(hass: HomeAssistant):
                 _LOGGER.debug("[REST] 🔍 ConfigEntry trouvée: %s", entries)
                 if not entries:
                     return self.json({})
+
                 entry: ConfigEntry = entries[0]
-                # ⚠️ sécurisation pour éviter l’erreur 500
-                try:
-                    options_dict = dict(entry.options) if entry.options else {}
-                    _LOGGER.debug("[REST] 🔍 Options actuelles: %s", options_dict)
-                    return self.json(options_dict)
-                except Exception as e:
-                    _LOGGER.exception("[DEBUG get_user_options] Erreur sérialisation options: %s", e)
-                    return self.json({"error": "serialization_failed"})
+
+                # Fusion options > data
+                data = dict(entry.data or {})
+                opts = dict(entry.options or {})
+                eff = {**data, **opts}
+
+                # Mapping dynamique selon type_contrat
+                is_hc = eff.get("type_contrat") == "heures_creuses"
+                type_ui = "hp-hc" if is_hc else "fixe"
+
+                if is_hc:
+                    tarif_hp = eff.get("prix_ht_hp", 0)
+                    tarif_hc = eff.get("prix_ht_hc", 0)
+                    h_start = eff.get("hc_start", "")
+                    h_end = eff.get("hc_end", "")
+                else:
+                    base = eff.get("prix_ht", 0)
+                    tarif_hp = base
+                    tarif_hc = base
+                    h_start = ""
+                    h_end = ""
+
+                resp = {
+                    "typeContrat": type_ui,
+                    "abonnementHT": eff.get("abonnement_ht", 0),
+                    "abonnementTTC": eff.get("abonnement_ttc", 0),
+                    "tarifHP": tarif_hp,
+                    "tarifHC": tarif_hc,
+                    "heuresHPDebut": h_start,
+                    "heuresHPFin": h_end,
+                    "useExternal": eff.get("useExternal", False),
+                    "externalCapteur": eff.get("externalCapteur", ""),
+                    "consommationExterne": eff.get("consommationExterne", 0),
+                    "selection": eff.get("selection", {}),
+                }
+                return self.json(resp)
+
             except Exception as e:
                 _LOGGER.exception("Erreur get_user_options: %s", e)
                 return self.json({})
@@ -146,7 +176,7 @@ async def async_setup_selection_api(hass: HomeAssistant):
     class SaveUserOptionsView(HomeAssistantView):
         url = "/api/home_suivi_elec/save_user_options"
         name = "api:home_suivi_elec:save_user_options"
-        requires_auth = False
+        requires_auth = False  # conservé
 
         async def post(self, request):
             try:
@@ -166,7 +196,7 @@ async def async_setup_selection_api(hass: HomeAssistant):
     class GetSummaryView(HomeAssistantView):
         url = "/api/home_suivi_elec/get_summary"
         name = "api:home_suivi_elec:get_summary"
-        requires_auth = False
+        requires_auth = False  # inchangé
 
         async def get(self, request):
             try:
@@ -211,7 +241,7 @@ async def generate_selection(hass: HomeAssistant):
         loop = asyncio.get_running_loop()
         data = await loop.run_in_executor(None, partial(load_json, CAPTEURS_POWER_PATH))
         integrations = {}
-        for c in data:
+        for c in data or []:
             integ = c.get("integration", "unknown")
             integrations.setdefault(integ, []).append({
                 "entity_id": c.get("entity_id"),
