@@ -75,7 +75,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     # --- Attente de HA démarré ou timeout 60s ---
     hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STARTED, start_detection_selection)
-    # fallback si jamais l'événement n'arrive pas
     asyncio.create_task(_delayed_start(hass, entry))
 
     # --- Copie UI au démarrage sans bloquer le loop ---
@@ -98,12 +97,23 @@ async def _delayed_start(hass: HomeAssistant, entry: ConfigEntry, timeout: int =
         _LOGGER.exception("Erreur fallback detection/selection: %s", e)
 
 def _copy_ui_blocking(src, dst):
+    """Copie récursive de l'UI (web_static → www/community/home_suivi_elec_ui)."""
+    if not os.path.exists(src):
+        _LOGGER.warning(f"[COPY_UI] Dossier source introuvable: {src}")
+        return
+
     os.makedirs(dst, exist_ok=True)
-    for f in os.listdir(src):
-        src_path = os.path.join(src, f)
-        dst_path = os.path.join(dst, f)
-        if os.path.isfile(src_path):
-            shutil.copy2(src_path, dst_path)
+
+    for root, dirs, files in os.walk(src):
+        rel_path = os.path.relpath(root, src)
+        target_dir = os.path.join(dst, rel_path)
+        os.makedirs(target_dir, exist_ok=True)
+
+        for file in files:
+            src_file = os.path.join(root, file)
+            dst_file = os.path.join(target_dir, file)
+            shutil.copy2(src_file, dst_file)
+            _LOGGER.debug(f"[COPY_UI] Copié: {src_file} → {dst_file}")
 
 @callback
 def async_get_options_flow(config_entry: ConfigEntry):
