@@ -165,3 +165,90 @@ span {
 .card:hover, .integration-block:hover {
   box-shadow: 0 3px 8px rgba(0, 0, 0, 0.1);
 }
+/* === Blocs d'estimations === */
+.estim-block {
+  margin-top: 15px;
+  padding: 12px 15px;
+}
+
+.estim-block table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: center;
+  margin-top: 8px;
+}
+
+.estim-block th, .estim-block td {
+  border: 1px solid #ddd;
+  padding: 6px 10px;
+  font-size: 0.9rem;
+}
+
+.estim-block th {
+  background-color: #0078d4;
+  color: white;
+}
+
+.estim-block tr:nth-child(even) {
+  background-color: #f9f9f9;
+}
+
+/* Delta positif / négatif */
+.estim-block.delta td.kwh {
+  font-weight: bold;
+}
+
+.estim-block.delta td.kwh.positive {
+  color: #28a745;
+}
+
+.estim-block.delta td.kwh.negative {
+  color: #dc3545;
+}
+
+.estim-block h4 {
+  margin: 5px 0 8px 0;
+  color: #005fa3;
+}
+/* === Tableaux Résumé (généraux) === */
+table { width: 100%; border-collapse: collapse; }
+table thead th { text-align: left; border-bottom: 1px solid #ddd; padding: 6px 8px; }
+table tbody td { border-bottom: 1px solid #f0f0f0; padding: 6px 8px; }
+table tbody tr:nth-child(odd) { background: #fafafa; }
+table td.num { text-align: right; font-variant-numeric: tabular-nums; }
+h3 { margin-top: 16px; margin-bottom: 8px; }
+
+/* === Tableaux Résumé (généraux) === */
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 8px;
+}
+thead th {
+  background-color: #0078d4;
+  color: white;
+  padding: 8px;
+  text-align: left;
+}
+tbody td {
+  border-bottom: 1px solid #ddd;
+  padding: 6px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+tbody tr:nth-child(odd) {
+  background: #f9f9f9;
+}
+tbody td:first-child {
+  text-align: left;
+}
+abbr {
+  cursor: help;
+  text-decoration: none;
+  border-bottom: 1px dotted #555;
+}
+#instantaneBlock p, #resumeGeneral p {
+  font-size: 1.1em;
+  margin: 6px 0;
+}
+

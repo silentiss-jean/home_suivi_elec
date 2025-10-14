@@ -9,6 +9,7 @@ from functools import partial
 from homeassistant.core import HomeAssistant
 from homeassistant.components.http import HomeAssistantView
 from homeassistant.config_entries import ConfigEntry
+from .utility_meter_manager import async_create_utility_meters, async_delete_utility_meters
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -17,7 +18,6 @@ CAPTEURS_POWER_PATH = os.path.join(DATA_DIR, "capteurs_power.json")
 CAPTEURS_SELECTION_PATH = os.path.join(DATA_DIR, "capteurs_selection.json")
 USER_CONFIG_PATH = os.path.join(DATA_DIR, "user_config.json")
 
-
 async def async_setup_selection_api(hass: HomeAssistant):
     """Expose endpoints REST."""
 
@@ -25,7 +25,7 @@ async def async_setup_selection_api(hass: HomeAssistant):
     class GetSensorsView(HomeAssistantView):
         url = "/api/home_suivi_elec/get_sensors"
         name = "api:home_suivi_elec:get_sensors"
-        requires_auth = False  # on conserve le comportement actuel
+        requires_auth = False
 
         async def get(self, request):
             try:
@@ -50,28 +50,56 @@ async def async_setup_selection_api(hass: HomeAssistant):
                 _LOGGER.exception("Erreur get_sensors: %s", e)
                 return self.json({})
 
+    # === Endpoint sélection & gestion Utility Meter ===
     class SaveSelectionView(HomeAssistantView):
         url = "/api/home_suivi_elec/save_selection"
         name = "api:home_suivi_elec:save_selection"
-        requires_auth = False  # inchangé
+        requires_auth = False
 
         async def post(self, request):
             try:
                 body = await request.json()
                 os.makedirs(DATA_DIR, exist_ok=True)
+
+                # --- Ancienne sélection ---
+                previous_selection = {}
+                if os.path.exists(CAPTEURS_SELECTION_PATH):
+                    loop = asyncio.get_running_loop()
+                    previous_selection = await loop.run_in_executor(None, partial(load_json, CAPTEURS_SELECTION_PATH))
+
+                # --- Sauvegarde ---
                 loop = asyncio.get_running_loop()
                 await loop.run_in_executor(None, partial(save_json, CAPTEURS_SELECTION_PATH, body))
                 _LOGGER.info("[REST] ✅ Sélection sauvegardée.")
-                return self.json({"success": True})
+
+                # --- Extraction entity_ids ---
+                def extract_ids(selection_dict):
+                    ids = set()
+                    for lst in selection_dict.values():
+                        ids.update([c.get("entity_id") for c in lst if c.get("enabled")])
+                    return ids
+
+                previous_ids = extract_ids(previous_selection)
+                new_ids = extract_ids(body)
+
+                # --- Création/suppression Utility Meter sensors ---
+                added = new_ids - previous_ids
+                removed = previous_ids - new_ids
+
+                for entity_id in added:
+                    await async_create_utility_meters(hass, entity_id)
+                for entity_id in removed:
+                    await async_delete_utility_meters(hass, entity_id)
+
+                return self.json({"success": True, "added": list(added), "removed": list(removed)})
             except Exception as e:
                 _LOGGER.exception("Erreur save_selection: %s", e)
                 return self.json({"success": False})
 
-    # === Endpoint selection (pour app.js) ===
     class GetSelectionView(HomeAssistantView):
         url = "/api/home_suivi_elec/get_selection"
         name = "api:home_suivi_elec:get_selection"
-        requires_auth = False  # inchangé
+        requires_auth = False
 
         async def get(self, request):
             try:
@@ -84,11 +112,52 @@ async def async_setup_selection_api(hass: HomeAssistant):
                 _LOGGER.exception("Erreur get_selection: %s", e)
                 return self.json({})
 
-    # === Endpoint user_config.json (legacy UI) ===
+    class GetConsumptionsView(HomeAssistantView):
+        url = "/api/home_suivi_elec/get_consumptions"
+        name = "api:home_suivi_elec:get_consumptions"
+        requires_auth = False
+
+        async def get(self, request):
+            try:
+                # Récupère la sélection actuelle
+                if not os.path.exists(CAPTEURS_SELECTION_PATH):
+                    return self.json({})
+                loop = asyncio.get_running_loop()
+                selections = await loop.run_in_executor(None, partial(load_json, CAPTEURS_SELECTION_PATH))
+
+                # Utility Meter cycles à couvrir
+                cycles = ["hourly", "daily", "weekly", "monthly", "yearly"]
+
+                result = {}
+                # Parcours chaque capteur sélectionné
+                for integration, capteurs in selections.items():
+                    for c in capteurs:
+                        if c.get("enabled") and c.get("entity_id"):
+                            capteur_id = c["entity_id"]
+                            result[capteur_id] = {}
+                            for cycle in cycles:
+                                meter_name = f"sensor.hse_{capteur_id.replace('.', '_')}_{cycle}"
+                                # Récupère la valeur depuis hass.states
+                                meter_state = hass.states.get(meter_name)
+                                if meter_state:
+                                    try:
+                                        value = float(meter_state.state)
+                                    except Exception:
+                                        value = meter_state.state
+                                else:
+                                    value = None
+                                result[capteur_id][cycle] = value
+
+                return self.json(result)
+            except Exception as e:
+                _LOGGER.exception("Erreur get_consumptions: %s", e)
+                return self.json({})
+
+    # === Le reste de l'API (config, user options, summary...) ===
     class GetUserConfigView(HomeAssistantView):
         url = "/api/home_suivi_elec/get_user_config"
         name = "api:home_suivi_elec:get_user_config"
-        requires_auth = False  # inchangé
+        requires_auth = False
 
         async def get(self, request):
             try:
@@ -104,7 +173,7 @@ async def async_setup_selection_api(hass: HomeAssistant):
     class SaveUserConfigView(HomeAssistantView):
         url = "/api/home_suivi_elec/save_user_config"
         name = "api:home_suivi_elec:save_user_config"
-        requires_auth = False  # inchangé
+        requires_auth = False
 
         async def post(self, request):
             try:
@@ -118,11 +187,10 @@ async def async_setup_selection_api(hass: HomeAssistant):
                 _LOGGER.exception("Erreur save_user_config: %s", e)
                 return self.json({"success": False})
 
-    # === Endpoint ConfigEntry / OptionsFlow ===
     class GetUserOptionsView(HomeAssistantView):
         url = "/api/home_suivi_elec/get_user_options"
         name = "api:home_suivi_elec:get_user_options"
-        requires_auth = False  # conservé pour ne rien casser
+        requires_auth = False
 
         async def get(self, request):
             try:
@@ -176,7 +244,7 @@ async def async_setup_selection_api(hass: HomeAssistant):
     class SaveUserOptionsView(HomeAssistantView):
         url = "/api/home_suivi_elec/save_user_options"
         name = "api:home_suivi_elec:save_user_options"
-        requires_auth = False  # conservé
+        requires_auth = False
 
         async def post(self, request):
             try:
@@ -192,11 +260,10 @@ async def async_setup_selection_api(hass: HomeAssistant):
                 _LOGGER.exception("Erreur save_user_options: %s", e)
                 return self.json({"success": False})
 
-    # === Endpoint summary ===
     class GetSummaryView(HomeAssistantView):
         url = "/api/home_suivi_elec/get_summary"
         name = "api:home_suivi_elec:get_summary"
-        requires_auth = False  # inchangé
+        requires_auth = False
 
         async def get(self, request):
             try:
@@ -214,13 +281,13 @@ async def async_setup_selection_api(hass: HomeAssistant):
     hass.http.register_view(GetSensorsView)
     hass.http.register_view(SaveSelectionView)
     hass.http.register_view(GetSelectionView)
+    hass.http.register_view(GetConsumptionsView)
     hass.http.register_view(GetUserConfigView)
     hass.http.register_view(SaveUserConfigView)
     hass.http.register_view(GetUserOptionsView)
     hass.http.register_view(SaveUserOptionsView)
     hass.http.register_view(GetSummaryView)
     _LOGGER.info("[REST] API capteurs et options prête.")
-
 
 # === Fonctions utilitaires ===
 def load_json(path):
@@ -230,7 +297,6 @@ def load_json(path):
 def save_json(path, data):
     with open(path, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2, ensure_ascii=False)
-
 
 # === Génération capteurs_selection.json ===
 async def generate_selection(hass: HomeAssistant):

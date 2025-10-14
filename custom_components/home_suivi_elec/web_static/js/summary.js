@@ -1,157 +1,127 @@
-import { normalizeSensors, countTotalFromGrouped, findSensorValue } from './utils.js';
+// summary.js
 
 export async function loadSummary() {
   const summaryMessage = document.getElementById("summaryMessage");
   const summaryData = document.getElementById("summaryData");
   const totalSpan = document.getElementById("totalCapteurs");
   const actifsSpan = document.getElementById("actifsCapteurs");
-  const refreshSpan = document.getElementById("dernierRefresh");
-
   const typeContratSpan = document.getElementById("typeContratSummary");
-  const abonnementHTSpan = document.getElementById("abonnementHTSummary");
-  const abonnementTTcSpan = document.getElementById("abonnementTTCSummary");
-
-  // Conteneur dynamique des tarifs (AJOUT)
-  const tarifsWrap = document.getElementById("tarifsSummary");
-
+  const abonnementHTSummary = document.getElementById("abonnementHTSummary");
+  const abonnementTTCSummary = document.getElementById("abonnementTTCSummary");
+  const nombreCapteursSelectionnes = document.getElementById("nombreCapteursSelectionnes");
+  const instantaneInterneSpan = document.getElementById("instantaneInterne");
+  const externeCompactSpan = document.getElementById("externeCompact");
+  const deltaPuissanceSpan = document.getElementById("deltaPuissance");
+  const blocFixe = document.getElementById("blocFixe");
+  const blocHpHc = document.getElementById("blocHpHc");
+  const prixFixeHTSpan = document.getElementById("prixFixeHT");
+  const prixFixeTTCSpan = document.getElementById("prixFixeTTC");
+  const tarifHPHTSummary = document.getElementById("tarifHPHTSummary");
+  const tarifHPTTCSummary = document.getElementById("tarifHPTTCSummary");
+  const tarifHCHTSummary = document.getElementById("tarifHCHTSummary");
+  const tarifHCTTCSummary = document.getElementById("tarifHCTTCSummary");
+  const heuresHPDebutSummary = document.getElementById("heuresHPDebutSummary");
+  const heuresHPFinSummary = document.getElementById("heuresHPFinSummary");
   const selectedTable = document.querySelector("#summarySelectedSensors tbody");
-  const externalTable = document.querySelector("#summaryExternalSensors tbody");
-  const deltaTable = document.querySelector("#summaryDeltaSensors tbody");
 
   try {
-    const [sensorsResp, optionsResp] = await Promise.all([
-      fetch("/api/home_suivi_elec/get_sensors"),
-      fetch("/api/home_suivi_elec/get_user_options")
+    // Récupère infos user et valeurs Utility Meter réelles
+    const [optionsResp, consumptionsResp] = await Promise.all([
+      fetch("/api/home_suivi_elec/get_user_options"),
+      fetch("/api/home_suivi_elec/get_consumptions"),
     ]);
-
-    if (!sensorsResp.ok) throw new Error("Aucune détection de capteurs disponible");
-
-    const sensorsRaw = await sensorsResp.json();
-    const groupedSensors = normalizeSensors(sensorsRaw);
-    const totalSensors = countTotalFromGrouped(groupedSensors);
-
     const userData = optionsResp.ok ? await optionsResp.json() : {};
-    const selectionData = userData.selection || {};
+    const consumptionData = consumptionsResp.ok ? await consumptionsResp.json() : {};
 
-    if (!selectionData || Object.keys(selectionData).length === 0) {
-      summaryMessage.style.display = "block";
-      summaryMessage.textContent = "Aucune configuration sauvegardée pour le moment.";
-      summaryData.style.display = "none";
-      return;
-    }
-
-    // --- Calcul consommation interne ---
+    // ------ Informations capteurs sélectionnés ------
+    // On extrait l'ensemble des capteurs de la sélection actuelle
     let actifs = 0;
-    let consommationTotale = 0;
-    for (const list of Object.values(selectionData)) {
-      for (const s of list) {
-        if (s.enabled) {
-          actifs++;
-          consommationTotale += findSensorValue(s.entity_id, groupedSensors);
-        }
+    if (userData.selection) {
+      for (const list of Object.values(userData.selection)) {
+        actifs += (Array.isArray(list) ? list.filter(c => c.enabled).length : 0);
       }
     }
+    const totalSensors =
+      userData.selection
+        ? Object.values(userData.selection).reduce(
+            (sum, arr) => sum + (Array.isArray(arr) ? arr.length : 0),
+            0,
+          )
+        : 0;
 
-    // --- Consommation externe ---
-    const externeActive = userData.useExternal && userData.externalCapteur;
-    let consommationExterne = 0;
-    let externalName = "-";
-    if (externeActive) {
-      consommationExterne = Number(userData.consommationExterne) || 0;
-      for (const [integration, sensors] of Object.entries(groupedSensors)) {
-        const s = sensors.find(x => x.entity_id === userData.externalCapteur);
-        if (s) {
-          externalName = s.friendly_name || s.entity_id || integration;
-          break;
-        }
-      }
-    }
-
-    // --- Delta ---
-    const delta = Math.max(0, consommationExterne - consommationTotale);
-
-    // --- Infos de configuration ---
-    if (typeContratSpan) typeContratSpan.textContent = userData.typeContrat || "-";
-    if (abonnementHTSpan) abonnementHTSpan.textContent = userData.abonnementHT != null ? Number(userData.abonnementHT).toFixed(2) : "0.00";
-    if (abonnementTTcSpan) abonnementTTcSpan.textContent = userData.abonnementTTC != null ? Number(userData.abonnementTTC).toFixed(2) : "0.00";
-
-    // --- Tarifs dynamiques (AJOUT)
-    if (tarifsWrap) {
-      const isFixe = (userData.typeContrat === "fixe");
-      if (isFixe) {
-        const valFixe = Number(userData.tarifHP ?? userData.tarifHC ?? 0).toFixed(2);
-        tarifsWrap.innerHTML = `
-          <p><strong>Tarif :</strong> ${valFixe} €</p>
-        `;
-      } else {
-        const hp = Number(userData.tarifHP ?? 0).toFixed(2);
-        const hc = Number(userData.tarifHC ?? 0).toFixed(2);
-        const start = userData.heuresHPDebut || "";
-        const end = userData.heuresHPFin || "";
-        const heuresRow = (start || end)
-          ? `<p><strong>Plage HC :</strong> ${start} – ${end}</p>`
-          : "";
-        tarifsWrap.innerHTML = `
-          <p><strong>Tarif HP :</strong> ${hp} €</p>
-          <p><strong>Tarif HC :</strong> ${hc} €</p>
-          ${heuresRow}
-        `;
-      }
-    }
-
-    // --- Affichage capteurs ---
     if (totalSpan) totalSpan.textContent = totalSensors;
     if (actifsSpan) actifsSpan.textContent = `${actifs} / ${totalSensors} capteurs sélectionnés`;
-    if (refreshSpan) refreshSpan.textContent = new Date().toLocaleString();
+    if (nombreCapteursSelectionnes) nombreCapteursSelectionnes.textContent = `${actifs}`;
 
-    // Affichage mesure externe
-    const externalTitle = document.getElementById("externalTitle");
-    if (externalTitle) externalTitle.textContent = externeActive
-      ? `Mesure externe : ${externalName}`
-      : "Mesure externe : désactivée";
+    // ------ Récap général contrat -------
+    if (typeContratSpan) typeContratSpan.textContent = userData.typeContrat || "-";
+    if (abonnementHTSummary)
+      abonnementHTSummary.textContent =
+        userData.abonnementHT !== undefined ? Number(userData.abonnementHT).toFixed(2) : "-";
+    if (abonnementTTCSummary)
+      abonnementTTCSummary.textContent =
+        userData.abonnementTTC !== undefined ? Number(userData.abonnementTTC).toFixed(2) : "-";
+
+    // Bloc prix selon type contrat
+    if (userData.typeContrat === "fixe") {
+      if (blocFixe) blocFixe.style.display = "block";
+      if (blocHpHc) blocHpHc.style.display = "none";
+      if (prixFixeHTSpan) prixFixeHTSpan.textContent = userData.tarifHP !== undefined ? Number(userData.tarifHP).toFixed(4) : "-";
+      if (prixFixeTTCSpan) prixFixeTTCSpan.textContent =
+        userData.tarifHP !== undefined && userData.tarifHP > 0 ? (Number(userData.tarifHP) * 1.2).toFixed(4) : "-";
+    } else if (userData.typeContrat === "hp-hc") {
+      if (blocFixe) blocFixe.style.display = "none";
+      if (blocHpHc) blocHpHc.style.display = "block";
+      if (tarifHPHTSummary) tarifHPHTSummary.textContent = userData.tarifHP !== undefined ? Number(userData.tarifHP).toFixed(4) : "-";
+      if (tarifHPTTCSummary) tarifHPTTCSummary.textContent =
+        userData.tarifHP !== undefined ? (Number(userData.tarifHP) * 1.2).toFixed(4) : "-";
+      if (tarifHCHTSummary) tarifHCHTSummary.textContent = userData.tarifHC !== undefined ? Number(userData.tarifHC).toFixed(4) : "-";
+      if (tarifHCTTCSummary) tarifHCTTCSummary.textContent =
+        userData.tarifHC !== undefined ? (Number(userData.tarifHC) * 1.2).toFixed(4) : "-";
+      if (heuresHPDebutSummary) heuresHPDebutSummary.textContent = userData.heuresHPDebut || "-";
+      if (heuresHPFinSummary) heuresHPFinSummary.textContent = userData.heuresHPFin || "-";
+    } else {
+      if (blocFixe) blocFixe.style.display = "none";
+      if (blocHpHc) blocHpHc.style.display = "none";
+    }
+
+    // ------ Affichage DU TABLEAU Coût réel ------
+    selectedTable.innerHTML = "";
+    const cycles_nom = {
+      hourly: "Dernière heure",
+      daily: "Aujourd'hui",
+      weekly: "Cette semaine",
+      monthly: "Ce mois",
+      yearly: "Cette année",
+    };
+
+    // Pour chaque capteur sélectionné
+    for (const [entity_id, values] of Object.entries(consumptionData)) {
+      Object.entries(values).forEach(([cycle, kwh]) => {
+        // Coût calculé uniquement si valeur dispo
+        let cout = "-";
+        // On choisit un tarif selon type de contrat
+        if (kwh !== null && !isNaN(kwh)) {
+          let tarif = userData.typeContrat === "hp-hc" ? userData.tarifHP : userData.tarifHC;
+          // Utilise tarifHP par défaut si absent (tu peux adapter)
+          if (!tarif) tarif = userData.tarifHP || 0.0;
+          cout = (parseFloat(kwh) * parseFloat(tarif)).toFixed(2) + " €";
+        }
+        const row = `
+          <tr>
+            <td style="text-align:center;">${cycles_nom[cycle] || cycle}</td>
+            <td class="num" style="text-align:center;">${kwh !== null ? kwh : "Non disponible"}</td>
+            <td class="num" style="text-align:center;">${cout}</td>
+            <td class="num" style="text-align:center;">${cout}</td>
+          </tr>`;
+        selectedTable.insertAdjacentHTML("beforeend", row);
+      });
+    }
 
     summaryMessage.style.display = "none";
     summaryData.style.display = "block";
-
-    // --- Estimations (existant, conservé) ---
-    const calcEstimation = (watt, period) => {
-      const kwh = watt / 1000 * period;
-      const unit = (userData.typeContrat === "hp-hc" ? (userData.tarifHP || 0) : (userData.tarifHC || 0));
-      const coutHT = (kwh * unit) + (userData.abonnementHT || 0);
-      const coutTTC = (kwh * unit) + (userData.abonnementTTC || 0);
-      return { kwh, coutHT, coutTTC };
-    };
-
-    const now = new Date();
-    const periods = [
-      { label: `Instantané (${now.getHours()}h)`, factor: 1 / 60 },
-      { label: `Heure (${now.toLocaleString()})`, factor: 1 },
-      { label: `Jour (${now.toLocaleDateString()})`, factor: 24 },
-      { label: `Mois (${now.getMonth()+1}/${now.getFullYear()})`, factor: 24*30 },
-      { label: `Année (${now.getFullYear()})`, factor: 24*365 }
-    ];
-
-    const updateTable = (tbody, watt) => {
-      if (!tbody) return;
-      tbody.innerHTML = "";
-      periods.forEach(p => {
-        const est = calcEstimation(watt, p.factor);
-        const row = `<tr>
-          <td>${p.label}</td>
-          <td>${est.kwh.toFixed(2)}</td>
-          <td>${est.coutHT.toFixed(2)}</td>
-          <td>${est.coutTTC.toFixed(2)}</td>
-        </tr>`;
-        tbody.insertAdjacentHTML("beforeend", row);
-      });
-    };
-
-    updateTable(selectedTable, consommationTotale);
-    updateTable(externalTable, consommationExterne);
-    updateTable(deltaTable, delta);
-
   } catch (err) {
-    console.error("Erreur chargement résumé:", err);
+    console.error("Erreur chargement résumé réel:", err);
     if (summaryMessage) {
       summaryMessage.style.display = "block";
       summaryMessage.textContent = "Erreur lors du chargement du résumé";
@@ -160,5 +130,5 @@ export async function loadSummary() {
   }
 }
 
-// --- Bouton d'actualisation ---
+// Actualiser sur bouton
 document.getElementById("refreshHome")?.addEventListener("click", loadSummary);
