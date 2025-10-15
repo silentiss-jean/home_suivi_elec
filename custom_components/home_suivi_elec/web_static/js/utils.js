@@ -27,3 +27,12 @@ export function findSensorValue(entityId, grouped) {
   }
   return 0;
 }
+
+export function findSensorDetails(entityId, grouped) {
+  for (const list of Object.values(grouped)) {
+    if (!Array.isArray(list)) continue;
+    const s = list.find(x => x.entity_id === entityId);
+    if (s) return { friendly_name: s.friendly_name ?? s.entity_id, integration: s.integration ?? "unknown" };
+  }
+  return { friendly_name: entityId, integration: "unknown" };
+}

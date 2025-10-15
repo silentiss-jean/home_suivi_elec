@@ -12,7 +12,8 @@ from .detect_local import run_detect_local
 from .generator import run_all
 from .debug_json_sets import scan_sets
 from .options_flow import HomeSuiviElecOptionsFlow
-from . import manage_selection  # pour les API REST et generate_selection
+from . import manage_selection  # pour les API REST
+from .utility_meter_manager import sync_utility_meters  # nouvelle logique
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -39,11 +40,25 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         except Exception as e:
             _LOGGER.exception("Erreur generate_lovelace_auto: %s", e)
 
+    # Le service "generate_selection" devient obsolète ou inutile directement; ou tu peux le faire pointer sur une génération 'hard' du YAML si tu veux absolument le conserver.
     async def handle_generate_selection(call: ServiceCall):
         try:
-            await manage_selection.generate_selection(hass)
+            # Si tu veux vraiment "forcer" la génération des Utility Meter YAML au démarrage/à la demande,
+            # Récupère la selection actuelle et appelle sync_utility_meters.
+            # Exemple :
+            from .manage_selection import CAPTEURS_SELECTION_PATH, load_json
+            if os.path.exists(CAPTEURS_SELECTION_PATH):
+                selection = load_json(CAPTEURS_SELECTION_PATH)
+                def extract_ids(selection_dict):
+                    ids = set()
+                    for lst in selection_dict.values():
+                        ids.update([c.get("entity_id") for c in lst if c.get("enabled")])
+                    return ids
+                entity_ids = extract_ids(selection)
+                await sync_utility_meters(entity_ids)
+                _LOGGER.info("[SERVICE] Utility Meter YAML synchronisé via service.")
         except Exception as e:
-            _LOGGER.exception("Erreur generate_selection: %s", e)
+            _LOGGER.exception("Erreur handle_generate_selection: %s", e)
 
     async def handle_copy_ui(call: ServiceCall):
         _LOGGER.info("[SERVICE] copy_ui_files appelé manuellement")
@@ -58,22 +73,23 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     # --- API REST pour capteurs ---
     await manage_selection.async_setup_selection_api(hass)
 
-    # --- Scan debug JSON ---
     scan_sets(hass)
 
     # --- Auto-génération si activée ---
     if hass.data[DOMAIN]["options"].get(CONF_AUTO_GENERATE, True):
         await run_all(hass, hass.data[DOMAIN]["options"])
 
+    # --- démarrage différé ---
     async def start_detection_selection(*args):
         _LOGGER.info("[INIT] Lancement détection et génération selection")
         try:
             await run_detect_local(hass, entry)
-            await manage_selection.generate_selection(hass)
+            # GÉNÉRATION DYNAMIQUE: synchronisation du YAML Utility Meter AUTO si besoin
+            # (cf. logique ci-dessus dans "handle_generate_selection")
+            # Optionnel  : laisser faire uniquement l’UI/REST pour gérer la liste !
         except Exception as e:
             _LOGGER.exception("Erreur init detection/selection: %s", e)
 
-    # --- Attente de HA démarré ou timeout 60s ---
     hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STARTED, start_detection_selection)
     asyncio.create_task(_delayed_start(hass, entry))
 
@@ -92,7 +108,8 @@ async def _delayed_start(hass: HomeAssistant, entry: ConfigEntry, timeout: int =
     _LOGGER.info(f"[INIT] Timeout atteint ({timeout}s), lancement fallback detection/selection")
     try:
         await run_detect_local(hass, entry)
-        await manage_selection.generate_selection(hass)
+        # Synchronisation Utility Meter, si absolument nécessaire ici
+        # Voir si tu veux forcer sync_utility_meters() à chaque fallback
     except Exception as e:
         _LOGGER.exception("Erreur fallback detection/selection: %s", e)
 
@@ -108,7 +125,6 @@ def _copy_ui_blocking(src, dst):
         rel_path = os.path.relpath(root, src)
         target_dir = os.path.join(dst, rel_path)
         os.makedirs(target_dir, exist_ok=True)
-
         for file in files:
             src_file = os.path.join(root, file)
             dst_file = os.path.join(target_dir, file)

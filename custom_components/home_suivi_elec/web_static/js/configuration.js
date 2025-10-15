@@ -1,5 +1,5 @@
 import { normalizeSensors } from './utils.js';
-import { loadSummary } from './summary.js';  // ✅ pour recharger le résumé
+import { loadSummary } from './summary.js';  // Pour recharger le résumé
 
 export async function loadConfiguration() {
   const content = document.getElementById("content-configuration");
@@ -63,7 +63,6 @@ export async function loadConfiguration() {
       document.getElementById("externalFieldsConfig").style.display = this.checked ? "block" : "none";
     };
 
-    // ✅ Ajout du reload du résumé après sauvegarde
     document.getElementById("saveExternal").onclick = async function() {
       try {
         const data = {
@@ -77,12 +76,100 @@ export async function loadConfiguration() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(data)
         });
-        await loadSummary();        // ✅ ici
+        await loadSummary();
         await loadConfiguration();
         alert("💾 Capteur externe sauvegardé !");
       } catch (err) {
         console.error(err);
         alert("❌ Erreur sauvegarde capteur externe");
+      }
+    };
+
+    // Bloc configuration utilisateur/contrat/prix
+    const configBlock = document.createElement("div");
+    configBlock.id = "userConfigBlock";
+    configBlock.className = "card";
+    configBlock.innerHTML = `
+      <label>Type de contrat :
+        <select id="typeContratConfig">
+          <option value="fixe" ${userData.typeContrat === "fixe" ? "selected" : ""}>Fixe</option>
+          <option value="hp-hc" ${userData.typeContrat === "hp-hc" ? "selected" : ""}>HP/HC</option>
+        </select>
+      </label>
+      <label>Abonnement mensuel HT (€) :
+        <input type="number" id="abonnementHTConfig" step="0.01" value="${userData.abonnement_mensuel_ht ?? userData.abonnementHT ?? 0}">
+      </label>
+      <label>Abonnement mensuel TTC (€) :
+        <input type="number" id="abonnementTTCConfig" step="0.01" value="${userData.abonnement_mensuel_ttc ?? userData.abonnementTTC ?? 0}">
+      </label>
+      <div id="blocFixeConfig" style="display:${(userData.typeContrat || "fixe") === "fixe" ? "block" : "none"}; margin-top:10px;">
+        <label>Prix du kWh HT :
+          <input type="number" id="prixHTConfig" step="0.0001" value="${userData.prix_ht ?? 0}">
+        </label>
+        <label>Prix du kWh TTC :
+          <input type="number" id="prixTTCConfig" step="0.0001" value="${userData.prix_ttc ?? 0}">
+        </label>
+      </div>
+      <div id="blocHpHcConfig" style="display:${userData.typeContrat === "hp-hc" ? "block" : "none"}; margin-top:10px;">
+        <label>Prix HP HT :
+          <input type="number" id="prixHTHPConfig" step="0.0001" value="${userData.prix_ht_hp ?? 0}">
+        </label>
+        <label>Prix HP TTC :
+          <input type="number" id="prixTTCHPConfig" step="0.0001" value="${userData.prix_ttc_hp ?? 0}">
+        </label>
+        <label>Prix HC HT :
+          <input type="number" id="prixHTHCConfig" step="0.0001" value="${userData.prix_ht_hc ?? 0}">
+        </label>
+        <label>Prix HC TTC :
+          <input type="number" id="prixTTCHCConfig" step="0.0001" value="${userData.prix_ttc_hc ?? 0}">
+        </label>
+        <label>Début HC :
+          <input type="time" id="hcStartConfig" value="${userData.hc_start || ""}">
+        </label>
+        <label>Fin HC :
+          <input type="time" id="hcEndConfig" value="${userData.hc_end || ""}">
+        </label>
+      </div>
+      <button id="saveUserConfig" class="primary" style="margin-top:12px;">💾 Sauvegarder abonnement et tarifs</button>
+    `;
+    content.appendChild(configBlock);
+
+    // Affichage conditionnel suivant le contrat
+    document.getElementById("typeContratConfig").onchange = function() {
+      document.getElementById("blocFixeConfig").style.display = this.value === "fixe" ? "block" : "none";
+      document.getElementById("blocHpHcConfig").style.display = this.value === "hp-hc" ? "block" : "none";
+    };
+
+    document.getElementById("saveUserConfig").onclick = async function() {
+      try {
+        const data = {
+          type_contrat: document.getElementById("typeContratConfig").value,
+          abonnement_mensuel_ht: parseFloat(document.getElementById("abonnementHTConfig").value) || 0,
+          abonnement_mensuel_ttc: parseFloat(document.getElementById("abonnementTTCConfig").value) || 0,
+          prix_ht: parseFloat(document.getElementById("prixHTConfig")?.value || "0"),
+          prix_ttc: parseFloat(document.getElementById("prixTTCConfig")?.value || "0"),
+          prix_ht_hp: parseFloat(document.getElementById("prixHTHPConfig")?.value || "0"),
+          prix_ttc_hp: parseFloat(document.getElementById("prixTTCHPConfig")?.value || "0"),
+          prix_ht_hc: parseFloat(document.getElementById("prixHTHCConfig")?.value || "0"),
+          prix_ttc_hc: parseFloat(document.getElementById("prixTTCHCConfig")?.value || "0"),
+          hc_start: document.getElementById("hcStartConfig")?.value || "",
+          hc_end: document.getElementById("hcEndConfig")?.value || "",
+          selection: selectionData,
+          useExternal: document.getElementById("useExternalConfig")?.checked ?? false,
+          externalCapteur: selectExterne.value,
+          consommationExterne: parseFloat(document.getElementById("consommationExterneConfig").value) || 0,
+        };
+        await fetch("/api/home_suivi_elec/save_user_options", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(data)
+        });
+        await loadSummary();
+        await loadConfiguration();
+        alert("💾 Abonnement et tarifs sauvegardés !");
+      } catch (err) {
+        console.error(err);
+        alert("❌ Erreur sauvegarde config utilisateur");
       }
     };
 

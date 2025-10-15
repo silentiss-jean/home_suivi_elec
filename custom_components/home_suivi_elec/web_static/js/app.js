@@ -28,6 +28,11 @@ document.getElementById("saveSelection").onclick = async function() {
   };
 
   try {
+    await fetch("/api/home_suivi_elec/save_selection", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(selections)
+    });
     await fetch("/api/home_suivi_elec/save_user_options", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -42,13 +47,10 @@ document.getElementById("saveSelection").onclick = async function() {
   }
 };
 
-// Toggle HP/HC
 document.getElementById("typeContrat").onchange = function () {
-  document.getElementById("hpHCFields").style.display =
-    this.value === "hp-hc" ? "block" : "none";
+  document.getElementById("hpHCFields").style.display = this.value === "hp-hc" ? "block" : "none";
 };
 
-// Sélection globale
 window.selectAll = function(integration) {
   document.querySelectorAll(`#content-configuration input[data-integration="${integration}"]`).forEach(cb => cb.checked = true);
 };
@@ -56,7 +58,6 @@ window.deselectAll = function(integration) {
   document.querySelectorAll(`#content-configuration input[data-integration="${integration}"]`).forEach(cb => cb.checked = false);
 };
 
-// Chargement automatique avec initialisation du type de contrat
 document.addEventListener("DOMContentLoaded", async () => {
   loadDetection();
   try {
@@ -68,7 +69,6 @@ document.addEventListener("DOMContentLoaded", async () => {
       typeSel.value = userData.typeContrat || "fixe";
       hpHCFields.style.display = (typeSel.value === "hp-hc") ? "block" : "none";
     }
-    // Optionnel: pré-remplir les champs avec les valeurs courantes
     const setVal = (id, v) => { const el = document.getElementById(id); if (el != null && v != null) el.value = v; };
     setVal("abonnementHT", userData.abonnementHT);
     setVal("abonnementTTC", userData.abonnementTTC);

@@ -211,36 +211,35 @@ span {
   color: #005fa3;
 }
 /* === Tableaux Résumé (généraux) === */
-table { width: 100%; border-collapse: collapse; }
-table thead th { text-align: left; border-bottom: 1px solid #ddd; padding: 6px 8px; }
-table tbody td { border-bottom: 1px solid #f0f0f0; padding: 6px 8px; }
+table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+table thead th { 
+  background-color: #0078d4;
+  color: white;
+  padding: 8px;
+  border-bottom: 1px solid #ddd;
+}
+table tbody td { 
+  border-bottom: 1px solid #f0f0f0; 
+  padding: 6px 8px; 
+  font-variant-numeric: tabular-nums; 
+}
 table tbody tr:nth-child(odd) { background: #fafafa; }
 table td.num { text-align: right; font-variant-numeric: tabular-nums; }
 h3 { margin-top: 16px; margin-bottom: 8px; }
 
-/* === Tableaux Résumé (généraux) === */
-table {
-  width: 100%;
-  border-collapse: collapse;
-  margin-top: 8px;
+/* === Tableaux Résumé - centrage des principaux tableaux === */
+#summarySelectedSensors th,
+#summarySelectedSensors td,
+#summaryExternalSensors th,
+#summaryExternalSensors td,
+#summaryDeltaSensors th,
+#summaryDeltaSensors td {
+  text-align: center;
+  vertical-align: middle;
 }
-thead th {
-  background-color: #0078d4;
-  color: white;
-  padding: 8px;
-  text-align: left;
-}
-tbody td {
-  border-bottom: 1px solid #ddd;
-  padding: 6px;
-  text-align: right;
-  font-variant-numeric: tabular-nums;
-}
-tbody tr:nth-child(odd) {
-  background: #f9f9f9;
-}
+
 tbody td:first-child {
-  text-align: left;
+  text-align: center; /* centrer aussi la colonne période */
 }
 abbr {
   cursor: help;
@@ -251,4 +250,3 @@ abbr {
   font-size: 1.1em;
   margin: 6px 0;
 }
-
