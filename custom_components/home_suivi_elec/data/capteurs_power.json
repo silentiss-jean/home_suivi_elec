@@ -1,0 +1,2359 @@
+[
+  {
+    "entity_id": "sensor.salon_prise_radiateur_canape_current_power",
+    "friendly_name": "salon prise radiateur canapé live box Current Power",
+    "integration": "tapo",
+    "area": "Salon",
+    "unit": "W",
+    "value": 0.0,
+    "is_duplicate": false,
+    "group_key": [
+      "salon",
+      "salon prise radiateur canapé live box current power"
+    ],
+    "quality_scale": "custom",
+    "is_premium": false,
+    "is_main_duplicate": true,
+    "disabled": false
+  },
+  {
+    "entity_id": "sensor.salon_prise_radiateur_tv_current_power",
+    "friendly_name": "salon prise radiateur tv Current Power",
+    "integration": "tapo",
+    "area": "Salon",
+    "unit": null,
+    "value": null,
+    "is_duplicate": false,
+    "group_key": [
+      "salon",
+      "salon prise radiateur tv current power"
+    ],
+    "quality_scale": "custom",
+    "is_premium": false,
+    "is_main_duplicate": true,
+    "disabled": false
+  },
+  {
+    "entity_id": "sensor.chambre_prise_radiateur_current_power",
+    "friendly_name": "chambre Prise radiateur  Current Power",
+    "integration": "tapo",
+    "area": "Chambre",
+    "unit": "W",
+    "value": 0.0,
+    "is_duplicate": false,
+    "group_key": [
+      "chambre",
+      "chambre prise radiateur  current power"
+    ],
+    "quality_scale": "custom",
+    "is_premium": false,
+    "is_main_duplicate": true,
+    "disabled": false
+  },
+  {
+    "entity_id": "sensor.bureau_prise_ordinateur_current_power",
+    "friendly_name": "bureau Prise ordinateur  Current Power",
+    "integration": "tapo",
+    "area": "Bureau",
+    "unit": "W",
+    "value": 3.419,
+    "is_duplicate": false,
+    "group_key": [
+      "bureau",
+      "bureau prise ordinateur  current power"
+    ],
+    "quality_scale": "custom",
+    "is_premium": false,
+    "is_main_duplicate": true,
+    "disabled": false
+  },
+  {
+    "entity_id": "sensor.buanderie_machines_current_power",
+    "friendly_name": "Buanderie Machines Current Power",
+    "integration": "tapo",
+    "area": "Buanderie",
+    "unit": "W",
+    "value": 0.949,
+    "is_duplicate": false,
+    "group_key": [
+      "buanderie",
+      "buanderie machines current power"
+    ],
+    "quality_scale": "custom",
+    "is_premium": false,
+    "is_main_duplicate": true,
+    "disabled": false
+  },
+  {
+    "entity_id": "sensor.bureau_pc_synthe_current_power",
+    "friendly_name": "Bureau pc synthé Current Power",
+    "integration": "tapo",
+    "area": "Bureau",
+    "unit": "W",
+    "value": 5.601,
+    "is_duplicate": false,
+    "group_key": [
+      "bureau",
+      "bureau pc synthé current power"
+    ],
+    "quality_scale": "custom",
+    "is_premium": false,
+    "is_main_duplicate": true,
+    "disabled": false
+  },
+  {
+    "entity_id": "sensor.bureau_prise_porte_current_power",
+    "friendly_name": "Bureau prise porte Current Power",
+    "integration": "tapo",
+    "area": "Bureau",
+    "unit": "W",
+    "value": 32.511,
+    "is_duplicate": false,
+    "group_key": [
+      "bureau",
+      "bureau prise porte current power"
+    ],
+    "quality_scale": "custom",
+    "is_premium": false,
+    "is_main_duplicate": true,
+    "disabled": false
+  },
+  {
+    "entity_id": "sensor.samsung_7_series_43_power_meter",
+    "friendly_name": "Samsung 7 Series (43) Power Meter",
+    "integration": "smartthings",
+    "area": "Apptv",
+    "unit": null,
+    "value": null,
+    "is_duplicate": false,
+    "group_key": [
+      "apptv",
+      "samsung 7 series (43) power meter"
+    ],
+    "quality_scale": "custom",
+    "is_premium": false,
+    "is_main_duplicate": true,
+    "disabled": false
+  },
+  {
+    "entity_id": "sensor.salon_tv_prise_connectee_current_power",
+    "friendly_name": "Salon tv Prise connectée Current Power",
+    "integration": "tapo",
+    "area": "Salon",
+    "unit": "W",
+    "value": 236.091,
+    "is_duplicate": false,
+    "group_key": [
+      "salon",
+      "salon tv prise connectée current power"
+    ],
+    "quality_scale": "custom",
+    "is_premium": false,
+    "is_main_duplicate": true,
+    "disabled": false
+  },
+  {
+    "entity_id": "sensor.chambre_dalex_prise_pc_current_power",
+    "friendly_name": "chambre d’alex prise pc Current Power",
+    "integration": "tapo",
+    "area": "Chambre d'Alex",
+    "unit": "W",
+    "value": 10.963,
+    "is_duplicate": false,
+    "group_key": [
+      "chambre d'alex",
+      "chambre d’alex prise pc current power"
+    ],
+    "quality_scale": "custom",
+    "is_premium": false,
+    "is_main_duplicate": true,
+    "disabled": false
+  },
+  {
+    "entity_id": "sensor.chambre_ordinateur_prise_connectee_current_power",
+    "friendly_name": "chambre ordinateur Prise connectée Current Power",
+    "integration": "tapo",
+    "area": "Chambre",
+    "unit": "W",
+    "value": 118.613,
+    "is_duplicate": false,
+    "group_key": [
+      "chambre",
+      "chambre ordinateur prise connectée current power"
+    ],
+    "quality_scale": "custom",
+    "is_premium": false,
+    "is_main_duplicate": true,
+    "disabled": false
+  },
+  {
+    "entity_id": "sensor.chambre_tv_prise_connectee_current_power",
+    "friendly_name": "chambre tv Prise connectée Current Power",
+    "integration": "tapo",
+    "area": "Chambre",
+    "unit": "W",
+    "value": 8.437,
+    "is_duplicate": false,
+    "group_key": [
+      "chambre",
+      "chambre tv prise connectée current power"
+    ],
+    "quality_scale": "custom",
+    "is_premium": false,
+    "is_main_duplicate": true,
+    "disabled": false
+  },
+  {
+    "entity_id": "sensor.wifi_commutateur_sur_rail_din_avec_mesure_puissance",
+    "friendly_name": "WiFi Commutateur sur rail DIN avec mesure Puissance",
+    "integration": "tuya",
+    "area": "Unnamed Room",
+    "unit": "W",
+    "value": 12.9,
+    "is_duplicate": false,
+    "group_key": [
+      "unnamed room",
+      "wifi commutateur sur rail din avec mesure puissance"
+    ],
+    "quality_scale": "custom",
+    "is_premium": false,
+    "is_main_duplicate": true,
+    "disabled": false
+  },
+  {
+    "entity_id": "sensor.buanderie_nas_prise_connectee_current_power",
+    "friendly_name": "buanderie nas Prise connectée Current Power",
+    "integration": "tapo",
+    "area": "Buanderie",
+    "unit": "W",
+    "value": 126.633,
+    "is_duplicate": false,
+    "group_key": [
+      "buanderie",
+      "buanderie nas prise connectée current power"
+    ],
+    "quality_scale": "custom",
+    "is_premium": false,
+    "is_main_duplicate": true,
+    "disabled": false
+  },
+  {
+    "entity_id": "sensor.clim_appart1_wifi_commutateur_sur_rail_din_puissance",
+    "friendly_name": "Clim appart1 WiFi Commutateur sur rail DIN  Puissance",
+    "integration": "tuya",
+    "area": null,
+    "unit": "W",
+    "value": 60.3,
+    "is_duplicate": false,
+    "group_key": [
+      "none",
+      "clim appart1 wifi commutateur sur rail din  puissance"
+    ],
+    "quality_scale": "custom",
+    "is_premium": false,
+    "is_main_duplicate": true,
+    "disabled": false
+  },
+  {
+    "entity_id": "sensor.all_standby_power",
+    "friendly_name": "All standby power",
+    "integration": "powercalc",
+    "area": null,
+    "unit": "W",
+    "value": 23.62,
+    "is_duplicate": false,
+    "group_key": [
+      "none",
+      "all standby power"
+    ],
+    "quality_scale": "custom",
+    "is_premium": false,
+    "is_main_duplicate": true,
+    "disabled": false
+  },
+  {
+    "entity_id": "sensor.alex_hue_color_lamp_1_power",
+    "friendly_name": "Alex Hue color lamp 1 power",
+    "integration": "powercalc",
+    "area": null,
+    "unit": "W",
+    "value": null,
+    "is_duplicate": false,
+    "group_key": [
+      "none",
+      "alex hue color lamp 1 power"
+    ],
+    "quality_scale": "custom",
+    "is_premium": false,
+    "is_main_duplicate": true,
+    "disabled": false
+  },
+  {
+    "entity_id": "sensor.buanderie_ambiance_lamp_1_power",
+    "friendly_name": "Buanderie ambiance lamp 1 power",
+    "integration": "powercalc",
+    "area": "Buanderie",
+    "unit": "W",
+    "value": 0.39,
+    "is_duplicate": false,
+    "group_key": [
+      "buanderie",
+      "buanderie ambiance lamp 1 power"
+    ],
+    "quality_scale": "custom",
+    "is_premium": false,
+    "is_main_duplicate": true,
+    "disabled": false
+  },
+  {
+    "entity_id": "sensor.buanderie_ambiance_lamp_1_power_2",
+    "friendly_name": "Buanderie ambiance lamp 1 power",
+    "integration": "powercalc",
+    "area": "Buanderie",
+    "unit": "W",
+    "value": null,
+    "is_duplicate": true,
+    "group_key": [
+      "buanderie",
+      "buanderie ambiance lamp 1 power"
+    ],
+    "quality_scale": "custom",
+    "is_premium": false,
+    "duplicate_of": "sensor.buanderie_ambiance_lamp_1_power",
+    "disabled": true,
+    "is_main_duplicate": false
+  },
+  {
+    "entity_id": "sensor.buanderie_ambiance_lamp_2_power",
+    "friendly_name": "Buanderie ambiance lamp 2 power",
+    "integration": "powercalc",
+    "area": "Buanderie",
+    "unit": "W",
+    "value": 0.39,
+    "is_duplicate": false,
+    "group_key": [
+      "buanderie",
+      "buanderie ambiance lamp 2 power"
+    ],
+    "quality_scale": "custom",
+    "is_premium": false,
+    "is_main_duplicate": true,
+    "disabled": false
+  },
+  {
+    "entity_id": "sensor.buanderie_ambiance_lamp_2_power_2",
+    "friendly_name": "Buanderie ambiance lamp 2 power",
+    "integration": "powercalc",
+    "area": "Buanderie",
+    "unit": "W",
+    "value": null,
+    "is_duplicate": true,
+    "group_key": [
+      "buanderie",
+      "buanderie ambiance lamp 2 power"
+    ],
+    "quality_scale": "custom",
+    "is_premium": false,
+    "duplicate_of": "sensor.buanderie_ambiance_lamp_2_power",
+    "disabled": true,
+    "is_main_duplicate": false
+  },
+  {
+    "entity_id": "sensor.buanderie_white_lamp_4_power",
+    "friendly_name": "Buanderie white lamp 4 power",
+    "integration": "powercalc",
+    "area": "Buanderie",
+    "unit": "W",
+    "value": 0.39,
+    "is_duplicate": false,
+    "group_key": [
+      "buanderie",
+      "buanderie white lamp 4 power"
+    ],
+    "quality_scale": "custom",
+    "is_premium": false,
+    "is_main_duplicate": true,
+    "disabled": false
+  },
+  {
+    "entity_id": "sensor.buanderie_white_lamp_4_power_2",
+    "friendly_name": "Buanderie white lamp 4 power",
+    "integration": "powercalc",
+    "area": "Buanderie",
+    "unit": "W",
+    "value": null,
+    "is_duplicate": true,
+    "group_key": [
+      "buanderie",
+      "buanderie white lamp 4 power"
+    ],
+    "quality_scale": "custom",
+    "is_premium": false,
+    "duplicate_of": "sensor.buanderie_white_lamp_4_power",
+    "disabled": true,
+    "is_main_duplicate": false
+  },
+  {
+    "entity_id": "sensor.bureau_color_lamp_14_power",
+    "friendly_name": "Bureau color lamp 14 power",
+    "integration": "powercalc",
+    "area": "Bureau",
+    "unit": "W",
+    "value": 0.47,
+    "is_duplicate": false,
+    "group_key": [
+      "bureau",
+      "bureau color lamp 14 power"
+    ],
+    "quality_scale": "custom",
+    "is_premium": false,
+    "is_main_duplicate": true,
+    "disabled": false
+  },
+  {
+    "entity_id": "sensor.bureau_color_lamp_14_power_2",
+    "friendly_name": "Bureau color lamp 14 power",
+    "integration": "powercalc",
+    "area": "Bureau",
+    "unit": "W",
+    "value": null,
+    "is_duplicate": true,
+    "group_key": [
+      "bureau",
+      "bureau color lamp 14 power"
+    ],
+    "quality_scale": "custom",
+    "is_premium": false,
+    "duplicate_of": "sensor.bureau_color_lamp_14_power",
+    "disabled": true,
+    "is_main_duplicate": false
+  },
+  {
+    "entity_id": "sensor.bureau_color_lamp_15_power",
+    "friendly_name": "Bureau color lamp 15 power",
+    "integration": "powercalc",
+    "area": "Bureau",
+    "unit": "W",
+    "value": 0.35,
+    "is_duplicate": false,
+    "group_key": [
+      "bureau",
+      "bureau color lamp 15 power"
+    ],
+    "quality_scale": "custom",
+    "is_premium": false,
+    "is_main_duplicate": true,
+    "disabled": false
+  },
+  {
+    "entity_id": "sensor.bureau_color_lamp_15_power_2",
+    "friendly_name": "Bureau color lamp 15 power",
+    "integration": "powercalc",
+    "area": "Bureau",
+    "unit": "W",
+    "value": null,
+    "is_duplicate": true,
+    "group_key": [
+      "bureau",
+      "bureau color lamp 15 power"
+    ],
+    "quality_scale": "custom",
+    "is_premium": false,
+    "duplicate_of": "sensor.bureau_color_lamp_15_power",
+    "disabled": true,
+    "is_main_duplicate": false
+  },
+  {
+    "entity_id": "sensor.bureau_hue_color_lamp_1_power",
+    "friendly_name": "Bureau Hue color lamp 1 power",
+    "integration": "powercalc",
+    "area": null,
+    "unit": "W",
+    "value": null,
+    "is_duplicate": false,
+    "group_key": [
+      "none",
+      "bureau hue color lamp 1 power"
+    ],
+    "quality_scale": "custom",
+    "is_premium": false,
+    "is_main_duplicate": true,
+    "disabled": false
+  },
+  {
+    "entity_id": "sensor.chambre_power",
+    "friendly_name": "Chambre power",
+    "integration": "powercalc",
+    "area": "Chambre",
+    "unit": "W",
+    "value": 0.65,
+    "is_duplicate": false,
+    "group_key": [
+      "chambre",
+      "chambre power"
+    ],
+    "quality_scale": "custom",
+    "is_premium": false,
+    "is_main_duplicate": true,
+    "disabled": false
+  },
+  {
+    "entity_id": "sensor.chambre_power_2",
+    "friendly_name": "chambre power",
+    "integration": "powercalc",
+    "area": "Chambre",
+    "unit": "W",
+    "value": null,
+    "is_duplicate": true,
+    "group_key": [
+      "chambre",
+      "chambre power"
+    ],
+    "quality_scale": "custom",
+    "is_premium": false,
+    "duplicate_of": "sensor.chambre_power",
+    "disabled": true,
+    "is_main_duplicate": false
+  },
+  {
+    "entity_id": "sensor.chambre_power_3",
+    "friendly_name": "chambre power",
+    "integration": "powercalc",
+    "area": "Chambre",
+    "unit": "W",
+    "value": null,
+    "is_duplicate": true,
+    "group_key": [
+      "chambre",
+      "chambre power"
+    ],
+    "quality_scale": "custom",
+    "is_premium": false,
+    "duplicate_of": "sensor.chambre_power",
+    "disabled": true,
+    "is_main_duplicate": false
+  },
+  {
+    "entity_id": "sensor.chambre_power_4",
+    "friendly_name": "Chambre power",
+    "integration": "powercalc",
+    "area": "Chambre",
+    "unit": "W",
+    "value": 0.65,
+    "is_duplicate": true,
+    "group_key": [
+      "chambre",
+      "chambre power"
+    ],
+    "quality_scale": "custom",
+    "is_premium": false,
+    "duplicate_of": "sensor.chambre_power",
+    "disabled": true,
+    "is_main_duplicate": false
+  },
+  {
+    "entity_id": "sensor.chambre_color_candle_2_power",
+    "friendly_name": "Chambre color candle 2 power",
+    "integration": "powercalc",
+    "area": "Chambre",
+    "unit": "W",
+    "value": 0.35,
+    "is_duplicate": false,
+    "group_key": [
+      "chambre",
+      "chambre color candle 2 power"
+    ],
+    "quality_scale": "custom",
+    "is_premium": false,
+    "is_main_duplicate": true,
+    "disabled": false
+  },
+  {
+    "entity_id": "sensor.chambre_color_candle_2_power_2",
+    "friendly_name": "Chambre color candle 2 power",
+    "integration": "powercalc",
+    "area": "Chambre",
+    "unit": "W",
+    "value": null,
+    "is_duplicate": true,
+    "group_key": [
+      "chambre",
+      "chambre color candle 2 power"
+    ],
+    "quality_scale": "custom",
+    "is_premium": false,
+    "duplicate_of": "sensor.chambre_color_candle_2_power",
+    "disabled": true,
+    "is_main_duplicate": false
+  },
+  {
+    "entity_id": "sensor.emma_hue_color_lamp_1_power",
+    "friendly_name": "Emma Hue color lamp 1 power",
+    "integration": "powercalc",
+    "area": null,
+    "unit": "W",
+    "value": null,
+    "is_duplicate": false,
+    "group_key": [
+      "none",
+      "emma hue color lamp 1 power"
+    ],
+    "quality_scale": "custom",
+    "is_premium": false,
+    "is_main_duplicate": true,
+    "disabled": false
+  },
+  {
+    "entity_id": "sensor.emma_hue_go_1_power",
+    "friendly_name": "Emma Hue go 1 power",
+    "integration": "powercalc",
+    "area": null,
+    "unit": "W",
+    "value": null,
+    "is_duplicate": false,
+    "group_key": [
+      "none",
+      "emma hue go 1 power"
+    ],
+    "quality_scale": "custom",
+    "is_premium": false,
+    "is_main_duplicate": true,
+    "disabled": false
+  },
+  {
+    "entity_id": "sensor.homepod_power",
+    "friendly_name": "HomePod power",
+    "integration": "powercalc",
+    "area": "Salon",
+    "unit": "W",
+    "value": 1.01,
+    "is_duplicate": false,
+    "group_key": [
+      "salon",
+      "homepod power"
+    ],
+    "quality_scale": "custom",
+    "is_premium": false,
+    "is_main_duplicate": true,
+    "disabled": false
+  },
+  {
+    "entity_id": "sensor.hue_discover_outdoor_wall_2_power",
+    "friendly_name": "Hue Discover outdoor wall 2 power",
+    "integration": "powercalc",
+    "area": "Terasse",
+    "unit": "W",
+    "value": 0.5,
+    "is_duplicate": false,
+    "group_key": [
+      "terasse",
+      "hue discover outdoor wall 2 power"
+    ],
+    "quality_scale": "custom",
+    "is_premium": false,
+    "is_main_duplicate": true,
+    "disabled": false
+  },
+  {
+    "entity_id": "sensor.hue_discover_outdoor_wall_2_power_2",
+    "friendly_name": "Hue Discover outdoor wall 2 power",
+    "integration": "powercalc",
+    "area": "Terasse",
+    "unit": "W",
+    "value": null,
+    "is_duplicate": true,
+    "group_key": [
+      "terasse",
+      "hue discover outdoor wall 2 power"
+    ],
+    "quality_scale": "custom",
+    "is_premium": false,
+    "duplicate_of": "sensor.hue_discover_outdoor_wall_2_power",
+    "disabled": true,
+    "is_main_duplicate": false
+  },
+  {
+    "entity_id": "sensor.hue_discover_outdoor_wall_3_power",
+    "friendly_name": "Hue Discover outdoor wall 3 power",
+    "integration": "powercalc",
+    "area": "Terasse",
+    "unit": "W",
+    "value": 0.5,
+    "is_duplicate": false,
+    "group_key": [
+      "terasse",
+      "hue discover outdoor wall 3 power"
+    ],
+    "quality_scale": "custom",
+    "is_premium": false,
+    "is_main_duplicate": true,
+    "disabled": false
+  },
+  {
+    "entity_id": "sensor.hue_lightstrip_outdoor_3_power",
+    "friendly_name": "Hue lightstrip outdoor 3 power",
+    "integration": "powercalc",
+    "area": "Terasse",
+    "unit": "W",
+    "value": 0.25,
+    "is_duplicate": false,
+    "group_key": [
+      "terasse",
+      "hue lightstrip outdoor 3 power"
+    ],
+    "quality_scale": "custom",
+    "is_premium": false,
+    "is_main_duplicate": true,
+    "disabled": false
+  },
+  {
+    "entity_id": "sensor.hue_lightstrip_outdoor_3_power_2",
+    "friendly_name": "Hue lightstrip outdoor 3 power",
+    "integration": "powercalc",
+    "area": "Terasse",
+    "unit": "W",
+    "value": null,
+    "is_duplicate": true,
+    "group_key": [
+      "terasse",
+      "hue lightstrip outdoor 3 power"
+    ],
+    "quality_scale": "custom",
+    "is_premium": false,
+    "duplicate_of": "sensor.hue_lightstrip_outdoor_3_power",
+    "disabled": true,
+    "is_main_duplicate": false
+  },
+  {
+    "entity_id": "sensor.salon_hue_color_lamp_1_power_2",
+    "friendly_name": "Salon Hue color lamp 1 power",
+    "integration": "powercalc",
+    "area": "Chambre",
+    "unit": "W",
+    "value": 0.47,
+    "is_duplicate": false,
+    "group_key": [
+      "chambre",
+      "salon hue color lamp 1 power"
+    ],
+    "quality_scale": "custom",
+    "is_premium": false,
+    "is_main_duplicate": true,
+    "disabled": false
+  },
+  {
+    "entity_id": "sensor.salon_hue_lightstrip_plus_1_power",
+    "friendly_name": "Salon Hue lightstrip plus 1 power",
+    "integration": "powercalc",
+    "area": null,
+    "unit": "W",
+    "value": null,
+    "is_duplicate": false,
+    "group_key": [
+      "none",
+      "salon hue lightstrip plus 1 power"
+    ],
+    "quality_scale": "custom",
+    "is_premium": false,
+    "is_main_duplicate": true,
+    "disabled": false
+  },
+  {
+    "entity_id": "sensor.salon_hue_lightstrip_plus_1_power_2",
+    "friendly_name": "Salon Hue lightstrip plus 1 power",
+    "integration": "powercalc",
+    "area": null,
+    "unit": "W",
+    "value": null,
+    "is_duplicate": true,
+    "group_key": [
+      "none",
+      "salon hue lightstrip plus 1 power"
+    ],
+    "quality_scale": "custom",
+    "is_premium": false,
+    "duplicate_of": "sensor.salon_hue_lightstrip_plus_1_power",
+    "disabled": true,
+    "is_main_duplicate": false
+  },
+  {
+    "entity_id": "sensor.salon_hue_lightstrip_plus_1_power_3",
+    "friendly_name": "salon Hue lightstrip plus 1 power",
+    "integration": "powercalc",
+    "area": null,
+    "unit": "W",
+    "value": null,
+    "is_duplicate": true,
+    "group_key": [
+      "none",
+      "salon hue lightstrip plus 1 power"
+    ],
+    "quality_scale": "custom",
+    "is_premium": false,
+    "duplicate_of": "sensor.salon_hue_lightstrip_plus_1_power",
+    "disabled": true,
+    "is_main_duplicate": false
+  },
+  {
+    "entity_id": "sensor.terrasse_hue_color_lamp_1_power",
+    "friendly_name": "Terrasse Hue color lamp 1 power",
+    "integration": "powercalc",
+    "area": null,
+    "unit": "W",
+    "value": null,
+    "is_duplicate": false,
+    "group_key": [
+      "none",
+      "terrasse hue color lamp 1 power"
+    ],
+    "quality_scale": "custom",
+    "is_premium": false,
+    "is_main_duplicate": true,
+    "disabled": false
+  },
+  {
+    "entity_id": "sensor.toilettes_white_lamp_2_power",
+    "friendly_name": "Toilettes white lamp 2 power",
+    "integration": "powercalc",
+    "area": "Toilettes",
+    "unit": "W",
+    "value": 0.39,
+    "is_duplicate": false,
+    "group_key": [
+      "toilettes",
+      "toilettes white lamp 2 power"
+    ],
+    "quality_scale": "custom",
+    "is_premium": false,
+    "is_main_duplicate": true,
+    "disabled": false
+  },
+  {
+    "entity_id": "sensor.toilettes_white_lamp_2_power_2",
+    "friendly_name": "Toilettes white lamp 2 power",
+    "integration": "powercalc",
+    "area": "Toilettes",
+    "unit": "W",
+    "value": null,
+    "is_duplicate": true,
+    "group_key": [
+      "toilettes",
+      "toilettes white lamp 2 power"
+    ],
+    "quality_scale": "custom",
+    "is_premium": false,
+    "duplicate_of": "sensor.toilettes_white_lamp_2_power",
+    "disabled": true,
+    "is_main_duplicate": false
+  },
+  {
+    "entity_id": "sensor.lumiere_bureau_power",
+    "friendly_name": "lumiere Bureau power",
+    "integration": "powercalc",
+    "area": null,
+    "unit": "W",
+    "value": null,
+    "is_duplicate": false,
+    "group_key": [
+      "none",
+      "lumiere bureau power"
+    ],
+    "quality_scale": "custom",
+    "is_premium": false,
+    "is_main_duplicate": true,
+    "disabled": false
+  },
+  {
+    "entity_id": "sensor.all_lights_power",
+    "friendly_name": "all lights power",
+    "integration": "powercalc",
+    "area": null,
+    "unit": "W",
+    "value": null,
+    "is_duplicate": false,
+    "group_key": [
+      "none",
+      "all lights power"
+    ],
+    "quality_scale": "custom",
+    "is_premium": false,
+    "is_main_duplicate": true,
+    "disabled": false
+  },
+  {
+    "entity_id": "sensor.lumiere_cuisine_power",
+    "friendly_name": "lumiere Cuisine power",
+    "integration": "powercalc",
+    "area": null,
+    "unit": "W",
+    "value": null,
+    "is_duplicate": false,
+    "group_key": [
+      "none",
+      "lumiere cuisine power"
+    ],
+    "quality_scale": "custom",
+    "is_premium": false,
+    "is_main_duplicate": true,
+    "disabled": false
+  },
+  {
+    "entity_id": "sensor.lumiere_buanderie_power",
+    "friendly_name": "lumiere Buanderie power",
+    "integration": "powercalc",
+    "area": null,
+    "unit": "W",
+    "value": null,
+    "is_duplicate": false,
+    "group_key": [
+      "none",
+      "lumiere buanderie power"
+    ],
+    "quality_scale": "custom",
+    "is_premium": false,
+    "is_main_duplicate": true,
+    "disabled": false
+  },
+  {
+    "entity_id": "sensor.lumiere_chambre_power",
+    "friendly_name": "lumiere Chambre power",
+    "integration": "powercalc",
+    "area": null,
+    "unit": "W",
+    "value": null,
+    "is_duplicate": false,
+    "group_key": [
+      "none",
+      "lumiere chambre power"
+    ],
+    "quality_scale": "custom",
+    "is_premium": false,
+    "is_main_duplicate": true,
+    "disabled": false
+  },
+  {
+    "entity_id": "sensor.lumiere_salon_power",
+    "friendly_name": "lumiere Salon power",
+    "integration": "powercalc",
+    "area": null,
+    "unit": "W",
+    "value": null,
+    "is_duplicate": false,
+    "group_key": [
+      "none",
+      "lumiere salon power"
+    ],
+    "quality_scale": "custom",
+    "is_premium": false,
+    "is_main_duplicate": true,
+    "disabled": false
+  },
+  {
+    "entity_id": "sensor.lumiere_toilette_power",
+    "friendly_name": "lumiere Toilette power",
+    "integration": "powercalc",
+    "area": null,
+    "unit": "W",
+    "value": null,
+    "is_duplicate": false,
+    "group_key": [
+      "none",
+      "lumiere toilette power"
+    ],
+    "quality_scale": "custom",
+    "is_premium": false,
+    "is_main_duplicate": true,
+    "disabled": false
+  },
+  {
+    "entity_id": "sensor.lumiere_chambre_emma_power",
+    "friendly_name": "lumiere chambre emma power",
+    "integration": "powercalc",
+    "area": null,
+    "unit": "W",
+    "value": null,
+    "is_duplicate": false,
+    "group_key": [
+      "none",
+      "lumiere chambre emma power"
+    ],
+    "quality_scale": "custom",
+    "is_premium": false,
+    "is_main_duplicate": true,
+    "disabled": false
+  },
+  {
+    "entity_id": "sensor.lumiere_alex_power",
+    "friendly_name": "lumiere alex power",
+    "integration": "powercalc",
+    "area": null,
+    "unit": "W",
+    "value": null,
+    "is_duplicate": false,
+    "group_key": [
+      "none",
+      "lumiere alex power"
+    ],
+    "quality_scale": "custom",
+    "is_premium": false,
+    "is_main_duplicate": true,
+    "disabled": false
+  },
+  {
+    "entity_id": "sensor.lumiere_couloir_power",
+    "friendly_name": "lumiere Couloir power",
+    "integration": "powercalc",
+    "area": null,
+    "unit": "W",
+    "value": null,
+    "is_duplicate": false,
+    "group_key": [
+      "none",
+      "lumiere couloir power"
+    ],
+    "quality_scale": "custom",
+    "is_premium": false,
+    "is_main_duplicate": true,
+    "disabled": false
+  },
+  {
+    "entity_id": "sensor.hue_color_lamp_1_power",
+    "friendly_name": "Salon Hue color lamp 1 power",
+    "integration": "powercalc",
+    "area": "Salon",
+    "unit": "W",
+    "value": null,
+    "is_duplicate": true,
+    "group_key": [
+      "salon",
+      "salon hue color lamp 1 power"
+    ],
+    "quality_scale": "custom",
+    "is_premium": false,
+    "duplicate_of": "sensor.salon_hue_color_lamp_1_power_2",
+    "disabled": true,
+    "is_main_duplicate": false
+  },
+  {
+    "entity_id": "sensor.lumiere_terrasse_power",
+    "friendly_name": "lumiere Terrasse power",
+    "integration": "powercalc",
+    "area": null,
+    "unit": "W",
+    "value": null,
+    "is_duplicate": false,
+    "group_key": [
+      "none",
+      "lumiere terrasse power"
+    ],
+    "quality_scale": "custom",
+    "is_premium": false,
+    "is_main_duplicate": true,
+    "disabled": false
+  },
+  {
+    "entity_id": "sensor.bureau_prise_connecte_studio_device_power",
+    "friendly_name": "Bureau Prise connecté studio Device Power",
+    "integration": "powercalc",
+    "area": "Bureau",
+    "unit": "W",
+    "value": 0.0,
+    "is_duplicate": false,
+    "group_key": [
+      "bureau",
+      "bureau prise connecté studio device power"
+    ],
+    "quality_scale": "custom",
+    "is_premium": false,
+    "is_main_duplicate": true,
+    "disabled": false
+  },
+  {
+    "entity_id": "sensor.cuisine_lightstrip_plus_1_power",
+    "friendly_name": "Cuisine lightstrip plus 1 power",
+    "integration": "powercalc",
+    "area": null,
+    "unit": "W",
+    "value": null,
+    "is_duplicate": false,
+    "group_key": [
+      "none",
+      "cuisine lightstrip plus 1 power"
+    ],
+    "quality_scale": "custom",
+    "is_premium": false,
+    "is_main_duplicate": true,
+    "disabled": false
+  },
+  {
+    "entity_id": "sensor.cuisine_lightstrip_plus_1_power_2",
+    "friendly_name": "Cuisine lightstrip plus 1 power",
+    "integration": "powercalc",
+    "area": null,
+    "unit": "W",
+    "value": null,
+    "is_duplicate": true,
+    "group_key": [
+      "none",
+      "cuisine lightstrip plus 1 power"
+    ],
+    "quality_scale": "custom",
+    "is_premium": false,
+    "duplicate_of": "sensor.cuisine_lightstrip_plus_1_power",
+    "disabled": true,
+    "is_main_duplicate": false
+  },
+  {
+    "entity_id": "sensor.salon_hue_color_lamp_3_power",
+    "friendly_name": "salon Hue color lamp 3 power",
+    "integration": "powercalc",
+    "area": null,
+    "unit": "W",
+    "value": null,
+    "is_duplicate": false,
+    "group_key": [
+      "none",
+      "salon hue color lamp 3 power"
+    ],
+    "quality_scale": "custom",
+    "is_premium": false,
+    "is_main_duplicate": true,
+    "disabled": false
+  },
+  {
+    "entity_id": "sensor.ballon_buanderie_commutateur_avec_mesure_3_puissance",
+    "friendly_name": "Ballon buanderie Commutateur avec mesure 3 Puissance",
+    "integration": "tuya",
+    "area": null,
+    "unit": "W",
+    "value": 2231.4,
+    "is_duplicate": false,
+    "group_key": [
+      "none",
+      "ballon buanderie commutateur avec mesure 3 puissance"
+    ],
+    "quality_scale": "custom",
+    "is_premium": false,
+    "is_main_duplicate": true,
+    "disabled": false
+  },
+  {
+    "entity_id": "sensor.plaque_electrique_cuisine_wifi_commutateur_puissance",
+    "friendly_name": "Plaque électrique cuisine WiFi Commutateur  Puissance",
+    "integration": "tuya",
+    "area": null,
+    "unit": "W",
+    "value": 0.0,
+    "is_duplicate": false,
+    "group_key": [
+      "none",
+      "plaque électrique cuisine wifi commutateur  puissance"
+    ],
+    "quality_scale": "custom",
+    "is_premium": false,
+    "is_main_duplicate": true,
+    "disabled": false
+  },
+  {
+    "entity_id": "sensor.four_cuisine_wifi_commutateur_puissance",
+    "friendly_name": "Four cuisine WiFi Commutateur  Puissance",
+    "integration": "tuya",
+    "area": null,
+    "unit": "W",
+    "value": 0.0,
+    "is_duplicate": false,
+    "group_key": [
+      "none",
+      "four cuisine wifi commutateur  puissance"
+    ],
+    "quality_scale": "custom",
+    "is_premium": false,
+    "is_main_duplicate": true,
+    "disabled": false
+  },
+  {
+    "entity_id": "sensor.frigo_prise_intelligente_puissance",
+    "friendly_name": "Frigo Prise intelligente Puissance",
+    "integration": "tuya",
+    "area": "Cuisine",
+    "unit": "W",
+    "value": 83.5,
+    "is_duplicate": false,
+    "group_key": [
+      "cuisine",
+      "frigo prise intelligente puissance"
+    ],
+    "quality_scale": "custom",
+    "is_premium": false,
+    "is_main_duplicate": true,
+    "disabled": false
+  },
+  {
+    "entity_id": "sensor.cafe_prise_intelligente_puissance",
+    "friendly_name": "Café Prise intelligente Puissance",
+    "integration": "tuya",
+    "area": null,
+    "unit": "W",
+    "value": 0.0,
+    "is_duplicate": false,
+    "group_key": [
+      "none",
+      "café prise intelligente puissance"
+    ],
+    "quality_scale": "custom",
+    "is_premium": false,
+    "is_main_duplicate": true,
+    "disabled": false
+  },
+  {
+    "entity_id": "sensor.prise_micro_onde_puissance",
+    "friendly_name": "Prise micro onde Puissance",
+    "integration": "tuya",
+    "area": null,
+    "unit": "W",
+    "value": 0.0,
+    "is_duplicate": false,
+    "group_key": [
+      "none",
+      "prise micro onde puissance"
+    ],
+    "quality_scale": "custom",
+    "is_premium": false,
+    "is_main_duplicate": true,
+    "disabled": false
+  },
+  {
+    "entity_id": "sensor.prise_datac_buanderie_puissance",
+    "friendly_name": "Prise datac buanderie Puissance",
+    "integration": "tuya",
+    "area": null,
+    "unit": "W",
+    "value": 36.4,
+    "is_duplicate": false,
+    "group_key": [
+      "none",
+      "prise datac buanderie puissance"
+    ],
+    "quality_scale": "custom",
+    "is_premium": false,
+    "is_main_duplicate": true,
+    "disabled": false
+  },
+  {
+    "entity_id": "sensor.homepod_mini_power",
+    "friendly_name": "HomePod Mini power",
+    "integration": "powercalc",
+    "area": "Chambre",
+    "unit": "W",
+    "value": 0.65,
+    "is_duplicate": false,
+    "group_key": [
+      "chambre",
+      "homepod mini power"
+    ],
+    "quality_scale": "custom",
+    "is_premium": false,
+    "is_main_duplicate": true,
+    "disabled": false
+  },
+  {
+    "entity_id": "sensor.cuisine_color_spot_1_power",
+    "friendly_name": "Cuisine color spot 1 power",
+    "integration": "powercalc",
+    "area": null,
+    "unit": "W",
+    "value": null,
+    "is_duplicate": false,
+    "group_key": [
+      "none",
+      "cuisine color spot 1 power"
+    ],
+    "quality_scale": "custom",
+    "is_premium": false,
+    "is_main_duplicate": true,
+    "disabled": false
+  },
+  {
+    "entity_id": "sensor.cuisine_color_spot_2_power",
+    "friendly_name": "Cuisine color spot 2 power",
+    "integration": "powercalc",
+    "area": null,
+    "unit": "W",
+    "value": null,
+    "is_duplicate": false,
+    "group_key": [
+      "none",
+      "cuisine color spot 2 power"
+    ],
+    "quality_scale": "custom",
+    "is_premium": false,
+    "is_main_duplicate": true,
+    "disabled": false
+  },
+  {
+    "entity_id": "sensor.cuisine_color_spot_4_power",
+    "friendly_name": "Cuisine color spot 4 power",
+    "integration": "powercalc",
+    "area": null,
+    "unit": "W",
+    "value": null,
+    "is_duplicate": false,
+    "group_key": [
+      "none",
+      "cuisine color spot 4 power"
+    ],
+    "quality_scale": "custom",
+    "is_premium": false,
+    "is_main_duplicate": true,
+    "disabled": false
+  },
+  {
+    "entity_id": "sensor.cuisine_hue_color_spot_1_power",
+    "friendly_name": "Cuisine Hue color spot 1 power",
+    "integration": "powercalc",
+    "area": null,
+    "unit": "W",
+    "value": null,
+    "is_duplicate": false,
+    "group_key": [
+      "none",
+      "cuisine hue color spot 1 power"
+    ],
+    "quality_scale": "custom",
+    "is_premium": false,
+    "is_main_duplicate": true,
+    "disabled": false
+  },
+  {
+    "entity_id": "sensor.chambre_color_candle_1_power",
+    "friendly_name": "Chambre color candle 1 power",
+    "integration": "powercalc",
+    "area": null,
+    "unit": "W",
+    "value": null,
+    "is_duplicate": false,
+    "group_key": [
+      "none",
+      "chambre color candle 1 power"
+    ],
+    "quality_scale": "custom",
+    "is_premium": false,
+    "is_main_duplicate": true,
+    "disabled": false
+  },
+  {
+    "entity_id": "sensor.chambre_color_lamp_7_power",
+    "friendly_name": "Chambre color lamp 7 power",
+    "integration": "powercalc",
+    "area": null,
+    "unit": "W",
+    "value": null,
+    "is_duplicate": false,
+    "group_key": [
+      "none",
+      "chambre color lamp 7 power"
+    ],
+    "quality_scale": "custom",
+    "is_premium": false,
+    "is_main_duplicate": true,
+    "disabled": false
+  },
+  {
+    "entity_id": "sensor.emma_hue_play_1_power",
+    "friendly_name": "Emma Hue play 1 power",
+    "integration": "powercalc",
+    "area": "Chambre d’Emma",
+    "unit": "W",
+    "value": 0.1,
+    "is_duplicate": false,
+    "group_key": [
+      "chambre d’emma",
+      "emma hue play 1 power"
+    ],
+    "quality_scale": "custom",
+    "is_premium": false,
+    "is_main_duplicate": true,
+    "disabled": false
+  },
+  {
+    "entity_id": "sensor.emma_hue_play_1_power_2",
+    "friendly_name": "Emma Hue play 1 power",
+    "integration": "powercalc",
+    "area": "Chambre d’Emma",
+    "unit": "W",
+    "value": null,
+    "is_duplicate": true,
+    "group_key": [
+      "chambre d’emma",
+      "emma hue play 1 power"
+    ],
+    "quality_scale": "custom",
+    "is_premium": false,
+    "duplicate_of": "sensor.emma_hue_play_1_power",
+    "disabled": true,
+    "is_main_duplicate": false
+  },
+  {
+    "entity_id": "sensor.hue_lightstrip_outdoor_4_power",
+    "friendly_name": "Hue lightstrip outdoor 4 power",
+    "integration": "powercalc",
+    "area": "Terasse",
+    "unit": "W",
+    "value": 0.4,
+    "is_duplicate": false,
+    "group_key": [
+      "terasse",
+      "hue lightstrip outdoor 4 power"
+    ],
+    "quality_scale": "custom",
+    "is_premium": false,
+    "is_main_duplicate": true,
+    "disabled": false
+  },
+  {
+    "entity_id": "sensor.hue_lightstrip_outdoor_4_power_2_2",
+    "friendly_name": "Hue lightstrip outdoor 4 power",
+    "integration": "powercalc",
+    "area": "Terasse",
+    "unit": "W",
+    "value": null,
+    "is_duplicate": true,
+    "group_key": [
+      "terasse",
+      "hue lightstrip outdoor 4 power"
+    ],
+    "quality_scale": "custom",
+    "is_premium": false,
+    "duplicate_of": "sensor.hue_lightstrip_outdoor_4_power",
+    "disabled": true,
+    "is_main_duplicate": false
+  },
+  {
+    "entity_id": "sensor.sdb_hue_color_candle_1_power",
+    "friendly_name": "Sdb Hue color candle 1 power",
+    "integration": "powercalc",
+    "area": null,
+    "unit": "W",
+    "value": null,
+    "is_duplicate": false,
+    "group_key": [
+      "none",
+      "sdb hue color candle 1 power"
+    ],
+    "quality_scale": "custom",
+    "is_premium": false,
+    "is_main_duplicate": true,
+    "disabled": false
+  },
+  {
+    "entity_id": "sensor.sdb_hue_color_candle_3_power",
+    "friendly_name": "Sdb Hue color candle 3 power",
+    "integration": "powercalc",
+    "area": null,
+    "unit": "W",
+    "value": null,
+    "is_duplicate": false,
+    "group_key": [
+      "none",
+      "sdb hue color candle 3 power"
+    ],
+    "quality_scale": "custom",
+    "is_premium": false,
+    "is_main_duplicate": true,
+    "disabled": false
+  },
+  {
+    "entity_id": "sensor.sdb_hue_color_candle_3_power_2",
+    "friendly_name": "Sdb Hue color candle 3 power",
+    "integration": "powercalc",
+    "area": null,
+    "unit": "W",
+    "value": null,
+    "is_duplicate": true,
+    "group_key": [
+      "none",
+      "sdb hue color candle 3 power"
+    ],
+    "quality_scale": "custom",
+    "is_premium": false,
+    "duplicate_of": "sensor.sdb_hue_color_candle_3_power",
+    "disabled": true,
+    "is_main_duplicate": false
+  },
+  {
+    "entity_id": "sensor.bureau_lightstrip_plus_3_power",
+    "friendly_name": "Bureau lightstrip plus 3 power",
+    "integration": "powercalc",
+    "area": null,
+    "unit": "W",
+    "value": null,
+    "is_duplicate": false,
+    "group_key": [
+      "none",
+      "bureau lightstrip plus 3 power"
+    ],
+    "quality_scale": "custom",
+    "is_premium": false,
+    "is_main_duplicate": true,
+    "disabled": false
+  },
+  {
+    "entity_id": "sensor.emma_hue_play_2_power",
+    "friendly_name": "Emma Hue play 2 power",
+    "integration": "powercalc",
+    "area": "Chambre d’Emma",
+    "unit": "W",
+    "value": 0.1,
+    "is_duplicate": false,
+    "group_key": [
+      "chambre d’emma",
+      "emma hue play 2 power"
+    ],
+    "quality_scale": "custom",
+    "is_premium": false,
+    "is_main_duplicate": true,
+    "disabled": false
+  },
+  {
+    "entity_id": "sensor.emma_hue_play_2_power_2",
+    "friendly_name": "Emma Hue play 2 power",
+    "integration": "powercalc",
+    "area": "Chambre d’Emma",
+    "unit": "W",
+    "value": null,
+    "is_duplicate": true,
+    "group_key": [
+      "chambre d’emma",
+      "emma hue play 2 power"
+    ],
+    "quality_scale": "custom",
+    "is_premium": false,
+    "duplicate_of": "sensor.emma_hue_play_2_power",
+    "disabled": true,
+    "is_main_duplicate": false
+  },
+  {
+    "entity_id": "sensor.salon_hue_color_lamp_1_power",
+    "friendly_name": "Salon Hue color lamp 1 power",
+    "integration": "powercalc",
+    "area": null,
+    "unit": "W",
+    "value": null,
+    "is_duplicate": true,
+    "group_key": [
+      "none",
+      "salon hue color lamp 1 power"
+    ],
+    "quality_scale": "custom",
+    "is_premium": false,
+    "duplicate_of": "sensor.salon_hue_color_lamp_1_power_2",
+    "disabled": true,
+    "is_main_duplicate": false
+  },
+  {
+    "entity_id": "sensor.sdb_hue_color_candle_2_power",
+    "friendly_name": "Sdb Hue color candle 2 power",
+    "integration": "powercalc",
+    "area": null,
+    "unit": "W",
+    "value": null,
+    "is_duplicate": false,
+    "group_key": [
+      "none",
+      "sdb hue color candle 2 power"
+    ],
+    "quality_scale": "custom",
+    "is_premium": false,
+    "is_main_duplicate": true,
+    "disabled": false
+  },
+  {
+    "entity_id": "sensor.sdb_hue_color_candle_2_power_2",
+    "friendly_name": "Sdb Hue color candle 2 power",
+    "integration": "powercalc",
+    "area": null,
+    "unit": "W",
+    "value": null,
+    "is_duplicate": true,
+    "group_key": [
+      "none",
+      "sdb hue color candle 2 power"
+    ],
+    "quality_scale": "custom",
+    "is_premium": false,
+    "duplicate_of": "sensor.sdb_hue_color_candle_2_power",
+    "disabled": true,
+    "is_main_duplicate": false
+  },
+  {
+    "entity_id": "sensor.salon_hue_color_lamp_2_power",
+    "friendly_name": "salon Hue color lamp 2 power",
+    "integration": "powercalc",
+    "area": null,
+    "unit": "W",
+    "value": null,
+    "is_duplicate": false,
+    "group_key": [
+      "none",
+      "salon hue color lamp 2 power"
+    ],
+    "quality_scale": "custom",
+    "is_premium": false,
+    "is_main_duplicate": true,
+    "disabled": false
+  },
+  {
+    "entity_id": "sensor.salon_hue_color_lamp_2_power_2",
+    "friendly_name": "Salon Hue color lamp 2 power",
+    "integration": "powercalc",
+    "area": null,
+    "unit": "W",
+    "value": null,
+    "is_duplicate": true,
+    "group_key": [
+      "none",
+      "salon hue color lamp 2 power"
+    ],
+    "quality_scale": "custom",
+    "is_premium": false,
+    "duplicate_of": "sensor.salon_hue_color_lamp_2_power",
+    "disabled": true,
+    "is_main_duplicate": false
+  },
+  {
+    "entity_id": "sensor.chambre_hue_color_candle_1_power",
+    "friendly_name": "Chambre Hue color candle 1 power",
+    "integration": "powercalc",
+    "area": null,
+    "unit": "W",
+    "value": null,
+    "is_duplicate": false,
+    "group_key": [
+      "none",
+      "chambre hue color candle 1 power"
+    ],
+    "quality_scale": "custom",
+    "is_premium": false,
+    "is_main_duplicate": true,
+    "disabled": false
+  },
+  {
+    "entity_id": "sensor.hue_lightstrip_outdoor_5_power",
+    "friendly_name": "Hue lightstrip outdoor 5 power",
+    "integration": "powercalc",
+    "area": null,
+    "unit": "W",
+    "value": null,
+    "is_duplicate": false,
+    "group_key": [
+      "none",
+      "hue lightstrip outdoor 5 power"
+    ],
+    "quality_scale": "custom",
+    "is_premium": false,
+    "is_main_duplicate": true,
+    "disabled": false
+  },
+  {
+    "entity_id": "sensor.hue_color_lamp_1_power_2",
+    "friendly_name": "Hue color lamp 1 power",
+    "integration": "powercalc",
+    "area": "Chambre",
+    "unit": "W",
+    "value": null,
+    "is_duplicate": false,
+    "group_key": [
+      "chambre",
+      "hue color lamp 1 power"
+    ],
+    "quality_scale": "custom",
+    "is_premium": false,
+    "is_main_duplicate": true,
+    "disabled": false
+  },
+  {
+    "entity_id": "sensor.bureau_hue_lightstrip_plus_1_power",
+    "friendly_name": "Bureau Hue lightstrip plus 1 power",
+    "integration": "powercalc",
+    "area": "Bureau",
+    "unit": "W",
+    "value": 0.18,
+    "is_duplicate": false,
+    "group_key": [
+      "bureau",
+      "bureau hue lightstrip plus 1 power"
+    ],
+    "quality_scale": "custom",
+    "is_premium": false,
+    "is_main_duplicate": true,
+    "disabled": false
+  },
+  {
+    "entity_id": "sensor.chambre_hue_color_candle_1_power_2",
+    "friendly_name": "Chambre Hue color candle 1 power",
+    "integration": "powercalc",
+    "area": "Chambre",
+    "unit": "W",
+    "value": 0.35,
+    "is_duplicate": true,
+    "group_key": [
+      "chambre",
+      "chambre hue color candle 1 power"
+    ],
+    "quality_scale": "custom",
+    "is_premium": false,
+    "duplicate_of": "sensor.chambre_hue_color_candle_1_power",
+    "disabled": true,
+    "is_main_duplicate": false
+  },
+  {
+    "entity_id": "sensor.chambre_hue_color_candle_3_power",
+    "friendly_name": "Chambre Hue color candle 3 power",
+    "integration": "powercalc",
+    "area": "Chambre",
+    "unit": "W",
+    "value": 0.35,
+    "is_duplicate": false,
+    "group_key": [
+      "chambre",
+      "chambre hue color candle 3 power"
+    ],
+    "quality_scale": "custom",
+    "is_premium": false,
+    "is_main_duplicate": true,
+    "disabled": false
+  },
+  {
+    "entity_id": "sensor.cuisine_hue_color_spot_1_power_2",
+    "friendly_name": "Cuisine Hue color spot 1 power",
+    "integration": "powercalc",
+    "area": "Cuisine",
+    "unit": "W",
+    "value": 0.25,
+    "is_duplicate": true,
+    "group_key": [
+      "cuisine",
+      "cuisine hue color spot 1 power"
+    ],
+    "quality_scale": "custom",
+    "is_premium": false,
+    "duplicate_of": "sensor.cuisine_hue_color_spot_1_power",
+    "disabled": true,
+    "is_main_duplicate": false
+  },
+  {
+    "entity_id": "sensor.cuisine_hue_color_spot_1_power_3",
+    "friendly_name": "Cuisine Hue color spot 1 power",
+    "integration": "powercalc",
+    "area": "Cuisine",
+    "unit": "W",
+    "value": 0.25,
+    "is_duplicate": true,
+    "group_key": [
+      "cuisine",
+      "cuisine hue color spot 1 power"
+    ],
+    "quality_scale": "custom",
+    "is_premium": false,
+    "duplicate_of": "sensor.cuisine_hue_color_spot_1_power",
+    "disabled": true,
+    "is_main_duplicate": false
+  },
+  {
+    "entity_id": "sensor.cuisine_hue_color_spot_2_power",
+    "friendly_name": "Cuisine Hue color spot 2 power",
+    "integration": "powercalc",
+    "area": "Cuisine",
+    "unit": "W",
+    "value": 0.4,
+    "is_duplicate": false,
+    "group_key": [
+      "cuisine",
+      "cuisine hue color spot 2 power"
+    ],
+    "quality_scale": "custom",
+    "is_premium": false,
+    "is_main_duplicate": true,
+    "disabled": false
+  },
+  {
+    "entity_id": "sensor.cuisine_hue_color_spot_4_power",
+    "friendly_name": "Cuisine Hue color spot 4 power",
+    "integration": "powercalc",
+    "area": "Cuisine",
+    "unit": "W",
+    "value": 0.25,
+    "is_duplicate": false,
+    "group_key": [
+      "cuisine",
+      "cuisine hue color spot 4 power"
+    ],
+    "quality_scale": "custom",
+    "is_premium": false,
+    "is_main_duplicate": true,
+    "disabled": false
+  },
+  {
+    "entity_id": "sensor.cuisine_hue_lightstrip_plus_1_power",
+    "friendly_name": "Cuisine Hue lightstrip plus 1 power",
+    "integration": "powercalc",
+    "area": "Cuisine",
+    "unit": "W",
+    "value": 0.18,
+    "is_duplicate": false,
+    "group_key": [
+      "cuisine",
+      "cuisine hue lightstrip plus 1 power"
+    ],
+    "quality_scale": "custom",
+    "is_premium": false,
+    "is_main_duplicate": true,
+    "disabled": false
+  },
+  {
+    "entity_id": "sensor.salon_hue_color_lamp_2_power_3",
+    "friendly_name": "Salon Hue color lamp 2 power",
+    "integration": "powercalc",
+    "area": "Salon",
+    "unit": "W",
+    "value": 0.47,
+    "is_duplicate": true,
+    "group_key": [
+      "salon",
+      "salon hue color lamp 2 power"
+    ],
+    "quality_scale": "custom",
+    "is_premium": false,
+    "duplicate_of": "sensor.salon_hue_color_lamp_2_power",
+    "disabled": true,
+    "is_main_duplicate": false
+  },
+  {
+    "entity_id": "sensor.salon_hue_lightstrip_plus_1_power_4",
+    "friendly_name": "Chambre Hue lightstrip plus 1 Salon Hue lightstrip plus 1 power",
+    "integration": "powercalc",
+    "area": "Chambre",
+    "unit": "W",
+    "value": 0.18,
+    "is_duplicate": false,
+    "group_key": [
+      "chambre",
+      "chambre hue lightstrip plus 1 salon hue lightstrip plus 1 power"
+    ],
+    "quality_scale": "custom",
+    "is_premium": false,
+    "is_main_duplicate": true,
+    "disabled": false
+  },
+  {
+    "entity_id": "sensor.sdb_hue_color_candle_1_power_2",
+    "friendly_name": "Sdb Hue color candle 1 power",
+    "integration": "powercalc",
+    "area": "Salle de bain",
+    "unit": "W",
+    "value": 0.35,
+    "is_duplicate": true,
+    "group_key": [
+      "salle de bain",
+      "sdb hue color candle 1 power"
+    ],
+    "quality_scale": "custom",
+    "is_premium": false,
+    "duplicate_of": "sensor.sdb_hue_color_candle_1_power",
+    "disabled": true,
+    "is_main_duplicate": false
+  },
+  {
+    "entity_id": "sensor.terrass_hue_lightstrip_outdoor_4_power",
+    "friendly_name": "Terrass Hue lightstrip outdoor 4 power",
+    "integration": "powercalc",
+    "area": "Terasse",
+    "unit": "W",
+    "value": 0.4,
+    "is_duplicate": false,
+    "group_key": [
+      "terasse",
+      "terrass hue lightstrip outdoor 4 power"
+    ],
+    "quality_scale": "custom",
+    "is_premium": false,
+    "is_main_duplicate": true,
+    "disabled": false
+  },
+  {
+    "entity_id": "sensor.buanderie_prise_connectee_device_power",
+    "friendly_name": "Buanderie Machines buanderie Prise connectée Device Power",
+    "integration": "powercalc",
+    "area": "Buanderie",
+    "unit": "W",
+    "value": 1.0,
+    "is_duplicate": false,
+    "group_key": [
+      "buanderie",
+      "buanderie machines buanderie prise connectée device power"
+    ],
+    "quality_scale": "custom",
+    "is_premium": false,
+    "is_main_duplicate": true,
+    "disabled": false
+  },
+  {
+    "entity_id": "sensor.salon_prise_radiateur_canape_device_power",
+    "friendly_name": "salon prise radiateur canapé live box salon prise radiateur canapé  Device Power",
+    "integration": "powercalc",
+    "area": "Salon",
+    "unit": "W",
+    "value": 0.6,
+    "is_duplicate": false,
+    "group_key": [
+      "salon",
+      "salon prise radiateur canapé live box salon prise radiateur canapé  device power"
+    ],
+    "quality_scale": "custom",
+    "is_premium": false,
+    "is_main_duplicate": true,
+    "disabled": false
+  },
+  {
+    "entity_id": "sensor.salon_prise_radiateur_tv_device_power",
+    "friendly_name": "salon prise radiateur tv Device Power",
+    "integration": "powercalc",
+    "area": "Salon",
+    "unit": "W",
+    "value": null,
+    "is_duplicate": false,
+    "group_key": [
+      "salon",
+      "salon prise radiateur tv device power"
+    ],
+    "quality_scale": "custom",
+    "is_premium": false,
+    "is_main_duplicate": true,
+    "disabled": false
+  },
+  {
+    "entity_id": "sensor.salon_tv_prise_connectee_device_power",
+    "friendly_name": "salon tv Prise connectée  Device Power",
+    "integration": "powercalc",
+    "area": "Salon",
+    "unit": "W",
+    "value": 1.0,
+    "is_duplicate": false,
+    "group_key": [
+      "salon",
+      "salon tv prise connectée  device power"
+    ],
+    "quality_scale": "custom",
+    "is_premium": false,
+    "is_main_duplicate": true,
+    "disabled": false
+  },
+  {
+    "entity_id": "sensor.chambre_prise_radiateur_device_power",
+    "friendly_name": "chambre Prise radiateur  Device Power",
+    "integration": "powercalc",
+    "area": "Chambre",
+    "unit": "W",
+    "value": 0.6,
+    "is_duplicate": false,
+    "group_key": [
+      "chambre",
+      "chambre prise radiateur  device power"
+    ],
+    "quality_scale": "custom",
+    "is_premium": false,
+    "is_main_duplicate": true,
+    "disabled": false
+  },
+  {
+    "entity_id": "sensor.bureau_prise_ordinateur_device_power",
+    "friendly_name": "bureau Prise ordinateur  Device Power",
+    "integration": "powercalc",
+    "area": "Bureau",
+    "unit": "W",
+    "value": 1.0,
+    "is_duplicate": false,
+    "group_key": [
+      "bureau",
+      "bureau prise ordinateur  device power"
+    ],
+    "quality_scale": "custom",
+    "is_premium": false,
+    "is_main_duplicate": true,
+    "disabled": false
+  },
+  {
+    "entity_id": "sensor.bureau_pc_synthese_prise_device_power",
+    "friendly_name": "Bureau pc synthé bureau pc synthèse prise Device Power",
+    "integration": "powercalc",
+    "area": "Bureau",
+    "unit": "W",
+    "value": 1.0,
+    "is_duplicate": false,
+    "group_key": [
+      "bureau",
+      "bureau pc synthé bureau pc synthèse prise device power"
+    ],
+    "quality_scale": "custom",
+    "is_premium": false,
+    "is_main_duplicate": true,
+    "disabled": false
+  },
+  {
+    "entity_id": "sensor.chambre_dalex_prise_pc_device_power",
+    "friendly_name": "chambre d’alex prise pc Device Power",
+    "integration": "powercalc",
+    "area": "Chambre d'Alex",
+    "unit": "W",
+    "value": 1.0,
+    "is_duplicate": false,
+    "group_key": [
+      "chambre d'alex",
+      "chambre d’alex prise pc device power"
+    ],
+    "quality_scale": "custom",
+    "is_premium": false,
+    "is_main_duplicate": true,
+    "disabled": false
+  },
+  {
+    "entity_id": "sensor.chambre_ordinateur_prise_connectee_device_power",
+    "friendly_name": "chambre ordinateur Prise connectée Device Power",
+    "integration": "powercalc",
+    "area": "Chambre",
+    "unit": "W",
+    "value": 1.0,
+    "is_duplicate": false,
+    "group_key": [
+      "chambre",
+      "chambre ordinateur prise connectée device power"
+    ],
+    "quality_scale": "custom",
+    "is_premium": false,
+    "is_main_duplicate": true,
+    "disabled": false
+  },
+  {
+    "entity_id": "sensor.chambre_tv_prise_connectee_device_power",
+    "friendly_name": "chambre tv Prise connectée Device Power",
+    "integration": "powercalc",
+    "area": "Chambre",
+    "unit": "W",
+    "value": 1.0,
+    "is_duplicate": false,
+    "group_key": [
+      "chambre",
+      "chambre tv prise connectée device power"
+    ],
+    "quality_scale": "custom",
+    "is_premium": false,
+    "is_main_duplicate": true,
+    "disabled": false
+  },
+  {
+    "entity_id": "sensor.sonos_beam_airplay_power",
+    "friendly_name": "sonos beam (Airplay) power",
+    "integration": "powercalc",
+    "area": "Chambre",
+    "unit": "W",
+    "value": 6.0,
+    "is_duplicate": false,
+    "group_key": [
+      "chambre",
+      "sonos beam (airplay) power"
+    ],
+    "quality_scale": "custom",
+    "is_premium": false,
+    "is_main_duplicate": true,
+    "disabled": false
+  },
+  {
+    "entity_id": "sensor.sonos_arc_airplay_power",
+    "friendly_name": "sonos arc (Airplay) power",
+    "integration": "powercalc",
+    "area": "Salon",
+    "unit": "W",
+    "value": 4.4,
+    "is_duplicate": false,
+    "group_key": [
+      "salon",
+      "sonos arc (airplay) power"
+    ],
+    "quality_scale": "custom",
+    "is_premium": false,
+    "is_main_duplicate": true,
+    "disabled": false
+  },
+  {
+    "entity_id": "sensor.cuisine_chauffe_eau_puissance",
+    "friendly_name": "Cuisine chauffe eau  Puissance",
+    "integration": "tuya",
+    "area": null,
+    "unit": "W",
+    "value": 0.0,
+    "is_duplicate": false,
+    "group_key": [
+      "none",
+      "cuisine chauffe eau  puissance"
+    ],
+    "quality_scale": "custom",
+    "is_premium": false,
+    "is_main_duplicate": true,
+    "disabled": false
+  },
+  {
+    "entity_id": "sensor.buanderie_aspirateur_puissance",
+    "friendly_name": "Buanderie aspirateur  Puissance",
+    "integration": "tuya",
+    "area": null,
+    "unit": "W",
+    "value": 0.0,
+    "is_duplicate": false,
+    "group_key": [
+      "none",
+      "buanderie aspirateur  puissance"
+    ],
+    "quality_scale": "custom",
+    "is_premium": false,
+    "is_main_duplicate": true,
+    "disabled": false
+  },
+  {
+    "entity_id": "sensor.prise_intelligente_bitaxe_puissance",
+    "friendly_name": "Prise intelligente bitaxe  Puissance",
+    "integration": "tuya",
+    "area": null,
+    "unit": "W",
+    "value": 18.3,
+    "is_duplicate": false,
+    "group_key": [
+      "none",
+      "prise intelligente bitaxe  puissance"
+    ],
+    "quality_scale": "custom",
+    "is_premium": false,
+    "is_main_duplicate": true,
+    "disabled": false
+  },
+  {
+    "entity_id": "sensor.0xa4c1387529d4068c_device_power",
+    "friendly_name": "0xa4c1387529d4068c Device Power",
+    "integration": "powercalc",
+    "area": null,
+    "unit": "W",
+    "value": null,
+    "is_duplicate": false,
+    "group_key": [
+      "none",
+      "0xa4c1387529d4068c device power"
+    ],
+    "quality_scale": "custom",
+    "is_premium": false,
+    "is_main_duplicate": true,
+    "disabled": false
+  },
+  {
+    "entity_id": "sensor.0xa4c138794c2673a1_device_power",
+    "friendly_name": "0xa4c138794c2673a1 Device Power",
+    "integration": "powercalc",
+    "area": null,
+    "unit": "W",
+    "value": null,
+    "is_duplicate": false,
+    "group_key": [
+      "none",
+      "0xa4c138794c2673a1 device power"
+    ],
+    "quality_scale": "custom",
+    "is_premium": false,
+    "is_main_duplicate": true,
+    "disabled": false
+  },
+  {
+    "entity_id": "sensor.salon_nous_extender_power",
+    "friendly_name": "salon nous extender Puissance",
+    "integration": "mqtt",
+    "area": "Salon",
+    "unit": "W",
+    "value": 0.0,
+    "is_duplicate": false,
+    "group_key": [
+      "salon",
+      "salon nous extender puissance"
+    ],
+    "quality_scale": "custom",
+    "is_premium": false,
+    "is_main_duplicate": true,
+    "disabled": false
+  },
+  {
+    "entity_id": "sensor.bureau_nous_extender_power",
+    "friendly_name": "bureau nous extender Puissance",
+    "integration": "mqtt",
+    "area": "Bureau",
+    "unit": "W",
+    "value": 6.0,
+    "is_duplicate": false,
+    "group_key": [
+      "bureau",
+      "bureau nous extender puissance"
+    ],
+    "quality_scale": "custom",
+    "is_premium": false,
+    "is_main_duplicate": true,
+    "disabled": false
+  },
+  {
+    "entity_id": "sensor.couloir_hue_color_lamp_4_power",
+    "friendly_name": "Couloir Hue color lamp 4 power",
+    "integration": "powercalc",
+    "area": null,
+    "unit": "W",
+    "value": null,
+    "is_duplicate": false,
+    "group_key": [
+      "none",
+      "couloir hue color lamp 4 power"
+    ],
+    "quality_scale": "custom",
+    "is_premium": false,
+    "is_main_duplicate": true,
+    "disabled": false
+  },
+  {
+    "entity_id": "sensor.bureau_prise_porte_consommation_actuelle",
+    "friendly_name": "Bureau prise porte Consommation actuelle",
+    "integration": "tplink",
+    "area": "Bureau",
+    "unit": "W",
+    "value": 32.3,
+    "is_duplicate": false,
+    "group_key": [
+      "bureau",
+      "bureau prise porte consommation actuelle"
+    ],
+    "quality_scale": "custom",
+    "is_premium": false,
+    "is_main_duplicate": true,
+    "disabled": false
+  },
+  {
+    "entity_id": "sensor.chambre_dalex_prise_pc_consommation_actuelle",
+    "friendly_name": "chambre d’alex prise pc Consommation actuelle",
+    "integration": "tplink",
+    "area": "Chambre d'Alex",
+    "unit": "W",
+    "value": 11.0,
+    "is_duplicate": false,
+    "group_key": [
+      "chambre d'alex",
+      "chambre d’alex prise pc consommation actuelle"
+    ],
+    "quality_scale": "custom",
+    "is_premium": false,
+    "is_main_duplicate": true,
+    "disabled": false
+  },
+  {
+    "entity_id": "sensor.bureau_pc_synthe_consommation_actuelle",
+    "friendly_name": "Bureau pc synthé Consommation actuelle",
+    "integration": "tplink",
+    "area": "Bureau",
+    "unit": "W",
+    "value": 5.6,
+    "is_duplicate": false,
+    "group_key": [
+      "bureau",
+      "bureau pc synthé consommation actuelle"
+    ],
+    "quality_scale": "custom",
+    "is_premium": false,
+    "is_main_duplicate": true,
+    "disabled": false
+  },
+  {
+    "entity_id": "sensor.salon_prise_radiateur_canape_live_box_consommation_actuelle",
+    "friendly_name": "salon prise radiateur canapé live box Consommation actuelle",
+    "integration": "tplink",
+    "area": "Salon",
+    "unit": "W",
+    "value": 0.0,
+    "is_duplicate": false,
+    "group_key": [
+      "salon",
+      "salon prise radiateur canapé live box consommation actuelle"
+    ],
+    "quality_scale": "custom",
+    "is_premium": false,
+    "is_main_duplicate": true,
+    "disabled": false
+  },
+  {
+    "entity_id": "sensor.salon_prise_radiateur_tv_consommation_actuelle",
+    "friendly_name": "salon prise radiateur tv Consommation actuelle",
+    "integration": "tplink",
+    "area": "Salon",
+    "unit": null,
+    "value": null,
+    "is_duplicate": false,
+    "group_key": [
+      "salon",
+      "salon prise radiateur tv consommation actuelle"
+    ],
+    "quality_scale": "custom",
+    "is_premium": false,
+    "is_main_duplicate": true,
+    "disabled": false
+  },
+  {
+    "entity_id": "sensor.couloir_color_lamp_power",
+    "friendly_name": "couloir color lamp power",
+    "integration": "powercalc",
+    "area": "Couloir",
+    "unit": "W",
+    "value": 0.4,
+    "is_duplicate": false,
+    "group_key": [
+      "couloir",
+      "couloir color lamp power"
+    ],
+    "quality_scale": "custom",
+    "is_premium": false,
+    "is_main_duplicate": true,
+    "disabled": false
+  },
+  {
+    "entity_id": "sensor.bureau_prise_porte_device_power",
+    "friendly_name": "Bureau prise porte Device Power",
+    "integration": "powercalc",
+    "area": "Bureau",
+    "unit": "W",
+    "value": 1.0,
+    "is_duplicate": false,
+    "group_key": [
+      "bureau",
+      "bureau prise porte device power"
+    ],
+    "quality_scale": "custom",
+    "is_premium": false,
+    "is_main_duplicate": true,
+    "disabled": false
+  },
+  {
+    "entity_id": "sensor.atome_live_power",
+    "friendly_name": "Atome Device Atome Live Power",
+    "integration": "keyatome",
+    "area": "Data-C",
+    "unit": "W",
+    "value": 3180.0,
+    "is_duplicate": false,
+    "group_key": [
+      "data-c",
+      "atome device atome live power"
+    ],
+    "quality_scale": "custom",
+    "is_premium": false,
+    "is_main_duplicate": true,
+    "disabled": false
+  }
+]

@@ -1,0 +1,45 @@
+site_name: Home Suivi Élec
+site_description: Documentation complète de l'intégration Home Assistant "Home Suivi Élec"
+site_author: Jean (Silentiss)
+repo_url: https://github.com/votre-compte/home_suivi_elec
+theme:
+  name: material
+  language: fr
+  palette:
+    - scheme: default
+      primary: blue
+      accent: amber
+  features:
+    - navigation.sections
+    - navigation.top
+    - toc.integrate
+    - content.code.annotate
+    - search.highlight
+    - search.suggest
+nav:
+  - Accueil: index.md
+  - Architecture: architecture.md
+  - Flux fonctionnel: flow_functionnel.md
+  - Rôles des fichiers: roles_fichiers.md
+
+markdown_extensions:
+  - toc:
+      permalink: true
+  - admonition
+  - codehilite
+  - footnotes
+  - tables
+  - abbr
+  - def_list
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.highlight
+  - pymdownx.inlinehilite
+  - pymdownx.emoji:
+      emoji_index: !!python/name:materialx.emoji.twemoji
+      emoji_generator: !!python/name:materialx.emoji.to_svg
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/votre-compte/home_suivi_elec
+      name: Code source sur GitHub

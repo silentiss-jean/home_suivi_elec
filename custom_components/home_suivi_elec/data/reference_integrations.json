@@ -1,0 +1,19 @@
+{
+  "allowed_integrations": [
+    "keyatome",
+    "enedis",
+    "myenedis",
+    "teleinfo",
+    "linky_local"
+  ],
+  "ui": {
+    "behavior": "promote_not_restrict",
+    "default_when_none_found": "choose_sensor",
+    "default_when_any_found": "recognized_integrations",
+    "labels": {
+      "recognized_tab": "Intégrations reconnues",
+      "choose_tab": "Choisir mon capteur"
+    },
+    "notes": "Si aucune intégration autorisée n'est détectée, le sélecteur s'ouvre directement sur 'Choisir mon capteur'. Sinon, l'onglet 'Intégrations reconnues' est affiché par défaut, avec 'Choisir mon capteur' toujours disponible."
+  }
+}

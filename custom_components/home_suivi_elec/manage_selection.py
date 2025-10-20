@@ -1,5 +1,10 @@
 # -*- coding: utf-8 -*-
-"""Gestion REST des capteurs et options pour Home Suivi Élec."""
+"""
+Gestion métier + index capteurs pour Home Suivi Élec.
+- Index entity_id -> infos enrichies (device, qualité, référence)
+- Exposition utilitaire async_get_capteurs_index pour __init__.py
+- Enregistrement des vues REST depuis manage_selection_views.py
+"""
 
 import os
 import json
@@ -7,322 +12,145 @@ import logging
 import asyncio
 import yaml
 from functools import partial
-from homeassistant.core import HomeAssistant
-from homeassistant.components.http import HomeAssistantView
-from homeassistant.config_entries import ConfigEntry
+from typing import Any, Dict, List, Optional
 
-from .utility_meter_manager import sync_utility_meters
+from homeassistant.core import HomeAssistant
+from homeassistant.helpers import entity_registry as er, device_registry as dr, area_registry as ar
 
 _LOGGER = logging.getLogger(__name__)
 
-DATA_DIR = os.path.join(os.path.dirname(__file__), "data")
+BASE_DIR = os.path.dirname(__file__)
+DATA_DIR = os.path.join(BASE_DIR, "data")
+
 CAPTEURS_POWER_PATH = os.path.join(DATA_DIR, "capteurs_power.json")
 CAPTEURS_SELECTION_PATH = os.path.join(DATA_DIR, "capteurs_selection.json")
 USER_CONFIG_PATH = os.path.join(DATA_DIR, "user_config.json")
+QUALITY_MAP_PATH = os.path.join(DATA_DIR, "integration_quality.yaml")
+
+__all__ = [
+  "CAPTEURS_POWER_PATH", "CAPTEURS_SELECTION_PATH", "USER_CONFIG_PATH", "QUALITY_MAP_PATH",
+  "async_get_capteurs_index", "async_setup_selection_api",
+]
+
+# Mémoire process: index rapide entity_id -> infos enrichies
+_CAPTEURS_INDEX: Dict[str, Dict[str, Any]] = {}
+
+
+def _load_json(path: str) -> Any:
+  with open(path, "r", encoding="utf-8") as f:
+    return json.load(f)
+
+def _load_quality_map_sync() -> Dict[str, str]:
+  if not os.path.exists(QUALITY_MAP_PATH):
+    return {}
+  with open(QUALITY_MAP_PATH, "r", encoding="utf-8") as f:
+    data = yaml.safe_load(f) or {}
+    return {str(k): str(v) for k, v in data.items()}
+
+def _normalize(v: Optional[str]) -> str:
+  return (v or "").strip().lower()
+
+def _is_premium(scale: str) -> bool:
+  return scale in ("platinum", "gold")
+
+def _enrich_base(c: Dict[str, Any], quality_map: Dict[str, str], reference_id: Optional[str]) -> Dict[str, Any]:
+  c = dict(c)
+  integ = c.get("integration")
+  if "quality_scale" not in c:
+    q = quality_map.get(integ, "custom")
+    c["quality_scale"] = q
+    c["is_premium"] = _is_premium(q)
+  c["is_reference"] = (c.get("entity_id") == reference_id)
+  return c
+
+def _enrich_device_info(hass: HomeAssistant, caps: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+  ent_reg = er.async_get(hass)
+  dev_reg = dr.async_get(hass)
+  area_reg = ar.async_get(hass)
+
+  for c in caps:
+    eid = c.get("entity_id")
+    if not eid:
+      continue
+    entry = ent_reg.async_get(eid)
+    if not entry:
+      continue
+
+    c["device_id"] = entry.device_id
+    c["area_id"] = entry.area_id
+
+    dev = dev_reg.async_get(entry.device_id) if entry.device_id else None
+    if dev:
+      if not c.get("area_id"):
+        c["area_id"] = dev.area_id
+      c["device_identifiers"] = list(dev.identifiers) if dev.identifiers else []
+      c["device_connections"] = list(dev.connections) if dev.connections else []
+      c["device_name"] = dev.name_by_user or dev.name or ""
+      c["manufacturer"] = dev.manufacturer or ""
+      c["model"] = dev.model or ""
+
+      if c.get("area_id"):
+        area = area_reg.async_get_area(c["area_id"])
+        if area:
+          c["area_name"] = area.name
+  return caps
+
+
+async def async_get_capteurs_index(hass: HomeAssistant) -> Dict[str, Dict[str, Any]]:
+  """Construit/retourne un index enrichi des capteurs de puissance."""
+  global _CAPTEURS_INDEX
+
+  if _CAPTEURS_INDEX:
+    return _CAPTEURS_INDEX
+
+  loop = asyncio.get_running_loop()
+  detected = []
+  if os.path.exists(CAPTEURS_POWER_PATH):
+    detected = await loop.run_in_executor(None, lambda: _load_json(CAPTEURS_POWER_PATH))
+
+  reference_id = None
+  if os.path.exists(USER_CONFIG_PATH):
+    try:
+      user_config = await loop.run_in_executor(None, lambda: _load_json(USER_CONFIG_PATH))
+      reference_id = (user_config or {}).get("externalCapteur")
+    except Exception:
+      reference_id = None
+
+  quality_map = await loop.run_in_executor(None, _load_quality_map_sync)
+
+  detected = _enrich_device_info(hass, detected or [])
+
+  idx: Dict[str, Dict[str, Any]] = {}
+  for c in detected or []:
+    eid = c.get("entity_id")
+    if not eid:
+      continue
+    idx[eid] = _enrich_base(c, quality_map, reference_id)
+
+  _CAPTEURS_INDEX = idx
+  hass.data.setdefault("home_suivi_elec", {})
+  hass.data["home_suivi_elec"]["capteurs_index"] = idx
+  return idx
+
 
 async def async_setup_selection_api(hass: HomeAssistant):
-    """Expose les endpoints REST."""
+  """Enregistre les vues REST depuis le module dédié."""
+  from .manage_selection_views import (
+    GetSensorsView, SaveSelectionView, GetSelectionView,
+    GetConsumptionsView, GetInstantPowerView,
+    GetUserConfigView, SaveUserConfigView,
+    GetUserOptionsView, SaveUserOptionsView,
+    GetSummaryView,
+  )
 
-    # === Endpoint capteurs ===
-    class GetSensorsView(HomeAssistantView):
-        url = "/api/home_suivi_elec/get_sensors"
-        name = "api:home_suivi_elec:get_sensors"
-        requires_auth = False
+  hass.http.register_view(GetSensorsView(hass))
+  hass.http.register_view(SaveSelectionView(hass))
+  hass.http.register_view(GetSelectionView(hass))
+  hass.http.register_view(GetConsumptionsView(hass))
+  hass.http.register_view(GetInstantPowerView(hass))
+  hass.http.register_view(GetUserConfigView(hass))
+  hass.http.register_view(SaveUserOptionsView(hass))
+  hass.http.register_view(GetUserOptionsView(hass))
+  hass.http.register_view(GetSummaryView(hass))
 
-        async def get(self, request):
-            try:
-                if not os.path.exists(CAPTEURS_POWER_PATH):
-                    _LOGGER.warning("[REST] capteurs_power.json introuvable")
-                    return self.json({})
-                loop = asyncio.get_running_loop()
-                data = await loop.run_in_executor(None, partial(load_json, CAPTEURS_POWER_PATH))
-                integrations = {}
-                for c in data or []:
-                    integ = c.get("integration", "unknown")
-                    integrations.setdefault(integ, []).append({
-                        "entity_id": c.get("entity_id"),
-                        "friendly_name": c.get("friendly_name"),
-                        "area": c.get("area"),
-                        "unit": c.get("unit"),
-                        "value": c.get("value") if c.get("value") is not None else 0,
-                        "enabled": True,
-                    })
-                return self.json(integrations)
-            except Exception as e:
-                _LOGGER.exception("Erreur get_sensors: %s", e)
-                return self.json({})
-
-    # === Endpoint sélection & gestion Utility Meter ===
-    class SaveSelectionView(HomeAssistantView):
-        url = "/api/home_suivi_elec/save_selection"
-        name = "api:home_suivi_elec:save_selection"
-        requires_auth = False
-
-        async def post(self, request):
-            try:
-                body = await request.json()
-                _LOGGER.info(f"[DEBUG SEL] Chemin fichier sélection utilisé (pour sauvegarde): {CAPTEURS_SELECTION_PATH}")
-                _LOGGER.info(f"[DEBUG SEL] POST /save_selection body reçu :\n{json.dumps(body, indent=2, ensure_ascii=False)}")
-                os.makedirs(DATA_DIR, exist_ok=True)
-                previous_selection = {}
-                if os.path.exists(CAPTEURS_SELECTION_PATH):
-                    loop = asyncio.get_running_loop()
-                    previous_selection = await loop.run_in_executor(None, partial(load_json, CAPTEURS_SELECTION_PATH))
-                loop = asyncio.get_running_loop()
-                await loop.run_in_executor(None, partial(save_json, CAPTEURS_SELECTION_PATH, body))
-                _LOGGER.info("[REST] ✅ Sélection sauvegardée.")
-
-                def extract_ids(selection_dict):
-                    ids = set()
-                    for integ, lst in selection_dict.items():
-                        for c in lst:
-                            _LOGGER.info(f"[DEBUG SEL] Candidat intégré/filtré : integration={integ}, entity_id={c.get('entity_id')}, enabled={c.get('enabled')}")
-                            if c.get("enabled") and c.get("entity_id"):
-                                ids.add(c.get("entity_id"))
-                    return ids
-
-                selected_ids = extract_ids(body)
-                _LOGGER.info(f"[DEBUG SEL] selected_ids transmis à Utility Meter : {selected_ids} (type: {type(selected_ids)})")
-
-                await sync_utility_meters(selected_ids)
-                _LOGGER.info("[REST] ⚡️ Utility Meter YAML généré : restart Home Assistant pour prise en compte des capteurs.")
-
-                return self.json({
-                    "success": True,
-                    "selected": list(selected_ids),
-                    "need_restart": True
-                })
-            except Exception as e:
-                _LOGGER.exception("Erreur save_selection: %s", e)
-                return self.json({"success": False, "need_restart": False})
-
-    # === Endpoint sélection ===
-    class GetSelectionView(HomeAssistantView):
-        url = "/api/home_suivi_elec/get_selection"
-        name = "api:home_suivi_elec:get_selection"
-        requires_auth = False
-
-        async def get(self, request):
-            try:
-                if not os.path.exists(CAPTEURS_SELECTION_PATH):
-                    return self.json({})
-                loop = asyncio.get_running_loop()
-                data = await loop.run_in_executor(None, partial(load_json, CAPTEURS_SELECTION_PATH))
-                return self.json(data)
-            except Exception as e:
-                _LOGGER.exception("Erreur get_selection: %s", e)
-                return self.json({})
-
-    # === Endpoint consommations (cumuls kWh) ===
-    class GetConsumptionsView(HomeAssistantView):
-        url = "/api/home_suivi_elec/get_consumptions"
-        name = "api:home_suivi_elec:get_consumptions"
-        requires_auth = False
-
-        async def get(self, request):
-            try:
-                if not os.path.exists(CAPTEURS_SELECTION_PATH):
-                    return self.json({})
-                loop = asyncio.get_running_loop()
-                selections = await loop.run_in_executor(None, partial(load_json, CAPTEURS_SELECTION_PATH))
-
-                cycles = ["hourly", "daily", "weekly", "monthly", "yearly"]
-                result = {}
-                for integration, capteurs in selections.items():
-                    for c in capteurs:
-                        if c.get("enabled") and c.get("entity_id"):
-                            capteur_id = c["entity_id"]
-                            result[capteur_id] = {}
-                            for cycle in cycles:
-                                meter_name = f"sensor.hse_{capteur_id.replace('.', '_')}_{cycle}"
-                                meter_state = hass.states.get(meter_name)
-                                if meter_state:
-                                    try:
-                                        value = float(meter_state.state)
-                                    except Exception:
-                                        value = meter_state.state
-                                else:
-                                    value = None
-                                result[capteur_id][cycle] = value
-
-                return self.json(result)
-            except Exception as e:
-                _LOGGER.exception("Erreur get_consumptions: %s", e)
-                return self.json({})
-
-    # === Endpoint puissance instantanée (NOUVEAU) ===
-    class GetInstantPowerView(HomeAssistantView):
-        url = "/api/home_suivi_elec/get_instant_puissance"
-        name = "api:home_suivi_elec:get_instant_puissance"
-        requires_auth = False
-
-        async def get(self, request):
-            try:
-                if not os.path.exists(CAPTEURS_SELECTION_PATH):
-                    return self.json({})
-                loop = asyncio.get_running_loop()
-                selection = await loop.run_in_executor(None, partial(load_json, CAPTEURS_SELECTION_PATH))
-                entity_ids = []
-                for capteurs in selection.values():
-                    for c in capteurs:
-                        if c.get("enabled") and c.get("entity_id"):
-                            entity_ids.append(c["entity_id"])
-                ext_id = None
-                if os.path.exists(USER_CONFIG_PATH):
-                    conf = await loop.run_in_executor(None, partial(load_json, USER_CONFIG_PATH))
-                    ext_id = conf.get("externalCapteur")
-                    if ext_id and ext_id not in entity_ids:
-                        entity_ids.append(ext_id)
-
-                power_states = {}
-                for entity_id in entity_ids:
-                    state = hass.states.get(entity_id)
-                    try:
-                        power_states[entity_id] = float(state.state)
-                    except Exception:
-                        power_states[entity_id] = None
-                return self.json(power_states)
-            except Exception as e:
-                _LOGGER.exception("Erreur get_instant_puissance: %s", e)
-                return self.json({})
-
-    # === Configuration utilisateur / options ===
-    class GetUserConfigView(HomeAssistantView):
-        url = "/api/home_suivi_elec/get_user_config"
-        name = "api:home_suivi_elec:get_user_config"
-        requires_auth = False
-
-        async def get(self, request):
-            try:
-                if not os.path.exists(USER_CONFIG_PATH):
-                    return self.json({})
-                loop = asyncio.get_running_loop()
-                data = await loop.run_in_executor(None, partial(load_json, USER_CONFIG_PATH))
-                return self.json(data)
-            except Exception as e:
-                _LOGGER.exception("Erreur get_user_config: %s", e)
-                return self.json({})
-
-    class SaveUserConfigView(HomeAssistantView):
-        url = "/api/home_suivi_elec/save_user_config"
-        name = "api:home_suivi_elec:save_user_config"
-        requires_auth = False
-
-        async def post(self, request):
-            try:
-                body = await request.json()
-                os.makedirs(DATA_DIR, exist_ok=True)
-                loop = asyncio.get_running_loop()
-                await loop.run_in_executor(None, partial(save_json, USER_CONFIG_PATH, body))
-                _LOGGER.info("[REST] 💾 Données utilisateur sauvegardées (JSON).")
-                return self.json({"success": True})
-            except Exception as e:
-                _LOGGER.exception("Erreur save_user_config: %s", e)
-                return self.json({"success": False})
-
-    class GetUserOptionsView(HomeAssistantView):
-        url = "/api/home_suivi_elec/get_user_options"
-        name = "api:home_suivi_elec:get_user_options"
-        requires_auth = False
-
-        async def get(self, request):
-            try:
-                entries = hass.config_entries.async_entries("home_suivi_elec")
-                _LOGGER.debug("[REST] 🔍 ConfigEntry trouvée: %s", entries)
-                if not entries:
-                    return self.json({})
-
-                entry: ConfigEntry = entries[0]
-
-                data = dict(entry.data or {})
-                opts = dict(entry.options or {})
-                eff = {**data, **opts}
-
-                # LOGGING pour debug
-                _LOGGER.info("DEBUG ConfigEntry DATA: %s", data)
-                _LOGGER.info("DEBUG ConfigEntry OPTIONS: %s", opts)
-                _LOGGER.info("DEBUG EFF (fusion data+options): %s", eff)
-
-                type_contrat = eff.get("type_contrat", "prix_unique")
-                is_hc = type_contrat == "heures_creuses"
-                type_ui = "hp-hc" if is_hc else "fixe"
-
-                resp = {
-                    "typeContrat": type_ui,
-                    "abonnementHT": eff.get("abonnement_ht", 0),
-                    "abonnementTTC": eff.get("abonnement_ttc", 0),
-                    "prix_ht": eff.get("prix_ht", 0),
-                    "prix_ttc": eff.get("prix_ttc", 0),
-                    "prix_ht_hp": eff.get("prix_ht_hp", 0),
-                    "prix_ttc_hp": eff.get("prix_ttc_hp", 0),
-                    "prix_ht_hc": eff.get("prix_ht_hc", 0),
-                    "prix_ttc_hc": eff.get("prix_ttc_hc", 0),
-                    "hc_start": eff.get("hc_start", ""),
-                    "hc_end": eff.get("hc_end", ""),
-                    "useExternal": eff.get("useExternal", False),
-                    "externalCapteur": eff.get("externalCapteur", ""),
-                    "consommationExterne": eff.get("consommationExterne", 0),
-                    "selection": eff.get("selection", {}),
-                }
-                return self.json(resp)
-
-            except Exception as e:
-                _LOGGER.exception("Erreur get_user_options: %s", e)
-                return self.json({})
-
-    class SaveUserOptionsView(HomeAssistantView):
-        url = "/api/home_suivi_elec/save_user_options"
-        name = "api:home_suivi_elec:save_user_options"
-        requires_auth = False
-
-        async def post(self, request):
-            try:
-                entries = hass.config_entries.async_entries("home_suivi_elec")
-                if not entries:
-                    return self.json({"success": False})
-                entry: ConfigEntry = entries[0]
-                body = await request.json()
-                hass.config_entries.async_update_entry(entry, options=body)
-                _LOGGER.info("[REST] ✅ Options utilisateur sauvegardées (ConfigEntry).")
-                return self.json({"success": True})
-            except Exception as e:
-                _LOGGER.exception("Erreur save_user_options: %s", e)
-                return self.json({"success": False})
-
-    class GetSummaryView(HomeAssistantView):
-        url = "/api/home_suivi_elec/get_summary"
-        name = "api:home_suivi_elec:get_summary"
-        requires_auth = False
-
-        async def get(self, request):
-            try:
-                loop = asyncio.get_running_loop()
-                power = await loop.run_in_executor(None, partial(load_json, CAPTEURS_POWER_PATH)) if os.path.exists(CAPTEURS_POWER_PATH) else []
-                selection = await loop.run_in_executor(None, partial(load_json, CAPTEURS_SELECTION_PATH)) if os.path.exists(CAPTEURS_SELECTION_PATH) else {}
-                total = len(power)
-                selected = sum(len([c for c in v if c.get("enabled")]) for v in selection.values())
-                return self.json({"total": total, "selected": selected})
-            except Exception as e:
-                _LOGGER.exception("Erreur get_summary: %s", e)
-                return self.json({"total": 0, "selected": 0})
-
-    # === Enregistrement des endpoints ===
-    hass.http.register_view(GetSensorsView)
-    hass.http.register_view(SaveSelectionView)
-    hass.http.register_view(GetSelectionView)
-    hass.http.register_view(GetConsumptionsView)
-    hass.http.register_view(GetInstantPowerView)
-    hass.http.register_view(GetUserConfigView)
-    hass.http.register_view(SaveUserConfigView)
-    hass.http.register_view(GetUserOptionsView)
-    hass.http.register_view(SaveUserOptionsView)
-    hass.http.register_view(GetSummaryView)
-    _LOGGER.info("[REST] API capteurs et options prête.")
-
-def load_json(path):
-    with open(path, "r", encoding="utf-8") as f:
-        return json.load(f)
-
-def save_json(path, data):
-    with open(path, "w", encoding="utf-8") as f:
-        json.dump(data, f, indent=2, ensure_ascii=False)
+  _LOGGER.info("[REST] API capteurs et options enregistrée depuis manage_selection_views.py")

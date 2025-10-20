@@ -1,252 +1,203 @@
-/* === 🎨 Home Suivi Élec - Style global === */
-body {
-  font-family: "Segoe UI", Roboto, Arial, sans-serif;
-  background-color: #f8f9fa;
-  color: #222;
-  margin: 20px;
-  line-height: 1.6;
-}
-
-/* === Titres et navigation === */
-h1 {
-  text-align: center;
-  color: #0078d4;
+/* === PANELS DE CONFIGURATION INTERACTIVE === */
+.config-panels,
+.columns,
+#columns-grid {
+  display: flex;
+  gap: 28px;
   margin-bottom: 20px;
+  align-items: flex-start;
+  flex-wrap: wrap;
 }
 
-h2, h3 {
-  color: #005fa3;
-}
-
-nav#tabs {
-  text-align: center;
-  margin-bottom: 20px;
-}
-
-nav#tabs button {
-  background-color: #0078d4;
-  color: white;
-  border: none;
-  padding: 10px 15px;
-  margin: 3px;
-  border-radius: 6px;
-  cursor: pointer;
-  transition: background-color 0.2s, transform 0.1s;
-}
-
-nav#tabs button:hover {
-  background-color: #005fa3;
-  transform: scale(1.03);
-}
-
-/* === Sections & cartes === */
-.tab-content {
-  display: none;
-}
-
-.tab-content.active {
-  display: block;
-}
-
-.card {
-  background: white;
-  padding: 15px 20px;
-  border-radius: 10px;
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.08);
-  margin-bottom: 20px;
-}
-
-/* === Intégrations et capteurs === */
-.integration-block {
-  background: #fff;
-  border-radius: 8px;
-  padding: 10px 15px;
-  margin-bottom: 10px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
-}
-
-.integration-block h3 {
-  color: #0078d4;
-  margin-bottom: 8px;
-}
-
-.sensor {
-  margin-left: 12px;
-  margin-bottom: 4px;
-  color: #333;
-}
-
-/* === Boutons === */
-button.primary {
-  background-color: #28a745;
-  color: white;
-  border: none;
-  padding: 8px 14px;
-  border-radius: 5px;
-  cursor: pointer;
-  transition: background-color 0.2s;
-}
-
-button.primary:hover {
-  background-color: #218838;
-}
-
-button.secondary {
-  background-color: #6c757d;
-  color: white;
-  border: none;
-  padding: 8px 14px;
-  border-radius: 5px;
-  cursor: pointer;
-}
-
-button.secondary:hover {
-  background-color: #565e64;
-}
-
-/* === Formulaires === */
-label {
-  display: block;
-  margin: 6px 0;
-  font-weight: 500;
-}
-
-input[type="number"],
-input[type="time"],
-select {
-  padding: 5px 8px;
-  margin-left: 5px;
-  border: 1px solid #ccc;
-  border-radius: 4px;
-  min-width: 100px;
-}
-
-input[type="checkbox"] {
-  transform: scale(1.1);
-  margin-right: 6px;
-}
-
-/* === HP/HC et mesure externe === */
-#hpHCFields, #externalFields {
-  background: #eef4ff;
-  padding: 10px;
-  border-left: 3px solid #0078d4;
-  border-radius: 6px;
-  margin-top: 8px;
-}
-
-/* === Messages & alertes === */
-#summaryMessage {
-  color: #555;
-  font-style: italic;
-  margin-bottom: 10px;
-}
-
-p.error {
-  color: red;
-  font-weight: bold;
-}
-
-/* === Tableaux / Valeurs === */
-p strong {
-  color: #004d8b;
-}
-
-span {
-  font-weight: bold;
-  color: #111;
-}
-
-/* === Animation légère === */
-.card, .integration-block {
-  transition: box-shadow 0.2s ease-in-out;
-}
-
-.card:hover, .integration-block:hover {
-  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.1);
-}
-/* === Blocs d'estimations === */
-.estim-block {
-  margin-top: 15px;
-  padding: 12px 15px;
-}
-
-.estim-block table {
+/* Grille principale: 3 colonnes desktop, 1 colonne mobile */
+#columns-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 16px;
   width: 100%;
-  border-collapse: collapse;
-  text-align: center;
-  margin-top: 8px;
 }
 
-.estim-block th, .estim-block td {
-  border: 1px solid #ddd;
-  padding: 6px 10px;
-  font-size: 0.9rem;
+.column {
+  background: #f6f8fa;
+  border-radius: 10px;
+  padding: 18px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  min-width: 320px;
+  flex: 1;
 }
 
-.estim-block th {
+.column.selected {
+  border-left: 4px solid #24a745;
+}
+.column.alternatives {
+  border-left: 4px solid #0078d4;
+}
+.column.duplicates {
+  border-left: 4px solid #b40020;
+}
+
+/* Bandeau Capteur de référence */
+.reference-panel {
+  background: #eef8ff;
+  border-radius: 10px;
+  padding: 12px 20px;
+  margin-bottom: 18px;
+  font-size: 1.05em;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.reference-icon {
+  font-size: 1.4em;
+  margin-right: 10px;
+}
+.reference-title {
+  font-weight: bold;
+  margin-right: 10px;
+}
+.reference-name {
+  color: #005fa3;
+  font-weight: 500;
+  margin-right: 12px;
+}
+
+/* Badges unifiés */
+.badge {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-size: 12px;
+  line-height: 1.2;
+}
+.badge.integration {
   background-color: #0078d4;
-  color: white;
+  color: #fff;
+  font-weight: 600;
+}
+.badge.device {
+  background-color: #eaf8ff;
+  color: #0a4;
+  font-weight: 600;
+}
+.badge.duplicate {
+  background-color: #fff4e5;
+  color: #a60;
+  font-weight: 600;
+}
+.badge.reference {
+  background-color: #fff1a8;
+  color: #6a5;
+  font-weight: 700;
+  border-radius: 9px;
 }
 
-.estim-block tr:nth-child(even) {
-  background-color: #f9f9f9;
+/* Listes et lignes */
+ul { list-style: none; padding-left: 0; margin: 0; }
+li {
+  margin-bottom: 12px;
+  padding: 8px 0 8px 8px;
+  border-bottom: 1px solid #ebebeb;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+li.duplicate { background: #fff7f7; }
+
+.sensor-name {
+  font-weight: 500;
+  color: #222;
+  margin-right: 7px;
 }
 
-/* Delta positif / négatif */
-.estim-block.delta td.kwh {
+/* Bouton définir référence (si utilisé) */
+.set-reference-btn {
+  background: #ffe066;
+  color: #5c4c00;
+  border: none;
+  padding: 5px 10px;
+  margin-left: 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.91em;
   font-weight: bold;
 }
-
-.estim-block.delta td.kwh.positive {
-  color: #28a745;
+.set-reference-btn:hover {
+  background: #ffe699;
+  color: #b68f02;
 }
 
-.estim-block.delta td.kwh.negative {
-  color: #dc3545;
+/* Checkbox capteur */
+.capteur-checkbox {
+  margin-right: 8px;
+  transform: scale(1.1);
 }
 
-.estim-block h4 {
-  margin: 5px 0 8px 0;
-  color: #005fa3;
+/* Tooltips */
+.tooltip {
+  font-size: 0.95em;
+  color: #666;
+  margin-left: 8px;
+  font-style: italic;
 }
-/* === Tableaux Résumé (généraux) === */
-table { width: 100%; border-collapse: collapse; margin-top: 8px; }
-table thead th { 
-  background-color: #0078d4;
-  color: white;
+
+/* Blocs par intégration (colonnes 1 et 2) */
+.integration-block {
+  border: 1px solid #ddd;
+  border-radius: 6px;
   padding: 8px;
-  border-bottom: 1px solid #ddd;
+  margin-bottom: 12px;
 }
-table tbody td { 
-  border-bottom: 1px solid #f0f0f0; 
-  padding: 6px 8px; 
-  font-variant-numeric: tabular-nums; 
-}
-table tbody tr:nth-child(odd) { background: #fafafa; }
-table td.num { text-align: right; font-variant-numeric: tabular-nums; }
-h3 { margin-top: 16px; margin-bottom: 8px; }
+.integration-block ul { margin: 8px 0 0 24px; padding: 0; }
+.integration-block li { margin: 6px 0; }
 
-/* === Tableaux Résumé - centrage des principaux tableaux === */
-#summarySelectedSensors th,
-#summarySelectedSensors td,
-#summaryExternalSensors th,
-#summaryExternalSensors td,
-#summaryDeltaSensors th,
-#summaryDeltaSensors td {
-  text-align: center;
-  vertical-align: middle;
+/* Colonne 3: Doublons par appareil */
+.column.duplicates .duplicate-group {
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  padding: 8px;
+  margin-bottom: 12px;
+}
+.column.duplicates .duplicate-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.column.duplicates ul { margin: 8px 0 0 0; padding-left: 0; list-style: none; }
+.column.duplicates li { display: flex; align-items: center; gap: 8px; margin: 6px 0; }
+.ignored-block {
+  border-top: 1px dashed #ccc;
+  margin-top: 12px;
+  padding-top: 8px;
+}
+.dup-integration-header {
+  font-weight: 600;
+  margin: 6px 0 0 0;
 }
 
-tbody td:first-child {
-  text-align: center; /* centrer aussi la colonne période */
+/* Couleurs live (puissance instantanée) */
+.dup-entity.live-green { color: #137333; font-weight: 600; }
+.dup-entity.live-red   { color: #b3261e; font-weight: 600; }
+.dup-entity.live-gray  { color: #666; }
+
+/* Toggler (chevrons) */
+.toggle-btn {
+  cursor: pointer;
+  color: #333;
+  background: transparent;
+  border: none;
+  font-size: 14px;
+  padding: 0 4px;
 }
-abbr {
-  cursor: help;
-  text-decoration: none;
-  border-bottom: 1px dotted #555;
+
+/* Responsive */
+@media (max-width: 1200px) {
+  #columns-grid { grid-template-columns: 1fr 1fr; }
 }
-#instantaneBlock p, #resumeGeneral p {
-  font-size: 1.1em;
-  margin: 6px 0;
+@media (max-width: 800px) {
+  #columns-grid { grid-template-columns: 1fr; }
+  .column { min-width: 100%; }
+  .reference-panel { font-size: 1em; padding: 8px 10px; }
 }
