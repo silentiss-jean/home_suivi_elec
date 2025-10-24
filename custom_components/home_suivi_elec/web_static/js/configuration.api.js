@@ -1,5 +1,6 @@
 // configuration.api.js — API centralisée
 "use strict";
+import { getToken } from "./auth.js";
 
 // Helper commun pour fetch même origine avec cookies
 async function fetchJSON(url, options = {}) {
@@ -7,6 +8,7 @@ async function fetchJSON(url, options = {}) {
     credentials: "same-origin",
     // mode: "same-origin" est implicite ici; on évite no-cors
     headers: { "Content-Type": "application/json", ...(options.headers || {}) },
+      ...(getToken() ? { "Authorization": `Bearer ${getToken()}` } : {}),
     ...options
   });
   if (!resp.ok) throw new Error(`${url.split("?")[0].split("#")[0].replace(location.origin, "")} failed`);

@@ -1,5 +1,6 @@
 // app.js — Assembleur UI (délègue save globale à savePanel)
 "use strict";
+import { initAuth } from "./auth.js";
 
 import { loadSummary } from './summary.js';
 import { loadDetection } from './detection.js';

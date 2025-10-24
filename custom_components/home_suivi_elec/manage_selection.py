@@ -42,7 +42,7 @@ def _load_json(path: str) -> Any:
 
 def _load_quality_map_sync() -> Dict[str, str]:
   if not os.path.exists(QUALITY_MAP_PATH):
-    return {}
+    return {}               
   with open(QUALITY_MAP_PATH, "r", encoding="utf-8") as f:
     data = yaml.safe_load(f) or {}
     return {str(k): str(v) for k, v in data.items()}
@@ -130,10 +130,10 @@ async def async_get_capteurs_index(hass: HomeAssistant) -> Dict[str, Dict[str, A
   _CAPTEURS_INDEX = idx
   hass.data.setdefault("home_suivi_elec", {})
   hass.data["home_suivi_elec"]["capteurs_index"] = idx
-  return idx
+  return idx                
 
 
-async def async_setup_selection_api(hass: HomeAssistant):
+async def async_setup_selection_api(hass: HomeAssistant, sync_manager=None):
   """Enregistre les vues REST depuis le module dédié."""
   from .manage_selection_views import (
     GetSensorsView, SaveSelectionView, GetSelectionView,
@@ -152,5 +152,12 @@ async def async_setup_selection_api(hass: HomeAssistant):
   hass.http.register_view(SaveUserOptionsView(hass))
   hass.http.register_view(GetUserOptionsView(hass))
   hass.http.register_view(GetSummaryView(hass))
-
-  _LOGGER.info("[REST] API capteurs et options enregistrée depuis manage_selection_views.py")
+  
+  # ✅ PHASE 2.6: APIs de synchronisation
+  if sync_manager:
+    from .manage_selection_views import GetSyncStatusView, ForceSyncView
+    hass.http.register_view(GetSyncStatusView(hass, sync_manager))
+    hass.http.register_view(ForceSyncView(hass, sync_manager))
+    _LOGGER.info("[REST] API capteurs + sync enregistrée")
+  else:
+    _LOGGER.info("[REST] API capteurs enregistrée (sync non disponible)")

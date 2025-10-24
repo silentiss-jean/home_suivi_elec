@@ -5,6 +5,7 @@ import logging
 import os
 import shutil
 import asyncio
+import json
 from typing import Any, Dict, List, Optional
 from datetime import datetime
 
@@ -12,6 +13,7 @@ from homeassistant.core import HomeAssistant, ServiceCall, callback, EVENT_HOMEA
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.components.http import HomeAssistantView
 from homeassistant.helpers.storage import Store
+from homeassistant.components import frontend
 
 from .const import DOMAIN, CONF_AUTO_GENERATE
 from .detect_local import run_detect_local
@@ -20,6 +22,7 @@ from .debug_json_sets import scan_sets
 from .options_flow import HomeSuiviElecOptionsFlow
 from . import manage_selection
 from .utility_meter_manager import sync_utility_meters, get_meter_name, get_integration_helper_name, UTILITY_METER_CYCLES
+from .proxy_api import SuiviElecProxyView
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -28,14 +31,36 @@ USER_STORE_KEY = f"{DOMAIN}_user_config_v1"
 
 async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     _LOGGER.info("[SETUP] async_setup appelé")
-    return True
 
+    return True
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     _LOGGER.info("[SETUP_ENTRY] Initialisation Home Suivi Élec")
     hass.data.setdefault(DOMAIN, {})
     hass.data[DOMAIN]["config"] = dict(entry.data)
     hass.data[DOMAIN]["options"] = dict(entry.options or {})
+
+    # === PANEL HOME ASSISTANT ===
+    async def register_panel_when_ready(*args):
+        """Enregistre le panel dans la sidebar après démarrage HA."""
+        await asyncio.sleep(3)  # Attendre que frontend soit prêt
+        try:
+            frontend.async_register_built_in_panel(
+                hass,
+                component_name="iframe",
+                sidebar_title="⚡ Suivi Élec",
+                sidebar_icon="mdi:lightning-bolt",
+                frontend_url_path="home-suivi-elec",
+                config={
+                    "url": "/local/community/home_suivi_elec_ui/index.html"
+                },
+                require_admin=False,
+            )
+            _LOGGER.info("✅ Panel Home Suivi Élec enregistré")
+        except Exception as e:
+            _LOGGER.error("❌ Erreur enregistrement panel: %s", e)
+
+    hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STARTED, register_panel_when_ready)
 
     # --- Services ---
     async def handle_generate_local_data(call: ServiceCall):
@@ -183,7 +208,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     hass.services.async_register(DOMAIN, "migrate_cleanup", handle_migrate_cleanup)
     hass.services.async_register(DOMAIN, "reset_all_utility_meters", handle_reset_all_utility_meters)
 
-    # --- API REST existantes ---
+    # --- API REST existantes (sans sync_manager pour l'instant) ---
     await manage_selection.async_setup_selection_api(hass)
 
     # --- API REST: doublons/ignored + best-per-device ---
@@ -465,6 +490,33 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                     mtime = os.path.getmtime(yaml_path)
                     last_yaml_gen = datetime.fromtimestamp(mtime).isoformat()
 
+                # === DUMP GLOBAL BACKEND : résumé de TOUS les capteurs (actifs ou non) ===
+                all_detected = detected
+                selection_data = selection
+
+                dump_sensors = []
+                for sensor in all_detected or []:
+                    eid = sensor.get("entity_id")
+                    dump_sensors.append({
+                        "entity_id": eid,
+                        "nom": sensor.get("friendly_name", sensor.get("nom", eid)),
+                        "zone": sensor.get("zone"),
+                        "type": sensor.get("type"),
+                        "integration": sensor.get("integration"),
+                        "enabled": eid in selected_ids,
+                        "anomaly": None
+                    })
+
+                dump_global = {
+                    "total_detected": len(all_detected),
+                    "total_selected": len(selected_ids),
+                    "total_non_selected": len([x for x in dump_sensors if not x["enabled"]]),
+                    "sensors": dump_sensors
+                }
+                
+#                _LOGGER.warning(">>>> DUMP TEST: entrée diagnostic backend")
+#                _LOGGER.warning("[DUMP BACKEND]\n%s", json.dumps(dump_global, indent=2, ensure_ascii=False))
+                _LOGGER.warning("[DUMP BACKEND] %s", dump_global)
                 return self.json({
                     "global_status": global_status,
                     "sources": sources,
@@ -479,12 +531,20 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                         "integration_sensors_total": len(integration_sensors),
                         "utility_meters_ok": len([m for m in utility_meters if m["status"] == "✅ OK"]),
                         "utility_meters_total": len(utility_meters)
-                    }
+                    },
+                    "global_dump": dump_global
                 })
 
             except Exception as e:
                 _LOGGER.exception("Erreur get_diagnostics: %s", e)
-                return self.json({"global_status": "error", "sources": [], "integration_sensors": [], "utility_meters": [], "alerts": []}, status_code=500)
+                return self.json({
+                    "global_status": "error",
+                    "sources": [],
+                    "integration_sensors": [],
+                    "utility_meters": [],
+                    "alerts": [],
+                    "global_dump": {"error": str(e)}
+                }, status_code=500)
 
         def _load_json(self, path: str):
             import json
@@ -494,6 +554,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     hass.http.register_view(SetIgnoredEntityView(hass))
     hass.http.register_view(ChooseBestForDeviceView(hass))
     hass.http.register_view(DiagnosticsView(hass))
+    hass.http.register_view(SuiviElecProxyView())
 
     try:
         await scan_sets(hass)
@@ -511,6 +572,78 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             _LOGGER.exception("Erreur init detection/selection: %s", e)
 
     hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STARTED, start_detection_selection)
+    
+    # ✅ NOUVEAU : Fonction de setup différé
+    async def setup_sensors_after_detection():
+        """Setup sensors après que la détection soit terminée."""
+        _LOGGER.info("[INIT] Attente démarrage HA pour détection...")
+        
+        # Attendre que HA soit démarré
+        event = asyncio.Event()
+        
+        @callback
+        def on_started(event_data):
+            event.set()
+        
+        hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STARTED, on_started)
+        await event.wait()
+        
+        # Attendre encore 5 secondes pour que tous les states soient chargés
+        await asyncio.sleep(5)
+        
+        _LOGGER.info("[INIT] Lancement détection avec tous les states disponibles")
+        try:
+            await run_detect_local(hass=hass, entry=entry)
+            _LOGGER.info("[INIT] ✅ Détection terminée")
+        except Exception as e:
+            _LOGGER.exception("Erreur détection: %s", e)
+            return
+        
+        # Setup energy tracking Phase 2
+        _LOGGER.info("[INIT] Setup energy tracking...")
+        try:
+            await async_setup_energy_tracking(hass, entry)
+        except Exception as e:
+            _LOGGER.exception("Erreur energy tracking: %s", e)
+        
+        # PHASE 2.5: Power Monitoring (temps réel W)
+        _LOGGER.info("[INIT] Setup power monitoring...")
+        try:
+            from .power_monitoring import async_setup_power_monitoring
+            await async_setup_power_monitoring(hass, entry)
+        except Exception as e:
+            _LOGGER.exception("Erreur power monitoring: %s", e)
+        
+        # ✅ PHASE 2.6: Sensor Sync Manager (synchronisation automatique)
+        _LOGGER.info("[INIT] Setup sensor sync manager...")
+        try:
+            from .sensor_sync_manager import SensorSyncManager
+            sync_manager = SensorSyncManager(hass)
+            hass.data[DOMAIN]["sync_manager"] = sync_manager
+            
+            # Démarrer la synchronisation
+            await sync_manager.start()
+            _LOGGER.info("[INIT] ✅ Sensor Sync Manager démarré")
+            
+            # Enregistrer les APIs REST de sync
+            await manage_selection.async_setup_selection_api(hass, sync_manager)
+            
+        except Exception as e:
+            _LOGGER.exception("Erreur sensor sync manager: %s", e)
+        
+        # Enregistrer les sensors manuellement car on est hors async_setup_entry
+        if "energy_sensors" in hass.data.get(DOMAIN, {}):
+            energy_sensors = hass.data[DOMAIN]["energy_sensors"]
+            live_sensors = hass.data[DOMAIN].get("live_power_sensors", [])
+            all_sensors = energy_sensors + live_sensors
+            
+            if all_sensors:
+                _LOGGER.info(f"[INIT] 🔄 Rechargement de l'entrée pour enregistrer {len(all_sensors)} sensors")
+                await hass.config_entries.async_reload(entry.entry_id)
+    
+    # Lancer la tâche en arrière-plan
+    asyncio.create_task(setup_sensors_after_detection())
+    
     asyncio.create_task(_delayed_start(hass, entry))
 
     loop = asyncio.get_running_loop()
@@ -518,9 +651,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     dst = hass.config.path("www", "community", "home_suivi_elec_ui")
     await loop.run_in_executor(None, lambda: _copy_ui_blocking(src, dst))
 
-    _LOGGER.info("[SETUP_ENTRY] ✅ Home Suivi Élec setup terminé")
+    _LOGGER.info("[SETUP_ENTRY] ✅ Home Suivi Élec setup terminé (sensors seront chargés après détection)")
     return True
-
 
 async def _delayed_start(hass: HomeAssistant, entry: ConfigEntry, timeout: int = 60):
     await asyncio.sleep(timeout)
@@ -559,3 +691,152 @@ async def copy_ui_files(hass: HomeAssistant):
 @callback
 def async_get_options_flow(config_entry: ConfigEntry):
     return HomeSuiviElecOptionsFlow(config_entry)
+
+# ============================================================================
+# ENERGY TRACKING - Phase 2 (support energy vs power + propagation fiabilité)
+# ============================================================================
+
+async def load_capteurs_selection(hass: HomeAssistant) -> list[dict]:
+    """
+    Charge les capteurs sélectionnés depuis capteurs_selection.json.
+
+    Phase 2 : Métadonnées enrichies (is_virtual, reliability_score, tags)
+
+    Returns:
+        Liste des capteurs avec métadonnées:
+        [
+            {
+                "entity_id": "sensor.xxx",
+                "type": "energy" | "power",
+                "is_virtual": bool,
+                "reliability_score": float,
+                "reference_type": str,
+                "tags": list[str]
+            }
+        ]
+    """
+    import json
+    from pathlib import Path
+
+    selection_file = Path(__file__).parent / "data" / "capteurs_selection.json"
+
+    def _load_file():
+        try:
+            if not selection_file.exists():
+                _LOGGER.warning(f"⚠️ Fichier introuvable: {selection_file}")
+                return []
+
+            with open(selection_file, "r", encoding="utf-8") as f:
+                data = json.load(f)
+
+            capteurs = []
+
+            # Parcourir toutes les catégories
+            for category, items in data.items():
+                if not isinstance(items, list):
+                    continue
+
+                for sensor in items:
+                    # Vérifier que le capteur est activé
+                    if not sensor.get("enabled", False):
+                        continue
+
+                    entity_id = sensor.get("entity_id")
+                    if not entity_id:
+                        continue
+
+                    # Déterminer le type (energy ou power)
+                    sensor_type = sensor.get("type")
+                    if not sensor_type:
+                        # Fallback: détecter via unit
+                        unit = sensor.get("unit", "").lower()
+                        if unit in ("kwh", "wh"):
+                            sensor_type = "energy"
+                        elif unit in ("w", "watt", "watts"):
+                            sensor_type = "power"
+                        else:
+                            # Default: power (plus sûr pour intégration)
+                            sensor_type = "power"
+                            _LOGGER.debug(
+                                f"Type non détecté pour {entity_id}, "
+                                f"défini par défaut: power"
+                            )
+
+                    # Extraire métadonnées Phase 2
+                    capteurs.append({
+                        "entity_id": entity_id,
+                        "type": sensor_type,
+                        "is_virtual": sensor.get("is_virtual", False),
+                        "reliability_score": sensor.get("reliability_score", 1.0),
+                        "reference_type": sensor.get("reference_type", "unknown"),
+                        "tags": sensor.get("tags", []),
+                    })
+
+            return capteurs
+
+        except Exception as e:
+            _LOGGER.error(f"❌ Erreur chargement capteurs_selection.json: {e}")
+            return []
+
+    # Exécuter I/O dans thread séparé
+    result = await hass.async_add_executor_job(_load_file)
+    _LOGGER.info(f"📊 {len(result)} capteurs chargés depuis {selection_file.name}")
+    return result
+
+
+async def async_setup_energy_tracking(hass: HomeAssistant, entry: ConfigEntry):
+    """
+    Configure le tracking d'énergie (Phase 2).
+
+    Détection automatique:
+    - type = "energy" → CumulativeEnergyCycleSensor (delta tracking)
+    - type = "power" → PowerEnergyCycleSensor (intégration trapézoïdale)
+
+    Cycles: hourly, daily, weekly, monthly, yearly
+    Propagation: is_virtual, reliability_score, reference_type, tags
+    """
+    from .energy_tracking import create_energy_sensors
+
+    _LOGGER.info("🔋 [PHASE 2] Configuration Energy Tracking...")
+
+    # Charger capteurs sélectionnés avec métadonnées
+    capteurs_selection = await load_capteurs_selection(hass)
+
+    if not capteurs_selection:
+        _LOGGER.info("ℹ️ Aucun capteur sélectionné, skip energy tracking")
+        return
+
+    _LOGGER.info(f"📊 {len(capteurs_selection)} capteurs à tracker")
+
+    # Créer sensors (5 cycles × N capteurs)
+    energy_sensors = await create_energy_sensors(hass, capteurs_selection)
+
+    # Stocker dans hass.data
+    if DOMAIN not in hass.data:
+        hass.data[DOMAIN] = {}
+
+    hass.data[DOMAIN]["energy_sensors"] = energy_sensors
+
+    _LOGGER.info(f"✅ {len(energy_sensors)} sensors d'énergie créés")
+
+    # Stats détaillées
+    energy_count = sum(
+        1 for s in energy_sensors 
+        if s.extra_state_attributes.get('source_type') == 'energy'
+    )
+    power_count = sum(
+        1 for s in energy_sensors 
+        if s.extra_state_attributes.get('source_type') == 'power'
+    )
+
+    virtual_count = sum(
+        1 for s in energy_sensors 
+        if s.extra_state_attributes.get('is_virtual', False)
+    )
+
+    _LOGGER.info(
+        f"📈 Répartition: "
+        f"{energy_count} energy (delta), "
+        f"{power_count} power (intégration), "
+        f"{virtual_count} virtuels"
+    )

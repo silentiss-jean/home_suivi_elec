@@ -22,6 +22,7 @@ async function getInstantPowerMap() {
   } catch { return {}; }
 }
 
+// ✅ ANCIENNE FONCTION (gardée pour compatibilité)
 function indexByDeviceId(maps) {
   const groups = new Map();
   const touch = (c, integration) => {
@@ -39,10 +40,42 @@ function indexByDeviceId(maps) {
   return groups;
 }
 
+// ✅ NOUVELLE FONCTION (Phase 2.6) : Groupe par duplicate_group (nom+zone+type)
+function indexByDuplicateGroup(allCapteurs) {
+  const groups = new Map();
+  Object.values(allCapteurs || {}).forEach(c => {
+    if (!c || !c.duplicate_group) return;
+    const sig = c.duplicate_group;
+    if (!groups.has(sig)) {
+      groups.set(sig, { 
+        name: c.friendly_name || c.nom || c.device_name || "", 
+        area: c.zone || c.area || c.area_name || "", 
+        members: [] 
+      });
+    }
+    const g = groups.get(sig);
+    g.members.push({ 
+      entity_id: c.entity_id, 
+      integration: c.integration || "unknown",
+      friendly_name: c.friendly_name || c.nom || c.entity_id 
+    });
+  });
+  
+  // Filtrer : garder uniquement les groupes avec >= 2 membres
+  const filtered = new Map();
+  groups.forEach((g, sig) => {
+    if (g.members.length >= 2) {
+      filtered.set(sig, g);
+    }
+  });
+  
+  return filtered;
+}
+
 function annotateSameDevice(selectedMap, alternativesMap) {
   const groups = indexByDeviceId([selectedMap, alternativesMap]);
   const flagList = (lst) => (lst || []).forEach(c => {
-    if (!c) return;
+    if (!c) return;         
     const did = c.device_id || "";
     if (!did) return;
     const g = groups.get(did);
@@ -93,7 +126,10 @@ export async function loadConfiguration() {
 
     const { outSel, outAlt } = applyIgnoredFilter(selected, alternatives, ignored_entities);
     annotateSameDevice(outSel, outAlt);
-    const groupsByDevice = indexByDeviceId([selected, alternatives]);
+    
+    // ✅ CORRECTION (Phase 2.6) : Utiliser duplicate_group au lieu de device_id
+    const groupsByDevice = indexByDuplicateGroup(allCapteurs);
+    
     const instantById = await getInstantPowerMap();
 
     ensureUserConfigAbove(content);
@@ -130,7 +166,7 @@ export async function loadConfiguration() {
     renderSelectionColumns(content, {
       selected: outSel,
       alternatives: outAlt, 
-      refEntityId,
+      refEntityId,          
       handlers,
       getFold: (k, c) => {
         try { return JSON.parse(sessionStorage.getItem(`fold:${k}:${c}`) || "true"); } catch { return true; }

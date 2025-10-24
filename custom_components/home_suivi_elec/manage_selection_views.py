@@ -560,3 +560,41 @@ class GetSummaryView(HomeAssistantView):
         except Exception as e:
             _LOGGER.exception("Erreur get_summary: %s", e)
             return self.json({})
+
+
+class GetSyncStatusView(HomeAssistantView):
+    """GET /api/home_suivi_elec/sync/status - Statut de la synchronisation."""
+    url = "/api/home_suivi_elec/sync/status"
+    name = "api:home_suivi_elec:sync:status"
+    requires_auth = False
+
+    def __init__(self, hass: HomeAssistant, sync_manager) -> None:
+        self.hass = hass
+        self.sync_manager = sync_manager
+
+    async def get(self, request):
+        try:
+            status = self.sync_manager.get_status()
+            return self.json(status)
+        except Exception as e:
+            _LOGGER.exception("Erreur get_sync_status: %s", e)
+            return self.json({"error": str(e)}, status_code=500)
+
+
+class ForceSyncView(HomeAssistantView):
+    """POST /api/home_suivi_elec/sync/force - Force une synchronisation."""
+    url = "/api/home_suivi_elec/sync/force"
+    name = "api:home_suivi_elec:sync:force"
+    requires_auth = False
+
+    def __init__(self, hass: HomeAssistant, sync_manager) -> None:
+        self.hass = hass
+        self.sync_manager = sync_manager
+
+    async def post(self, request):
+        try:
+            await self.sync_manager.force_sync()
+            return self.json({"success": True})
+        except Exception as e:
+            _LOGGER.exception("Erreur force_sync: %s", e)
+            return self.json({"success": False, "error": str(e)}, status_code=500)

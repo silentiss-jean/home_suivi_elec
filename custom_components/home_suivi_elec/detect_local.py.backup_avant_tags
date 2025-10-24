@@ -2,34 +2,30 @@
 """
 Détection automatique des capteurs power/energy depuis Home Assistant.
 
-VERSION 2.6+ : Filtrage strict
-  ✅ Accepte capteurs physiques
-  ✅ Accepte virtuels uniquement PowerCalc
-  ❌ Exclut tout Template, Helper, Utility_meter, Integration (hors PowerCalc)
-  ✅ Séparation energy/power + TAGS enrichis
-  ✅ Attribution dynamique des plateformes sans regroupement forcé
-
 PRIORITÉS :
   1. Energy (kWh) physique > Power (W) physique
-  2. Energy virtuel (PowerCalc) > Power virtuel (PowerCalc)
+  2. Energy virtuel (PowerCalc, Template) > Power virtuel
   3. Physique > Virtuel (pour un même appareil)
-  4. today_energy > device_energy (pour Tapo/Tuya)
 
 TAGS ENRICHIS :
-  - is_virtual: true/false
-  - integration: platform/source (tplink, powercalc, tuya, tapo, etc.)
-  - reference_type: "physical" | "calculated"
-  - reliability_score: 0-100
-  - priority
-  - usage: "tracking" ou "monitoring"
-"""
+  - is_virtual: true/false (sensor sans device_id physique)
+  - integration: platform source (tplink, powercalc, tuya, etc.)
+  - reference_type: "physical" | "calculated" | "template"
+  - reliability_score: 0-100 (confiance dans la mesure)
+  - priority: score de priorité (plus haut = meilleur)
+  - duplicate_rank: rang dans le groupe de doublons (1 = meilleur)
+  - alternatives: liste des sensors équivalents pour tests A/B
 
+GESTION DES DOUBLONS :
+  - Backend MARQUE les doublons mais ne les désactive PAS
+  - Frontend décide quoi afficher/activer
+  - Permet tests A/B et comparaisons physique vs virtuel
+"""
 import os
 import json
 import yaml
 import logging
 from typing import Any, Dict, List, Optional, Tuple
-from datetime import datetime
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -37,40 +33,30 @@ DATA_DIR = os.path.join(os.path.dirname(__file__), "data")
 _QUALITY_MAP_FILE = os.path.join(DATA_DIR, "integration_quality.yaml")
 _CAPTEURS_FILE = os.path.join(DATA_DIR, "capteurs_power.json")
 
-def __get_dynamic_energy_platforms(entity_registry_path: str = "/config/.storage/core.entity_registry") -> List[str]:
-    import subprocess
-    if not os.path.exists(entity_registry_path):
-        return []
-    try:
-        out = subprocess.check_output([
-            'jq', '-r',
-            '.data.entities[] | select((.unit_of_measurement and (.unit_of_measurement | test("W|kW|kWh|Wh|MWh";"i"))) or (.device_class and (.device_class | test("power|energy";"i")))) | .platform',
-            entity_registry_path
-        ], universal_newlines=True)
-        lines = [line.strip() for line in out.strip().split('\n') if line.strip()]
-        return sorted(set(lines))
-    except Exception as e:
-        _LOGGER.error(f"Erreur extraction energy platforms: {e}")
-        return []
+# ==================== CONFIGURATION ====================
 
+# Intégrations considérées comme "virtuelles" (estimation)
 VIRTUAL_INTEGRATIONS = {
-    "powercalc": {"reliability": 75, "type": "calculated"}
+    "powercalc": {"reliability": 75, "type": "calculated"},
+    "template": {"reliability": 50, "type": "template"},
+    "utility_meter": {"reliability": 90, "type": "helper"},
+    "integration": {"reliability": 85, "type": "helper"},  # Riemann sum integration
 }
 
-PREFERRED_ENERGY_NAMES = [
-    "today_energy", "daily_energy", "device_energy", "energy",
-]
-
-PREFERRED_POWER_NAMES = [
-    "current_power", "device_power", "power",
-]
-
+# Matrice de priorités (plus haut = meilleur)
+# Format : (sensor_type, reference_type) -> priority
 PRIORITY_MAP = {
-    ("energy", "physical"): 100,
-    ("power", "physical"): 80,
-    ("energy", "calculated"): 60,
-    ("power", "calculated"): 40,
+    ("energy", "physical"): 100,  # Energy physique (meilleur)
+    ("power", "physical"): 80,    # Power physique
+    ("energy", "calculated"): 60, # Energy PowerCalc
+    ("energy", "helper"): 55,     # Energy helper (utility_meter)
+    ("energy", "template"): 50,   # Energy template
+    ("power", "calculated"): 40,  # Power PowerCalc
+    ("power", "template"): 30,    # Power template
+    ("power", "helper"): 35,      # Power helper
 }
+
+# ==================== HELPERS ====================
 
 def __read_json_sync(path: str) -> Any:
     with open(path, "r", encoding="utf-8") as f:
@@ -92,81 +78,77 @@ def __is_premium(quality_scale: str) -> bool:
     return quality_scale in ("platinum", "gold")
 
 def __device_signature(c: Dict[str, Any]) -> str:
+    """
+    Signature basée sur nom + zone pour détecter les doublons.
+    Normalise pour éviter faux négatifs.
+    """
     name = (c.get("friendly_name") or c.get("nom") or "").strip().lower()
+    # Nettoyer les variations courantes
     name = name.replace("device energy", "").replace("today energy", "")
-    name = name.replace("device power", "").replace("current power", "")
     name = name.replace("consommation", "").replace("puissance", "")
     name = name.strip()
+    
     zone = (c.get("zone") or "").strip().lower()
-    sensor_type = (c.get("type") or "").strip().lower()
-    return f"{name}|{zone}|{sensor_type}"
+    return f"{name}|{zone}"
+
+# ==================== CLASSIFICATION ====================
 
 def __classify_sensor(state) -> str:
+    """Détermine si un sensor est 'energy' (kWh) ou 'power' (W)."""
     if not state:
         return "unknown"
+    
     attrs = state.attributes or {}
     unit = str(attrs.get("unit_of_measurement", "")).strip().lower()
     device_class = str(attrs.get("device_class", "")).strip().lower()
+    
+    # Priorité device_class
     if device_class == "energy":
         return "energy"
     if device_class == "power":
         return "power"
+    
+    # Fallback unité
     if unit in ("kwh", "wh", "mwh"):
         return "energy"
     if unit in ("w", "watt", "watts", "kw"):
         return "power"
+    
     return "unknown"
 
+
 def __get_reference_type(platform: str, has_device_id: bool) -> Tuple[str, int]:
+    """
+    Détermine le type de référence et sa fiabilité.
+    Returns: (reference_type, reliability_score)
+    """
     if has_device_id:
+        # Capteur physique
         return ("physical", 100)
+    
+    # Capteur virtuel
     if platform in VIRTUAL_INTEGRATIONS:
         config = VIRTUAL_INTEGRATIONS[platform]
         return (config["type"], config["reliability"])
+    
+    # Virtuel inconnu (template custom, etc.)
     return ("unknown", 30)
 
+
 def __get_priority(sensor_type: str, reference_type: str) -> int:
+    """Calcule la priorité d'un sensor basée sur type + source."""
     return PRIORITY_MAP.get((sensor_type, reference_type), 0)
 
-def __get_name_preference(entity_id: str, sensor_type: str) -> int:
-    entity_lower = entity_id.lower()
-    if sensor_type == "energy":
-        for idx, name in enumerate(PREFERRED_ENERGY_NAMES):
-            if name in entity_lower:
-                return idx
-    elif sensor_type == "power":
-        for idx, name in enumerate(PREFERRED_POWER_NAMES):
-            if name in entity_lower:
-                return idx
-    return 999
 
-def __detect_integration_from_device(device_reg, device_id: str) -> Optional[str]:
-    if not device_id:
-        return None
-    device = device_reg.async_get(device_id)
-    if not device:
-        return None
-    if device.identifiers:
-        for identifier in device.identifiers:
-            if isinstance(identifier, (tuple, list)) and len(identifier) >= 1:
-                integration = str(identifier[0]).lower()
-                return integration
-    return None
+# ==================== DÉTECTION ====================
 
-def __detect_integration_complete(entity_reg, device_reg, entity_id: str, entry) -> str:
-    if entry.device_id:
-        integration = __detect_integration_from_device(device_reg, entry.device_id)
-        if integration:
-            _LOGGER.debug(f"🔍 {entity_id} → integration: {integration} (via device)")
-            return integration
-    if entry.platform:
-        platform = str(entry.platform).lower()
-        _LOGGER.debug(f"🔍 {entity_id} → integration: {platform} (via platform)")
-        return platform
-    _LOGGER.debug(f"⚠️  {entity_id} → integration: unknown (aucune info)")
-    return "unknown"
-
-def __detect_from_hass(hass) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
+def __detect_from_hass(hass) -> List[Dict[str, Any]]:
+    """
+    Détecte automatiquement les sensors depuis Home Assistant.
+    Supporte devices physiques ET virtuels (PowerCalc, Template, Helpers).
+    
+    Returns: Liste de sensors avec métadonnées enrichies
+    """
     try:
         from homeassistant.helpers import (
             entity_registry as er,
@@ -175,59 +157,65 @@ def __detect_from_hass(hass) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]
         )
     except ImportError:
         _LOGGER.error("Impossible d'importer les registries HA")
-        return ([], [])
-
+        return []
+    
     entity_reg = er.async_get(hass)
     device_reg = dr.async_get(hass)
     area_reg = ar.async_get(hass)
-
-    energy_platforms = __get_dynamic_energy_platforms()
-    _LOGGER.info(f"Plateformes énergétiques détectées dynamiquement: {energy_platforms}")
-
+    
+    # Grouper sensors par device_id (réel ou virtuel)
     devices: Dict[str, Dict[str, Any]] = {}
-
+    
     for state in hass.states.async_all("sensor"):
         entity_id = state.entity_id
+        
+        # Ignorer sensors HSE (créés par nous)
         if entity_id.startswith("sensor.hse_"):
             continue
+        
+        # Classifier
         sensor_type = __classify_sensor(state)
         if sensor_type == "unknown":
             continue
+        
+        # Récupérer entity_registry entry
         entry = entity_reg.async_get(entity_id)
         if not entry:
             continue
-        integration = __detect_integration_complete(entity_reg, device_reg, entity_id, entry)
-        if integration not in energy_platforms:
-            continue
-
+        
+        # Récupérer device_id (réel ou créer virtuel)
         device_id = entry.device_id
         is_virtual = not device_id
-        if is_virtual and integration != "powercalc":
-            continue
-
+        platform = entry.platform or "unknown"
+        
+        # Créer device_id virtuel si nécessaire
         if is_virtual:
             safe_name = entity_id.replace("sensor.", "")[:50]
-            device_id = f"virtual_{integration}_{safe_name}"
-
+            device_id = f"virtual_{platform}_{safe_name}"
+        
+        # Initialiser device (réel ou virtuel)
         if device_id not in devices:
             if is_virtual:
+                # Device virtuel
                 devices[device_id] = {
                     "device_id": device_id,
                     "name": state.attributes.get("friendly_name", entity_id),
-                    "manufacturer": integration.capitalize(),
+                    "manufacturer": platform.capitalize(),
                     "model": "Virtual Sensor",
                     "area": "",
                     "is_virtual": True,
-                    "integration": integration,
                     "sensors": {"energy": [], "power": []}
                 }
             else:
+                # Device réel
                 device = device_reg.async_get(device_id)
                 if not device:
                     continue
+                
                 area = None
                 if device.area_id:
                     area = area_reg.async_get_area(device.area_id)
+                
                 devices[device_id] = {
                     "device_id": device_id,
                     "name": device.name or "Unknown",
@@ -235,122 +223,98 @@ def __detect_from_hass(hass) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]
                     "model": device.model,
                     "area": area.name if area else "",
                     "is_virtual": False,
-                    "integration": integration,
                     "sensors": {"energy": [], "power": []}
                 }
-
-        reference_type, reliability = __get_reference_type(integration, not is_virtual)
+        
+        # Calculer métadonnées du sensor
+        reference_type, reliability = __get_reference_type(platform, not is_virtual)
         priority = __get_priority(sensor_type, reference_type)
-
-        cand = {
+        
+        # Ajouter sensor avec métadonnées enrichies
+        devices[device_id]["sensors"][sensor_type].append({
             "entity_id": entity_id,
             "friendly_name": state.attributes.get("friendly_name", entity_id),
             "unit": state.attributes.get("unit_of_measurement"),
             "device_class": state.attributes.get("device_class"),
-            "integration": integration,
+            "integration": platform,
             "is_virtual": is_virtual,
             "reference_type": reference_type,
             "reliability_score": reliability,
             "priority": priority,
-        }
-        devices[device_id]["sensors"][sensor_type].append(cand)
-        _LOGGER.info(f"[DEBUG_SELECT] Ajout sensor candidate: {cand}")
-
-    result_energy = []
-    result_power = []
-
+        })
+    
+    # Construire résultat avec sélection intelligente
+    result = []
+    
     for device_id, device_data in devices.items():
         energy_sensors = device_data["sensors"]["energy"]
         power_sensors = device_data["sensors"]["power"]
+        
+        # Trier par priorité décroissante
+        all_sensors = energy_sensors + power_sensors
+        all_sensors.sort(key=lambda x: x["priority"], reverse=True)
+        
+        if not all_sensors:
+            continue
+        
+        # Prendre le sensor avec la plus haute priorité
+        best = all_sensors[0]
+        
+        # Lister les alternatives (pour tests A/B)
+        alternatives = [s["entity_id"] for s in all_sensors[1:3]]
+        
+        result.append({
+            "entity_id": best["entity_id"],
+            "friendly_name": best["friendly_name"],
+            "nom": device_data["name"],
+            "zone": device_data["area"],
+            "integration": best["integration"],
+            "device_id": device_id,
+            "type": "energy" if best in energy_sensors else "power",
+            "unit": best["unit"],
+            "device_class": best["device_class"],
+            "is_virtual": best["is_virtual"],
+            "reference_type": best["reference_type"],
+            "reliability_score": best["reliability_score"],
+            "priority": best["priority"],
+            "alternatives": alternatives,
+            "related_power": power_sensors[0]["entity_id"] if energy_sensors and power_sensors else None,
+        })
+        
+        # Log de sélection
+        emoji = "✅" if not best["is_virtual"] else "🔷"
+        _LOGGER.debug(
+            f"{emoji} {device_data['name']} → {best['reference_type']} "
+            f"{best['entity_id']} (priorité: {best['priority']}, fiabilité: {best['reliability_score']}%)"
+        )
+    
+    return result
 
-        if energy_sensors:
-            energy_sensors.sort(
-                key=lambda x: (
-                    -x["priority"],
-                    __get_name_preference(x["entity_id"], "energy")
-                )
-            )
-            best_energy = energy_sensors[0]
-            _LOGGER.info(f"[SELECT_ENERGY] Device {device_data['name']} ({device_id}): sélection {best_energy['entity_id']} (prio {best_energy['priority']}) parmi {len(energy_sensors)}")
-            result_energy.append({
-                "entity_id": best_energy["entity_id"],
-                "friendly_name": best_energy["friendly_name"],
-                "nom": device_data["name"],
-                "zone": device_data["area"],
-                "integration": best_energy["integration"],
-                "device_id": device_id,
-                "type": "energy",
-                "unit": best_energy["unit"],
-                "device_class": best_energy["device_class"],
-                "is_virtual": best_energy["is_virtual"],
-                "reference_type": best_energy["reference_type"],
-                "reliability_score": best_energy["reliability_score"],
-                "priority": best_energy["priority"],
-                "alternatives": [s["entity_id"] for s in energy_sensors[1:3]],
-                "related_power": power_sensors[0]["entity_id"] if power_sensors else None,
-                "usage": "tracking",
-                "sync_status": "active",
-                "last_seen": datetime.now().isoformat(),
-                "first_detected": datetime.now().isoformat(),
-                "unavailable_since": None,
-                "removal_scheduled": None,
-            })
-        else:
-            _LOGGER.info(f"[DEBUG_SELECT] Pas de sensor energy pour device {device_data['name']} ({device_id}), intégration {device_data['integration']}")
 
-        if power_sensors:
-            power_sensors.sort(
-                key=lambda x: (
-                    -x["priority"],
-                    __get_name_preference(x["entity_id"], "power")
-                )
-            )
-            best_power = power_sensors[0]
-            _LOGGER.info(f"[SELECT_POWER] Device {device_data['name']} ({device_id}): sélection {best_power['entity_id']} (prio {best_power['priority']}) parmi {len(power_sensors)}")
-            result_power.append({
-                "entity_id": best_power["entity_id"],
-                "friendly_name": best_power["friendly_name"],
-                "nom": device_data["name"],
-                "zone": device_data["area"],
-                "integration": best_power["integration"],
-                "device_id": device_id,
-                "type": "power",
-                "unit": best_power["unit"],
-                "device_class": best_power["device_class"],
-                "is_virtual": best_power["is_virtual"],
-                "reference_type": best_power["reference_type"],
-                "reliability_score": best_power["reliability_score"],
-                "priority": best_power["priority"],
-                "alternatives": [s["entity_id"] for s in power_sensors[1:3]],
-                "related_energy": energy_sensors[0]["entity_id"] if energy_sensors else None,
-                "usage": "monitoring",
-                "sync_status": "active",
-                "last_seen": datetime.now().isoformat(),
-                "first_detected": datetime.now().isoformat(),
-                "unavailable_since": None,
-                "removal_scheduled": None,
-            })
-        else:
-            _LOGGER.info(f"[DEBUG_SELECT] Pas de sensor power pour device {device_data['name']} ({device_id}), intégration {device_data['integration']}")
-
-    return (result_energy, result_power)
-
-# --- Annotation & dédoublonnage inchangé ---
+# ==================== ANNOTATION & DÉDUPLICATION ====================
 
 def __annotate_and_deduplicate(capteurs_raw: List[Dict[str, Any]], quality_map: Dict[str, str]) -> List[Dict[str, Any]]:
+    """
+    Annote quality_scale et MARQUE les doublons sans les désactiver.
+    Le frontend décide quoi afficher/activer.
+    """
+    # Annoter quality_scale
     for c in capteurs_raw:
         integ = c.get("integration")
         q = quality_map.get(integ, "custom")
         c["quality_scale"] = q
         c["is_premium"] = __is_premium(q)
-
+    
+    # Grouper par signature (nom + zone)
     groups: Dict[str, List[Dict[str, Any]]] = {}
     for c in capteurs_raw:
         sig = __device_signature(c)
         groups.setdefault(sig, []).append(c)
-
+    
+    # Traiter chaque groupe
     for signature, group in groups.items():
         if len(group) > 1:
+            # Trier par priorité (meilleur en premier)
             ordered = sorted(
                 group,
                 key=lambda x: (
@@ -360,19 +324,25 @@ def __annotate_and_deduplicate(capteurs_raw: List[Dict[str, Any]], quality_map: 
                 ),
                 reverse=True
             )
+            
+            # Marquer le rang de chaque sensor
             for idx, sensor in enumerate(ordered):
                 sensor["is_duplicate"] = (idx > 0)
                 sensor["is_main_duplicate"] = (idx == 0)
                 sensor["duplicate_rank"] = idx + 1
                 sensor["duplicate_group"] = signature
                 sensor["suggested_enabled"] = (idx == 0)
-                sensor["disabled"] = False
+                sensor["disabled"] = False  # Rien n'est désactivé par défaut
+                
+                # Liste des alternatives (autres sensors du groupe)
                 sensor["alternatives"] = [
                     s["entity_id"] for s in ordered if s["entity_id"] != sensor["entity_id"]
                 ][:3]
+            
+            # Log de détection
             main = ordered[0]
             duplicates_info = ", ".join([
-                f"{s['entity_id']} ({s['reference_type']}, {s['priority']})"
+                f"{s['entity_id']} ({s['reference_type']}, {s['priority']})" 
                 for s in ordered[1:]
             ])
             _LOGGER.info(
@@ -381,6 +351,7 @@ def __annotate_and_deduplicate(capteurs_raw: List[Dict[str, Any]], quality_map: 
                 f"Alternatives: {duplicates_info}"
             )
         else:
+            # Sensor unique
             sensor = group[0]
             sensor["is_duplicate"] = False
             sensor["is_main_duplicate"] = True
@@ -389,15 +360,35 @@ def __annotate_and_deduplicate(capteurs_raw: List[Dict[str, Any]], quality_map: 
             sensor["suggested_enabled"] = True
             sensor["disabled"] = False
             sensor["alternatives"] = []
-
+    
     return capteurs_raw
 
+
+# ==================== POINT D'ENTRÉE ====================
+
 async def run_detect_local(*args, **kwargs) -> List[Dict[str, Any]]:
+    """
+    Détecte les sensors power/energy depuis Home Assistant.
+    
+    PRIORITÉ : 
+      physical energy > physical power > 
+      virtual energy > virtual power
+    
+    Returns: Liste complète avec métadonnées enrichies
+    """
     hass = kwargs.get("hass")
+
+    # Mode avec hass : détection automatique
     if hass is not None:
         quality_map = await hass.async_add_executor_job(__load_quality_map_sync)
-        result_energy, result_power = __detect_from_hass(hass)
-        capteurs_final = __annotate_and_deduplicate(result_energy + result_power, quality_map)
+        
+        # Détecter depuis HA (physique + virtuel)
+        capteurs_raw = __detect_from_hass(hass)
+        
+        # Annoter et dédupliquer (sans désactiver)
+        capteurs_final = __annotate_and_deduplicate(capteurs_raw, quality_map)
+        
+        # Statistiques
         total = len(capteurs_final)
         physical = sum(1 for c in capteurs_final if not c.get("is_virtual"))
         virtual = sum(1 for c in capteurs_final if c.get("is_virtual"))
@@ -405,27 +396,30 @@ async def run_detect_local(*args, **kwargs) -> List[Dict[str, Any]]:
         power_count = sum(1 for c in capteurs_final if c.get("type") == "power")
         duplicates = sum(1 for c in capteurs_final if c.get("is_duplicate"))
         suggested = sum(1 for c in capteurs_final if c.get("suggested_enabled"))
+        
         _LOGGER.info(
             "[DETECT] total=%s, physique=%s, virtuel=%s, energy=%s, power=%s, "
             "doublons_detectes=%s, suggeres_actifs=%s",
             total, physical, virtual, energy_count, power_count, duplicates, suggested
         )
-        _LOGGER.info(
-            "[DETECT] energy_tracking=%s, power_monitoring=%s",
-            len(result_energy), len(result_power)
-        )
+        
         await hass.async_add_executor_job(__write_json_sync, _CAPTEURS_FILE, capteurs_final)
         return capteurs_final
+    
+    # Mode sans hass : lecture fichier existant
     else:
         quality_map = __load_quality_map_sync()
         capteurs_raw = __read_json_sync(_CAPTEURS_FILE) if os.path.exists(_CAPTEURS_FILE) else []
         capteurs_final = __annotate_and_deduplicate(capteurs_raw, quality_map)
+        
         total = len(capteurs_final)
         duplicates = sum(1 for c in capteurs_final if c.get("is_duplicate"))
         suggested = sum(1 for c in capteurs_final if c.get("suggested_enabled"))
+        
         print(f"[DETECT] capteurs_total={total}, doublons={duplicates}, suggeres={suggested}")
         __write_json_sync(_CAPTEURS_FILE, capteurs_final)
         return capteurs_final
+
 
 if __name__ == "__main__":
     import asyncio
