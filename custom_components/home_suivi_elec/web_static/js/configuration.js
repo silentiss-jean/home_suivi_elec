@@ -73,12 +73,23 @@ function indexByDuplicateGroup(allCapteurs) {
 }
 
 function annotateSameDevice(selectedMap, alternativesMap) {
-  const groups = indexByDeviceId([selectedMap, alternativesMap]);
+  // Construire allCapteurs depuis les deux maps
+  const allCapteurs = {};
+  for (const map of [selectedMap, alternativesMap]) {
+    Object.values(map || {}).flat().forEach(c => {
+      if (c && c.entity_id) allCapteurs[c.entity_id] = c;
+    });
+  }
+  
+  // ✅ CORRECTION : Utiliser indexByDuplicateGroup au lieu de indexByDeviceId
+  // Cela groupe par (nom + zone + TYPE) au lieu de device_id seul
+  const groups = indexByDuplicateGroup(allCapteurs);
+  
   const flagList = (lst) => (lst || []).forEach(c => {
-    if (!c) return;         
-    const did = c.device_id || "";
-    if (!did) return;
-    const g = groups.get(did);
+    if (!c) return;
+    const sig = c.duplicate_group || "";
+    if (!sig) return;
+    const g = groups.get(sig);
     if (g && g.members.length >= 2) {
       c.ui_same_device_count = g.members.length;
       c.ui_device_label = `${g.name || "Appareil"}${g.area ? " — " + g.area : ""}`;
@@ -87,6 +98,7 @@ function annotateSameDevice(selectedMap, alternativesMap) {
       c.ui_device_label = `${c.device_name || "Appareil"}${c.area_name ? " — " + c.area_name : ""}`;
     }
   });
+  
   for (const [, lst] of Object.entries(selectedMap || {})) flagList(lst);
   for (const [, lst] of Object.entries(alternativesMap || {})) flagList(lst);
 }
@@ -146,6 +158,25 @@ export async function loadConfiguration() {
     
     content.innerHTML = "";
 
+    content.innerHTML = "";
+    
+    // ✅ NOUVEAU : Bandeau explicatif
+    const banner = document.createElement("div");
+    banner.style.cssText = `
+      background: #fff3cd;
+      border: 1px solid #ffc107;
+      border-radius: 4px;
+      padding: 12px;
+      margin-bottom: 16px;
+      font-size: 14px;
+    `;
+    banner.innerHTML = `
+      <strong>ℹ️ Gestion des doublons multi-intégrations</strong><br>
+      Un seul capteur par appareil physique (par type : energy/power) peut être activé.<br>
+      Les capteurs en conflit seront automatiquement ignorés lors de l'activation.
+    `;
+    content.appendChild(banner);
+
     const handlers = {
       selectAll: async (integration) => {
         content.querySelectorAll(`.capteur-checkbox[data-integration="${integration}"]`).forEach(cb => cb.checked = true);
@@ -157,7 +188,58 @@ export async function loadConfiguration() {
         await saveSelectionToBackend();
         toast.success("Sélection mise à jour");
       },
-      checkbox: async () => { 
+      checkbox: async (entityId, checked) => {
+        // 1. Validation anti-doublons AVANT toute action
+        if (checked) {
+          const sensor = allCapteurs[entityId];
+          
+          if (sensor && sensor.is_multi_platform) {
+            const signature = sensor.physical_signature;
+            const sensorType = sensor.type;
+            
+            // Trouver les sensors du même device physique (même type, autre intégration)
+            const conflicts = Object.values(allCapteurs).filter(c => 
+              c.physical_signature === signature &&
+              c.type === sensorType &&
+              c.entity_id !== entityId &&
+              c.integration !== sensor.integration
+            );
+            
+            // Vérifier si un conflit est déjà activé (coché)
+            const activeConflicts = conflicts.filter(c => {
+              const conflictCheckbox = content.querySelector(
+                `input.capteur-checkbox[data-entity="${c.entity_id}"]`
+              );
+              return conflictCheckbox?.checked;
+            });
+            
+            if (activeConflicts.length > 0) {
+              const conflict = activeConflicts[0];
+              toast.error(`⚠️ Conflit détecté : ${conflict.friendly_name || conflict.entity_id} (${conflict.integration}) est déjà activé. Ignorez-le d'abord.`);
+              
+              // ANNULER le cochage
+              setTimeout(() => {
+                const checkbox = content.querySelector(
+                  `input.capteur-checkbox[data-entity="${entityId}"]`
+                );
+                if (checkbox) checkbox.checked = false;
+              }, 0);
+              
+              return; // ❌ BLOQUER l'activation
+            }
+            
+            // ✅ NOUVEAU : Auto-ignorer les conflits non cochés
+            for (const conflict of conflicts) {
+              await setIgnoredEntity(conflict.entity_id, true);
+            }
+            
+            if (conflicts.length > 0) {
+              toast.success(`✅ ${conflicts.length} capteur(s) en conflit ignoré(s) automatiquement`);
+            }
+          }
+        }
+        
+        // 2. Si validation OK → Sauvegarder
         await saveSelectionToBackend();
         toast.info("Sélection enregistrée");
       }

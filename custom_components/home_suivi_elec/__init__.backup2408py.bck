@@ -21,7 +21,7 @@ from .generator import run_all
 from .debug_json_sets import scan_sets
 from .options_flow import HomeSuiviElecOptionsFlow
 from . import manage_selection
-#from .utility_meter_manager import sync_utility_meters, get_meter_name, get_integration_helper_name, UTILITY_METER_CYCLES
+from .utility_meter_manager import sync_utility_meters, get_meter_name, get_integration_helper_name, UTILITY_METER_CYCLES
 from .proxy_api import SuiviElecProxyView
 
 _LOGGER = logging.getLogger(__name__)
@@ -31,6 +31,7 @@ USER_STORE_KEY = f"{DOMAIN}_user_config_v1"
 
 async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     _LOGGER.info("[SETUP] async_setup appelé")
+
     return True
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
@@ -86,7 +87,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                         ids.update([c.get("entity_id") for c in lst if c.get("enabled")])
                     return ids
                 entity_ids = extract_ids(selection)
-#                await sync_utility_meters(entity_ids, hass)
+                await sync_utility_meters(entity_ids, hass)
                 _LOGGER.info("[SERVICE] Utility Meter YAML synchronisé via service.")
         except Exception as e:
             _LOGGER.exception("Erreur handle_generate_selection: %s", e)
@@ -145,6 +146,58 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         except Exception as e:
             _LOGGER.exception("[MIGRATION] Erreur lors de la migration: %s", e)
 
+    async def handle_reset_all_utility_meters(call: ServiceCall):
+        """Service pour calibrer tous les utility meters aberrants."""
+        threshold = call.data.get("threshold_kwh", 1000.0)
+        
+        try:
+            to_reset = []
+            for entity_id in hass.states.async_entity_ids("sensor"):
+                if not entity_id.startswith("sensor.hse_sensor_"):
+                    continue
+                if "_monthly" not in entity_id and "_yearly" not in entity_id:
+                    continue
+                
+                state = hass.states.get(entity_id)
+                if not state:
+                    continue
+                
+                try:
+                    value = float(state.state)
+                    if value > threshold:
+                        last_valid = state.attributes.get("last_valid_state", 0)
+                        to_reset.append({
+                            "entity_id": entity_id,
+                            "current": value,
+                            "new": last_valid
+                        })
+                except:
+                    continue
+            
+            if not to_reset:
+                _LOGGER.info("[RESET_UM] Aucun utility meter aberrant détecté")
+                return
+            
+            _LOGGER.info("[RESET_UM] %d utility meters à calibrer", len(to_reset))
+            
+            for item in to_reset:
+                _LOGGER.info(
+                    "[RESET_UM] Calibration de %s : %.2f kWh -> %.2f kWh",
+                    item["entity_id"], item["current"], item["new"]
+                )
+                await hass.services.async_call(
+                    "utility_meter",
+                    "calibrate",
+                    {
+                        "entity_id": item["entity_id"],
+                        "value": str(item["new"])
+                    },
+                    blocking=True
+                )
+            
+            _LOGGER.info("[RESET_UM] ✅ %d utility meters calibrés", len(to_reset))
+            
+        except Exception as e:
             _LOGGER.exception("[RESET_UM] Erreur: %s", e)
 
     hass.services.async_register(DOMAIN, "generate_local_data", handle_generate_local_data)
@@ -153,7 +206,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     hass.services.async_register(DOMAIN, "copy_ui_files", handle_copy_ui)
     hass.services.async_register(DOMAIN, "reset_integration_sensor", handle_reset_integration_sensor)
     hass.services.async_register(DOMAIN, "migrate_cleanup", handle_migrate_cleanup)
-#    hass.services.async_register(DOMAIN, "reset_all_utility_meters", handle_reset_all_utility_meters)
+    hass.services.async_register(DOMAIN, "reset_all_utility_meters", handle_reset_all_utility_meters)
 
     # --- API REST existantes (sans sync_manager pour l'instant) ---
     await manage_selection.async_setup_selection_api(hass)

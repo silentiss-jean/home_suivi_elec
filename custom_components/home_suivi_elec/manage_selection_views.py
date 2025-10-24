@@ -15,7 +15,7 @@ from homeassistant.components.http import HomeAssistantView
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.helpers.storage import Store
 
-from .utility_meter_manager import sync_utility_meters, get_meter_name
+#from .utility_meter_manager import sync_utility_meters, get_meter_name
 from .manage_selection import (
     CAPTEURS_POWER_PATH, CAPTEURS_SELECTION_PATH, USER_CONFIG_PATH,
 )
@@ -249,7 +249,7 @@ class SaveSelectionView(HomeAssistantView):
                 for row in lst or []:
                     if row.get("enabled") and row.get("entity_id"):
                         selected_ids.add(row["entity_id"])
-            await sync_utility_meters(selected_ids, self.hass)
+#            await sync_utility_meters(selected_ids, self.hass)
 
             return self.json({"success": True, "selected": sorted(selected_ids), "need_restart": True})
         except Exception as e:
