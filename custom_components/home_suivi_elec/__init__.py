@@ -1,3 +1,4 @@
+
 # -*- coding: utf-8 -*-
 """Home Suivi Élec — Services + API REST + copie UI simplifiée avec démarrage différé."""
 
@@ -23,6 +24,8 @@ from .options_flow import HomeSuiviElecOptionsFlow
 from . import manage_selection
 #from .utility_meter_manager import sync_utility_meters, get_meter_name, get_integration_helper_name, UTILITY_METER_CYCLES
 from .proxy_api import SuiviElecProxyView
+# ✅ AJOUT : Import du correcteur automatique de noms
+from .sensor_name_fixer import async_setup_sensor_name_fixer, async_fix_all_long_sensors
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -38,6 +41,33 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     hass.data.setdefault(DOMAIN, {})
     hass.data[DOMAIN]["config"] = dict(entry.data)
     hass.data[DOMAIN]["options"] = dict(entry.options or {})
+
+    # ========================================
+    # 🎯 AJOUT : Correcteur automatique de noms
+    # ========================================
+    try:
+        await async_setup_sensor_name_fixer(hass)
+        _LOGGER.info("✅ Correcteur automatique de noms activé")
+    except Exception as e:
+        _LOGGER.error(f"❌ Erreur activation correcteur de noms: {e}")
+    
+    # 🔧 Service manuel pour forcer la correction
+    if not hass.services.has_service(DOMAIN, "fix_sensor_names"):
+        async def handle_fix_sensor_names(call):
+            """Service pour forcer la correction des noms."""
+            try:
+                fixed = await async_fix_all_long_sensors(hass)
+                _LOGGER.info(f"✅ Service fix_sensor_names : {fixed} sensors corrigés")
+            except Exception as e:
+                _LOGGER.error(f"❌ Erreur service fix_sensor_names: {e}")
+        
+        hass.services.async_register(
+            DOMAIN,
+            "fix_sensor_names",
+            handle_fix_sensor_names
+        )
+        _LOGGER.info("📋 Service 'fix_sensor_names' enregistré")
+    # ========================================
 
     # === PANEL HOME ASSISTANT ===
     async def register_panel_when_ready(*args):
@@ -578,17 +608,34 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         except Exception as e:
             _LOGGER.exception("Erreur sensor sync manager: %s", e)
         
-        # Enregistrer les sensors manuellement car on est hors async_setup_entry
+        # Enregistrer les sensors manuellement via entity platform
         if "energy_sensors" in hass.data.get(DOMAIN, {}):
             energy_sensors = hass.data[DOMAIN]["energy_sensors"]
             live_sensors = hass.data[DOMAIN].get("live_power_sensors", [])
             all_sensors = energy_sensors + live_sensors
             
             if all_sensors:
-                _LOGGER.info(f"[INIT] 🔄 Rechargement de l'entrée pour enregistrer {len(all_sensors)} sensors")
-                await hass.config_entries.async_reload(entry.entry_id)
+                _LOGGER.info(f"[INIT] 📊 Enregistrement direct de {len(all_sensors)} sensors")
+                
+                # Importer async_add_entities
+                from homeassistant.helpers import entity_platform
+                
+                # Récupérer la plateforme sensor
+                platform = entity_platform.async_get_platforms(hass, DOMAIN)
+                sensor_platform = None
+                for p in platform:
+                    if p.domain == "sensor":
+                        sensor_platform = p
+                        break
+                
+                if sensor_platform:
+                    await sensor_platform.async_add_entities(all_sensors, True)
+                    _LOGGER.info(f"[INIT] ✅ {len(all_sensors)} sensors enregistrés avec succès")
+                else:
+                    _LOGGER.error("[INIT] ❌ Plateforme sensor introuvable")
+
     
-    # Lancer la tâche en arrière-plan
+# Lancer la tâche en arrière-plan
     asyncio.create_task(setup_sensors_after_detection())
     
     asyncio.create_task(_delayed_start(hass, entry))
@@ -599,6 +646,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     await loop.run_in_executor(None, lambda: _copy_ui_blocking(src, dst))
 
     _LOGGER.info("[SETUP_ENTRY] ✅ Home Suivi Élec setup terminé (sensors seront chargés après détection)")
+    
+    # ✅ Charger la plateforme sensor pour enregistrer les sensors HSE
+    await hass.config_entries.async_forward_entry_setups(entry, ["sensor"])
+    _LOGGER.info("[SETUP_ENTRY] 🚀 Plateforme sensor chargée")
+    
     return True
 
 async def _delayed_start(hass: HomeAssistant, entry: ConfigEntry, timeout: int = 60):

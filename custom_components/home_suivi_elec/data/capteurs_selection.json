@@ -1,112 +1,4 @@
 {
-  "tapo": [
-    {
-      "entity_id": "sensor.chambre_tv_prise_connectee_today_energy",
-      "enabled": true
-    },
-    {
-      "entity_id": "sensor.buanderie_machines_today_energy",
-      "enabled": true
-    },
-    {
-      "entity_id": "sensor.bureau_prise_porte_today_energy",
-      "enabled": true
-    },
-    {
-      "entity_id": "sensor.buanderie_nas_prise_connectee_today_energy",
-      "enabled": true
-    },
-    {
-      "entity_id": "sensor.chambre_ordinateur_prise_connectee_today_energy",
-      "enabled": true
-    },
-    {
-      "entity_id": "sensor.salon_prise_radiateur_canape_today_energy",
-      "enabled": true
-    },
-    {
-      "entity_id": "sensor.bureau_prise_ordinateur_today_energy",
-      "enabled": true
-    },
-    {
-      "entity_id": "sensor.chambre_dalex_prise_pc_today_energy",
-      "enabled": true
-    },
-    {
-      "entity_id": "sensor.salon_tv_prise_connectee_today_energy",
-      "enabled": true
-    },
-    {
-      "entity_id": "sensor.chambre_prise_radiateur_today_energy",
-      "enabled": true
-    },
-    {
-      "entity_id": "sensor.bureau_pc_synthe_today_energy",
-      "enabled": true
-    },
-    {
-      "entity_id": "sensor.chambre_tv_prise_connectee_current_power",
-      "enabled": false
-    },
-    {
-      "entity_id": "sensor.buanderie_machines_current_power",
-      "enabled": false
-    },
-    {
-      "entity_id": "sensor.bureau_prise_porte_current_power",
-      "enabled": false
-    },
-    {
-      "entity_id": "sensor.buanderie_nas_prise_connectee_current_power",
-      "enabled": false
-    },
-    {
-      "entity_id": "sensor.chambre_ordinateur_prise_connectee_current_power",
-      "enabled": false
-    },
-    {
-      "entity_id": "sensor.salon_prise_radiateur_canape_current_power",
-      "enabled": false
-    },
-    {
-      "entity_id": "sensor.bureau_prise_ordinateur_current_power",
-      "enabled": false
-    },
-    {
-      "entity_id": "sensor.chambre_dalex_prise_pc_current_power",
-      "enabled": false
-    },
-    {
-      "entity_id": "sensor.salon_tv_prise_connectee_current_power",
-      "enabled": false
-    },
-    {
-      "entity_id": "sensor.chambre_prise_radiateur_current_power",
-      "enabled": false
-    },
-    {
-      "entity_id": "sensor.bureau_pc_synthe_current_power",
-      "enabled": false
-    }
-  ],
-  "mqtt": [
-    {
-      "entity_id": "sensor.salon_nous_extender_energy",
-      "enabled": true
-    },
-    {
-      "entity_id": "sensor.bureau_nous_extender_energy",
-      "enabled": true
-    },
-    {
-      "entity_id": "sensor.salon_nous_extender_power",
-      "enabled": false
-    },
-    {
-      "entity_id": "sensor.bureau_nous_extender_power",
-      "enabled": false
-    }
-  ],
   "tuya": [
     {
       "entity_id": "sensor.wifi_commutateur_sur_rail_din_avec_mesure_puissance",
@@ -157,6 +49,24 @@
       "enabled": true
     }
   ],
+  "mqtt": [
+    {
+      "entity_id": "sensor.salon_nous_extender_power",
+      "enabled": false
+    },
+    {
+      "entity_id": "sensor.salon_nous_extender_energy",
+      "enabled": false
+    },
+    {
+      "entity_id": "sensor.bureau_nous_extender_energy",
+      "enabled": false
+    },
+    {
+      "entity_id": "sensor.bureau_nous_extender_power",
+      "enabled": false
+    }
+  ],
   "min_max": [
     {
       "entity_id": "sensor.consomation_lumiere_chambre",
@@ -167,21 +77,99 @@
       "enabled": false
     }
   ],
+  "tapo": [
+    {
+      "entity_id": "sensor.buanderie_machines_today_energy",
+      "enabled": false
+    },
+    {
+      "entity_id": "sensor.buanderie_nas_prise_connectee_today_energy",
+      "enabled": false
+    },
+    {
+      "entity_id": "sensor.chambre_tv_prise_connectee_today_energy",
+      "enabled": false
+    },
+    {
+      "entity_id": "sensor.bureau_prise_ordinateur_today_energy",
+      "enabled": false
+    },
+    {
+      "entity_id": "sensor.bureau_prise_porte_today_energy",
+      "enabled": false
+    },
+    {
+      "entity_id": "sensor.chambre_ordinateur_prise_connectee_today_energy",
+      "enabled": false
+    },
+    {
+      "entity_id": "sensor.salon_prise_radiateur_canape_today_energy",
+      "enabled": false
+    },
+    {
+      "entity_id": "sensor.chambre_prise_radiateur_today_energy",
+      "enabled": false
+    },
+    {
+      "entity_id": "sensor.bureau_pc_synthe_today_energy",
+      "enabled": false
+    },
+    {
+      "entity_id": "sensor.chambre_dalex_prise_pc_today_energy",
+      "enabled": false
+    },
+    {
+      "entity_id": "sensor.salon_tv_prise_connectee_today_energy",
+      "enabled": false
+    },
+    {
+      "entity_id": "sensor.buanderie_machines_current_power",
+      "enabled": false
+    },
+    {
+      "entity_id": "sensor.buanderie_nas_prise_connectee_current_power",
+      "enabled": false
+    },
+    {
+      "entity_id": "sensor.chambre_tv_prise_connectee_current_power",
+      "enabled": false
+    },
+    {
+      "entity_id": "sensor.bureau_prise_ordinateur_current_power",
+      "enabled": false
+    },
+    {
+      "entity_id": "sensor.bureau_prise_porte_current_power",
+      "enabled": false
+    },
+    {
+      "entity_id": "sensor.chambre_ordinateur_prise_connectee_current_power",
+      "enabled": false
+    },
+    {
+      "entity_id": "sensor.salon_prise_radiateur_canape_current_power",
+      "enabled": false
+    },
+    {
+      "entity_id": "sensor.chambre_prise_radiateur_current_power",
+      "enabled": false
+    },
+    {
+      "entity_id": "sensor.bureau_pc_synthe_current_power",
+      "enabled": false
+    },
+    {
+      "entity_id": "sensor.chambre_dalex_prise_pc_current_power",
+      "enabled": false
+    },
+    {
+      "entity_id": "sensor.salon_tv_prise_connectee_current_power",
+      "enabled": false
+    }
+  ],
   "powercalc": [
     {
-      "entity_id": "sensor.buanderie_ambiance_lamp_2_energy",
-      "enabled": false
-    },
-    {
       "entity_id": "sensor.alex_hue_color_lamp_1_energy",
-      "enabled": false
-    },
-    {
-      "entity_id": "sensor.bureau_color_lamp_15_energy",
-      "enabled": false
-    },
-    {
-      "entity_id": "sensor.bureau_color_lamp_14_energy",
       "enabled": false
     },
     {
@@ -189,15 +177,15 @@
       "enabled": false
     },
     {
-      "entity_id": "sensor.chambre_color_candle_2_energy",
-      "enabled": false
-    },
-    {
-      "entity_id": "sensor.bureau_lightstrip_plus_3_energy",
+      "entity_id": "sensor.buanderie_ambiance_lamp_2_energy",
       "enabled": false
     },
     {
       "entity_id": "sensor.buanderie_ambiance_lamp_1_energy",
+      "enabled": false
+    },
+    {
+      "entity_id": "sensor.bureau_color_lamp_14_energy",
       "enabled": false
     },
     {
@@ -209,6 +197,22 @@
       "enabled": false
     },
     {
+      "entity_id": "sensor.bureau_color_lamp_15_energy",
+      "enabled": false
+    },
+    {
+      "entity_id": "sensor.bureau_lightstrip_plus_3_energy",
+      "enabled": false
+    },
+    {
+      "entity_id": "sensor.chambre_color_candle_2_energy",
+      "enabled": false
+    },
+    {
+      "entity_id": "sensor.couloir_hue_color_lamp_4_energy",
+      "enabled": false
+    },
+    {
       "entity_id": "sensor.chambre_energy",
       "enabled": false
     },
@@ -217,7 +221,7 @@
       "enabled": false
     },
     {
-      "entity_id": "sensor.couloir_hue_color_lamp_4_energy",
+      "entity_id": "sensor.cuisine_color_spot_1_energy",
       "enabled": false
     },
     {
@@ -225,7 +229,7 @@
       "enabled": false
     },
     {
-      "entity_id": "sensor.cuisine_color_spot_1_energy",
+      "entity_id": "sensor.cuisine_lightstrip_plus_1_energy",
       "enabled": false
     },
     {
@@ -233,7 +237,7 @@
       "enabled": false
     },
     {
-      "entity_id": "sensor.cuisine_lightstrip_plus_1_energy",
+      "entity_id": "sensor.emma_hue_play_1_energy",
       "enabled": false
     },
     {
@@ -249,15 +253,11 @@
       "enabled": false
     },
     {
-      "entity_id": "sensor.emma_hue_play_1_energy",
+      "entity_id": "sensor.homepod_energy",
       "enabled": false
     },
     {
       "entity_id": "sensor.emma_hue_play_2_energy",
-      "enabled": false
-    },
-    {
-      "entity_id": "sensor.homepod_energy",
       "enabled": false
     },
     {
@@ -277,11 +277,11 @@
       "enabled": false
     },
     {
-      "entity_id": "sensor.hue_lightstrip_outdoor_4_energy",
+      "entity_id": "sensor.salon_hue_color_lamp_1_energy",
       "enabled": false
     },
     {
-      "entity_id": "sensor.salon_hue_color_lamp_1_energy",
+      "entity_id": "sensor.hue_lightstrip_outdoor_4_energy",
       "enabled": false
     },
     {
@@ -289,11 +289,11 @@
       "enabled": false
     },
     {
-      "entity_id": "sensor.salon_hue_lightstrip_plus_1_energy",
+      "entity_id": "sensor.toilettes_white_lamp_2_energy",
       "enabled": false
     },
     {
-      "entity_id": "sensor.sdb_hue_color_candle_1_energy",
+      "entity_id": "sensor.salon_hue_lightstrip_plus_1_energy",
       "enabled": false
     },
     {
@@ -301,7 +301,11 @@
       "enabled": false
     },
     {
-      "entity_id": "sensor.toilettes_white_lamp_2_energy",
+      "entity_id": "sensor.sdb_hue_color_candle_1_energy",
+      "enabled": false
+    },
+    {
+      "entity_id": "sensor.bureau_prise_connecte_studio_device_energy",
       "enabled": false
     },
     {
@@ -317,27 +321,7 @@
       "enabled": false
     },
     {
-      "entity_id": "sensor.bureau_prise_connecte_studio_device_energy",
-      "enabled": false
-    },
-    {
       "entity_id": "sensor.sdb_hue_color_candle_3_energy",
-      "enabled": false
-    },
-    {
-      "entity_id": "sensor.sdb_hue_color_candle_2_energy",
-      "enabled": false
-    },
-    {
-      "entity_id": "sensor.homepod_mini_energy",
-      "enabled": false
-    },
-    {
-      "entity_id": "sensor.chambre_hue_color_candle_1_energy",
-      "enabled": false
-    },
-    {
-      "entity_id": "sensor.bureau_hue_lightstrip_plus_1_energy",
       "enabled": false
     },
     {
@@ -349,7 +333,7 @@
       "enabled": false
     },
     {
-      "entity_id": "sensor.cuisine_hue_color_spot_1_energy_3",
+      "entity_id": "sensor.homepod_mini_energy",
       "enabled": false
     },
     {
@@ -357,11 +341,19 @@
       "enabled": false
     },
     {
-      "entity_id": "sensor.cuisine_hue_color_spot_4_energy",
+      "entity_id": "sensor.sdb_hue_color_candle_2_energy",
       "enabled": false
     },
     {
-      "entity_id": "sensor.terrass_hue_lightstrip_outdoor_4_energy",
+      "entity_id": "sensor.cuisine_hue_color_spot_1_energy_3",
+      "enabled": false
+    },
+    {
+      "entity_id": "sensor.bureau_hue_lightstrip_plus_1_energy",
+      "enabled": false
+    },
+    {
+      "entity_id": "sensor.chambre_hue_color_candle_1_energy",
       "enabled": false
     },
     {
@@ -373,11 +365,15 @@
       "enabled": false
     },
     {
-      "entity_id": "sensor.buanderie_prise_connectee_device_energy",
+      "entity_id": "sensor.salon_hue_lightstrip_plus_1_energy_4",
       "enabled": false
     },
     {
-      "entity_id": "sensor.salon_hue_lightstrip_plus_1_energy_4",
+      "entity_id": "sensor.cuisine_hue_color_spot_4_energy",
+      "enabled": false
+    },
+    {
+      "entity_id": "sensor.terrass_hue_lightstrip_outdoor_4_energy",
       "enabled": false
     },
     {
@@ -389,23 +385,15 @@
       "enabled": false
     },
     {
+      "entity_id": "sensor.buanderie_prise_connectee_device_energy",
+      "enabled": false
+    },
+    {
       "entity_id": "sensor.salon_prise_radiateur_canape_device_energy",
       "enabled": false
     },
     {
       "entity_id": "sensor.salon_prise_radiateur_tv_device_energy",
-      "enabled": false
-    },
-    {
-      "entity_id": "sensor.sonos_arc_airplay_energy",
-      "enabled": false
-    },
-    {
-      "entity_id": "sensor.chambre_energy_2",
-      "enabled": false
-    },
-    {
-      "entity_id": "sensor.0xa4c1387529d4068c_device_energy",
       "enabled": false
     },
     {
@@ -417,7 +405,15 @@
       "enabled": false
     },
     {
+      "entity_id": "sensor.chambre_energy_2",
+      "enabled": false
+    },
+    {
       "entity_id": "sensor.chambre_energy_3",
+      "enabled": false
+    },
+    {
+      "entity_id": "sensor.sonos_arc_airplay_energy",
       "enabled": false
     },
     {
@@ -425,11 +421,15 @@
       "enabled": false
     },
     {
-      "entity_id": "sensor.couloir_color_lamp_energy",
+      "entity_id": "sensor.0xa4c138794c2673a1_device_energy",
       "enabled": false
     },
     {
-      "entity_id": "sensor.0xa4c138794c2673a1_device_energy",
+      "entity_id": "sensor.0xa4c1387529d4068c_device_energy",
+      "enabled": false
+    },
+    {
+      "entity_id": "sensor.couloir_color_lamp_energy",
       "enabled": false
     },
     {
@@ -441,19 +441,7 @@
       "enabled": false
     },
     {
-      "entity_id": "sensor.buanderie_ambiance_lamp_2_power",
-      "enabled": false
-    },
-    {
       "entity_id": "sensor.alex_hue_color_lamp_1_power",
-      "enabled": false
-    },
-    {
-      "entity_id": "sensor.bureau_color_lamp_15_power",
-      "enabled": false
-    },
-    {
-      "entity_id": "sensor.bureau_color_lamp_14_power",
       "enabled": false
     },
     {
@@ -461,15 +449,15 @@
       "enabled": false
     },
     {
-      "entity_id": "sensor.chambre_color_candle_2_power",
-      "enabled": false
-    },
-    {
-      "entity_id": "sensor.bureau_lightstrip_plus_3_power",
+      "entity_id": "sensor.buanderie_ambiance_lamp_2_power",
       "enabled": false
     },
     {
       "entity_id": "sensor.buanderie_ambiance_lamp_1_power",
+      "enabled": false
+    },
+    {
+      "entity_id": "sensor.bureau_color_lamp_14_power",
       "enabled": false
     },
     {
@@ -481,6 +469,22 @@
       "enabled": false
     },
     {
+      "entity_id": "sensor.bureau_color_lamp_15_power",
+      "enabled": false
+    },
+    {
+      "entity_id": "sensor.bureau_lightstrip_plus_3_power",
+      "enabled": false
+    },
+    {
+      "entity_id": "sensor.chambre_color_candle_2_power",
+      "enabled": false
+    },
+    {
+      "entity_id": "sensor.couloir_hue_color_lamp_4_power",
+      "enabled": false
+    },
+    {
       "entity_id": "sensor.chambre_power",
       "enabled": false
     },
@@ -489,7 +493,7 @@
       "enabled": false
     },
     {
-      "entity_id": "sensor.couloir_hue_color_lamp_4_power",
+      "entity_id": "sensor.cuisine_color_spot_1_power",
       "enabled": false
     },
     {
@@ -497,7 +501,7 @@
       "enabled": false
     },
     {
-      "entity_id": "sensor.cuisine_color_spot_1_power",
+      "entity_id": "sensor.cuisine_lightstrip_plus_1_power",
       "enabled": false
     },
     {
@@ -505,7 +509,7 @@
       "enabled": false
     },
     {
-      "entity_id": "sensor.cuisine_lightstrip_plus_1_power",
+      "entity_id": "sensor.emma_hue_play_1_power",
       "enabled": false
     },
     {
@@ -521,15 +525,11 @@
       "enabled": false
     },
     {
-      "entity_id": "sensor.emma_hue_play_1_power",
+      "entity_id": "sensor.homepod_power",
       "enabled": false
     },
     {
       "entity_id": "sensor.emma_hue_play_2_power",
-      "enabled": false
-    },
-    {
-      "entity_id": "sensor.homepod_power",
       "enabled": false
     },
     {
@@ -549,11 +549,11 @@
       "enabled": false
     },
     {
-      "entity_id": "sensor.hue_lightstrip_outdoor_4_power",
+      "entity_id": "sensor.salon_hue_color_lamp_1_power",
       "enabled": false
     },
     {
-      "entity_id": "sensor.salon_hue_color_lamp_1_power",
+      "entity_id": "sensor.hue_lightstrip_outdoor_4_power",
       "enabled": false
     },
     {
@@ -561,11 +561,11 @@
       "enabled": false
     },
     {
-      "entity_id": "sensor.salon_hue_lightstrip_plus_1_power",
+      "entity_id": "sensor.toilettes_white_lamp_2_power",
       "enabled": false
     },
     {
-      "entity_id": "sensor.sdb_hue_color_candle_1_power",
+      "entity_id": "sensor.salon_hue_lightstrip_plus_1_power",
       "enabled": false
     },
     {
@@ -573,7 +573,11 @@
       "enabled": false
     },
     {
-      "entity_id": "sensor.toilettes_white_lamp_2_power",
+      "entity_id": "sensor.sdb_hue_color_candle_1_power",
+      "enabled": false
+    },
+    {
+      "entity_id": "sensor.bureau_prise_connecte_studio_device_power",
       "enabled": false
     },
     {
@@ -589,27 +593,7 @@
       "enabled": false
     },
     {
-      "entity_id": "sensor.bureau_prise_connecte_studio_device_power",
-      "enabled": false
-    },
-    {
       "entity_id": "sensor.sdb_hue_color_candle_3_power",
-      "enabled": false
-    },
-    {
-      "entity_id": "sensor.sdb_hue_color_candle_2_power",
-      "enabled": false
-    },
-    {
-      "entity_id": "sensor.homepod_mini_power",
-      "enabled": false
-    },
-    {
-      "entity_id": "sensor.chambre_hue_color_candle_1_power",
-      "enabled": false
-    },
-    {
-      "entity_id": "sensor.bureau_hue_lightstrip_plus_1_power",
       "enabled": false
     },
     {
@@ -621,7 +605,7 @@
       "enabled": false
     },
     {
-      "entity_id": "sensor.cuisine_hue_color_spot_1_power_3",
+      "entity_id": "sensor.homepod_mini_power",
       "enabled": false
     },
     {
@@ -629,11 +613,19 @@
       "enabled": false
     },
     {
-      "entity_id": "sensor.cuisine_hue_color_spot_4_power",
+      "entity_id": "sensor.sdb_hue_color_candle_2_power",
       "enabled": false
     },
     {
-      "entity_id": "sensor.terrass_hue_lightstrip_outdoor_4_power",
+      "entity_id": "sensor.cuisine_hue_color_spot_1_power_3",
+      "enabled": false
+    },
+    {
+      "entity_id": "sensor.bureau_hue_lightstrip_plus_1_power",
+      "enabled": false
+    },
+    {
+      "entity_id": "sensor.chambre_hue_color_candle_1_power",
       "enabled": false
     },
     {
@@ -645,11 +637,15 @@
       "enabled": false
     },
     {
-      "entity_id": "sensor.buanderie_prise_connectee_device_power",
+      "entity_id": "sensor.salon_hue_lightstrip_plus_1_power_4",
       "enabled": false
     },
     {
-      "entity_id": "sensor.salon_hue_lightstrip_plus_1_power_4",
+      "entity_id": "sensor.cuisine_hue_color_spot_4_power",
+      "enabled": false
+    },
+    {
+      "entity_id": "sensor.terrass_hue_lightstrip_outdoor_4_power",
       "enabled": false
     },
     {
@@ -661,23 +657,15 @@
       "enabled": false
     },
     {
+      "entity_id": "sensor.buanderie_prise_connectee_device_power",
+      "enabled": false
+    },
+    {
       "entity_id": "sensor.salon_prise_radiateur_canape_device_power",
       "enabled": false
     },
     {
       "entity_id": "sensor.salon_prise_radiateur_tv_device_power",
-      "enabled": false
-    },
-    {
-      "entity_id": "sensor.sonos_arc_airplay_power",
-      "enabled": false
-    },
-    {
-      "entity_id": "sensor.chambre_power_2",
-      "enabled": false
-    },
-    {
-      "entity_id": "sensor.0xa4c1387529d4068c_device_power",
       "enabled": false
     },
     {
@@ -689,7 +677,15 @@
       "enabled": false
     },
     {
+      "entity_id": "sensor.chambre_power_2",
+      "enabled": false
+    },
+    {
       "entity_id": "sensor.chambre_power_3",
+      "enabled": false
+    },
+    {
+      "entity_id": "sensor.sonos_arc_airplay_power",
       "enabled": false
     },
     {
@@ -697,11 +693,15 @@
       "enabled": false
     },
     {
-      "entity_id": "sensor.couloir_color_lamp_power",
+      "entity_id": "sensor.0xa4c138794c2673a1_device_power",
       "enabled": false
     },
     {
-      "entity_id": "sensor.0xa4c138794c2673a1_device_power",
+      "entity_id": "sensor.0xa4c1387529d4068c_device_power",
+      "enabled": false
+    },
+    {
+      "entity_id": "sensor.couloir_color_lamp_power",
       "enabled": false
     },
     {

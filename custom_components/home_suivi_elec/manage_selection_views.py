@@ -2,6 +2,7 @@
 """
 Vues REST (HTTP) pour Home Suivi Élec — isolées du métier.
 Conserve les comportements existants et la validation par device_id.
+✅ CORRIGÉ : Support natif des sensors HSE energy (sensor.hse_*_today_energy_{cycle})
 """
 
 import os
@@ -15,7 +16,6 @@ from homeassistant.components.http import HomeAssistantView
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.helpers.storage import Store
 
-#from .utility_meter_manager import sync_utility_meters, get_meter_name
 from .manage_selection import (
     CAPTEURS_POWER_PATH, CAPTEURS_SELECTION_PATH, USER_CONFIG_PATH,
 )
@@ -107,6 +107,91 @@ def _enrich_device_info(hass: HomeAssistant, caps: List[Dict[str, Any]]) -> List
                 if area:
                     c["area_name"] = area.name
     return caps
+
+# ✅ Fonction de raccourcissement (copiée depuis energy_tracking.py)
+def _shorten_entity_name(name: str, max_length: int = 63) -> str:
+    """Même fonction que dans energy_tracking.py"""
+    import re
+    
+    available = max_length - 20
+    name = name.replace("_today_energy", "")
+    
+    tech_abbrev = {
+        "_puissance": "_pwr",
+        "_consommation_actuelle": "_cur",
+        "_prise_connectee": "_plug",
+        "_prise_intelligente": "_smart",
+    }
+    for old, new in tech_abbrev.items():
+        name = name.replace(old, new)
+    
+    if len(name) <= available:
+        return name
+    
+    def abbreviate_chain(match):
+        parts = match.group(0).split('_')
+        if len(parts) >= 4:
+            return ''.join(p[0] for p in parts)
+        return match.group(0)
+    
+    name = re.sub(r'\b\w+(?:_\w+){3,}', abbreviate_chain, name)
+    
+    if len(name) <= available:
+        return name
+    
+    parts = name.split('_')
+    for i in range(len(parts)):
+        if len(parts[i]) > 6 and len(name) > available:
+            parts[i] = parts[i][:4]
+            name = '_'.join(parts)
+    
+    if len(name) <= available:
+        return name
+    
+    import hashlib
+    keep_length = available - 5
+    hash_suffix = hashlib.md5(name.encode()).hexdigest()[:4]
+    return name[:keep_length] + "_" + hash_suffix
+
+
+# ✅ Fonction de conversion entity_id → sensor HSE energy
+def _build_hse_energy_sensor_id(source_entity_id: str, cycle: str) -> str:
+    """Construit l'entity_id du sensor HSE energy."""
+    base_name = source_entity_id.replace("sensor.", "")
+    cycle_short = cycle[0]  # h, d, w, m, y
+    
+    # ✅ Raccourcir intelligemment
+    base_short = _shorten_entity_name(base_name)
+    
+    if "_today_energy" in base_name or base_name.endswith("_e"):
+        return f"sensor.hse_{base_short}_{cycle_short}"
+    else:
+        return f"sensor.hse_live_{base_short}_{cycle_short}"
+
+# ✅ Fonction de conversion entity_id → sensor HSE energy
+def _build_hse_energy_sensor_id(source_entity_id: str, cycle: str) -> str:
+    """
+    Construit l'entity_id du sensor HSE energy.
+    
+    ✅ ALIGNÉ avec energy_tracking.py (backend)
+    
+    Supporte 2 types de sources :
+    1. ENERGY : sensor.xxx_today_energy → sensor.hse_xxx_today_energy_{cycle}
+    2. POWER  : sensor.xxx_puissance   → sensor.hse_live_xxx_puissance_today_energy_{cycle}
+    """
+    """Construit l'entity_id du sensor HSE energy."""
+    base_name = source_entity_id.replace("sensor.", "")
+    cycle_short = cycle[0]  # h, d, w, m, y
+    
+    # ✅ Raccourcir intelligemment
+    base_short = _shorten_entity_name(base_name)
+    
+    if "_today_energy" in base_name or base_name.endswith("_e"):
+        return f"sensor.hse_{base_short}_{cycle_short}"
+    else:
+        return f"sensor.hse_live_{base_short}_{cycle_short}"
+
+
 
 
 class GetSensorsView(HomeAssistantView):
@@ -249,7 +334,6 @@ class SaveSelectionView(HomeAssistantView):
                 for row in lst or []:
                     if row.get("enabled") and row.get("entity_id"):
                         selected_ids.add(row["entity_id"])
-#            await sync_utility_meters(selected_ids, self.hass)
 
             return self.json({"success": True, "selected": sorted(selected_ids), "need_restart": True})
         except Exception as e:
@@ -278,6 +362,7 @@ class GetSelectionView(HomeAssistantView):
 
 
 class GetConsumptionsView(HomeAssistantView):
+    """✅ CORRIGÉ : Utilise les sensors HSE energy natifs."""
     url = "/api/home_suivi_elec/get_consumptions"
     name = "api:home_suivi_elec:get_consumptions"
     requires_auth = False
@@ -303,34 +388,49 @@ class GetConsumptionsView(HomeAssistantView):
             cycles = ["hourly", "daily", "weekly", "monthly", "yearly"]
             result: Dict[str, Dict[str, Optional[float]]] = {}
 
+            # ✅ Nouveau système HSE : sensor.hse_{nom}_today_energy_{cycle}
             for integration, capteurs in (selections or {}).items():
                 for c in (capteurs or []):
                     if not (c.get("enabled") and c.get("entity_id")):
                         continue
                     capteur_id = c["entity_id"]
                     result.setdefault(capteur_id, {})
+                    
                     for cycle in cycles:
-                        meter_entity_id = f"sensor.{get_meter_name(capteur_id, cycle)}"
-                        st = self.hass.states.get(meter_entity_id)
+                        # ✅ Pattern HSE natif
+                        hse_sensor_id = _build_hse_energy_sensor_id(capteur_id, cycle)
+                        st = self.hass.states.get(hse_sensor_id)
+                        
                         value: Optional[float] = None
                         if st and st.state not in (None, "unknown", "unavailable"):
                             try:
                                 value = float(st.state)
                             except Exception:
                                 value = None
+                        
                         result[capteur_id][cycle] = value
+                        
+                        # 🐛 Debug si sensor introuvable
+                        if value is None and st is None:
+                            _LOGGER.debug(
+                                f"[GetConsumptions] Sensor introuvable: {hse_sensor_id} "
+                                f"(source: {capteur_id}, cycle: {cycle})"
+                            )
 
+            # ✅ Capteur externe (référence)
             if use_external and external_id:
                 result.setdefault(external_id, {})
                 for cycle in cycles:
-                    meter_entity_id = f"sensor.{get_meter_name(external_id, cycle)}"
-                    st = self.hass.states.get(meter_entity_id)
+                    hse_sensor_id = _build_hse_energy_sensor_id(external_id, cycle)
+                    st = self.hass.states.get(hse_sensor_id)
+                    
                     value: Optional[float] = None
                     if st and st.state not in (None, "unknown", "unavailable"):
                         try:
                             value = float(st.state)
                         except Exception:
                             value = None
+                    
                     result[external_id][cycle] = value
 
             return self.json(result)
@@ -458,33 +558,21 @@ class GetUserOptionsView(HomeAssistantView):
             is_hc = type_contrat == "heures_creuses"
             type_ui = "hp-hc" if is_hc else "fixe"
             
-            # ✅ Récupérer les valeurs par défaut selon le type de contrat
             defaults_fixe = DEFAULTS.get("prix_unique", {})
             defaults_hc = DEFAULTS.get("heures_creuses", {})
 
             resp = {
                 "typeContrat": type_ui,
-                
-                # Abonnement (avec fallback sur defaults)
                 "abonnementHT": eff.get("abonnementHT", eff.get(CONF_ABONNEMENT_MENSUEL_HT, defaults_fixe.get(CONF_ABONNEMENT_MENSUEL_HT, 0))),
                 "abonnementTTC": eff.get("abonnementTTC", eff.get(CONF_ABONNEMENT_MENSUEL_TTC, defaults_fixe.get(CONF_ABONNEMENT_MENSUEL_TTC, 0))),
-                
-                # ✅ Tarif FIXE (avec fallback sur defaults)
                 "prix_ht": eff.get(CONF_PRIX_HT, eff.get("prix_ht", defaults_fixe.get(CONF_PRIX_HT, 0))),
                 "prix_ttc": eff.get(CONF_PRIX_TTC, eff.get("prix_ttc", defaults_fixe.get(CONF_PRIX_TTC, 0))),
-                
-                # ✅ Tarif HP (avec fallback sur defaults)
                 "prix_ht_hp": eff.get(CONF_PRIX_HT_HP, eff.get("prix_ht_hp", defaults_hc.get(CONF_PRIX_HT_HP, 0))),
                 "prix_ttc_hp": eff.get(CONF_PRIX_TTC_HP, eff.get("prix_ttc_hp", defaults_hc.get(CONF_PRIX_TTC_HP, 0))),
-                
-                # ✅ Tarif HC (avec fallback sur defaults)
                 "prix_ht_hc": eff.get(CONF_PRIX_HT_HC, eff.get("prix_ht_hc", defaults_hc.get(CONF_PRIX_HT_HC, 0))),
                 "prix_ttc_hc": eff.get(CONF_PRIX_TTC_HC, eff.get("prix_ttc_hc", defaults_hc.get(CONF_PRIX_TTC_HC, 0))),
-                
-                # ✅ Horaires HP (avec fallback sur defaults)
                 "hc_start": eff.get(CONF_HC_START, eff.get("hc_start", defaults_hc.get(CONF_HC_START, "22:00"))),
                 "hc_end": eff.get(CONF_HC_END, eff.get("hc_end", defaults_hc.get(CONF_HC_END, "06:00"))),
-                
                 "useExternal": eff.get("useExternal", False),
                 "externalCapteur": eff.get("externalCapteur", ""),
                 "consommationExterne": eff.get("consommationExterne", 0),

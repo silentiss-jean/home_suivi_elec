@@ -604,10 +604,12 @@ def __annotate_and_deduplicate(capteurs_raw: List[Dict[str, Any]], quality_map: 
                 sensor["duplicate_rank"] = idx + 1
                 sensor["duplicate_group"] = signature
                 sensor["suggested_enabled"] = (idx == 0)
+                sensor["enabled"] = False  # ← AJOUT
                 sensor["disabled"] = False
                 sensor["alternatives"] = [
                     s["entity_id"] for s in ordered if s["entity_id"] != sensor["entity_id"]
                 ][:3]
+
             main = ordered[0]
             duplicates_info = ", ".join([
                 f"{s['entity_id']} ({s['integration']}, {s['priority']})"
@@ -625,6 +627,7 @@ def __annotate_and_deduplicate(capteurs_raw: List[Dict[str, Any]], quality_map: 
             sensor["duplicate_rank"] = 1
             sensor["duplicate_group"] = signature
             sensor["suggested_enabled"] = True
+            sensor["enabled"] = False  # ← AJOUT
             sensor["disabled"] = False
             sensor["alternatives"] = []
 

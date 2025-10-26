@@ -52,7 +52,9 @@ class CumulativeEnergyCycleSensor(RestoreEntity, SensorEntity):
         self.hass = hass
         self._source_entity = source_entity
         self._cycle = cycle
+
         self._attr_unique_id = unique_id
+        self.entity_id = f"sensor.{unique_id}"
         self._attr_name = name
         self._attr_native_unit_of_measurement = UnitOfEnergy.KILO_WATT_HOUR
         self._attr_device_class = SensorDeviceClass.ENERGY
@@ -238,7 +240,9 @@ class PowerEnergyCycleSensor(RestoreEntity, SensorEntity):
         self.hass = hass
         self._source_entity = source_entity
         self._cycle = cycle
+
         self._attr_unique_id = unique_id
+        self.entity_id = f"sensor.{unique_id}"
         self._attr_name = name
         self._attr_native_unit_of_measurement = UnitOfEnergy.KILO_WATT_HOUR
         self._attr_device_class = SensorDeviceClass.ENERGY
@@ -336,7 +340,23 @@ class PowerEnergyCycleSensor(RestoreEntity, SensorEntity):
             async_track_time_change(
                 self.hass, weekly_reset, hour=0, minute=0, second=0
             )
-        else:
+        elif self._cycle == "monthly":
+            async def monthly_reset(now):
+                if now.day == 1:  # 1er du mois
+                    self._reset_counter(now)
+
+            async_track_time_change(
+                self.hass, monthly_reset, hour=0, minute=0, second=0
+            )
+        elif self._cycle == "yearly":
+            async def yearly_reset(now):
+                if now.month == 1 and now.day == 1:  # 1er janvier
+                    self._reset_counter(now)
+
+            async_track_time_change(
+                self.hass, yearly_reset, hour=0, minute=0, second=0
+            )
+        else:  # hourly et daily
             async_track_time_change(self.hass, self._reset_counter, **cycle_config)
 
     @callback
@@ -385,6 +405,65 @@ class PowerEnergyCycleSensor(RestoreEntity, SensorEntity):
 # ============================================================================
 # API PUBLIQUE - Création des sensors (Phase 2)
 # ============================================================================
+def _shorten_entity_name(name: str, max_length: int = 63) -> str:
+    """
+    Raccourcit intelligemment les noms pour respecter la limite HA de 63 caractères.
+    
+    Stratégie progressive :
+    1. Enlever suffixes redondants (_today_energy)
+    2. Abréger mots techniques (anglais clair)
+    3. Abréger chaînes longues (4+ mots)
+    4. Compression progressive si nécessaire
+    """
+    import re
+    
+    # Budget : "sensor.hse_live_" (18) + "_" + cycle (1) = 20 réservés
+    available = max_length - 20
+    
+    # Étape 1 : Nettoyer redondances
+    name = name.replace("_today_energy", "")
+    
+    # Étape 2 : Abréviations techniques (anglais clair)
+    tech_abbrev = {
+        "_puissance": "_pwr",              # power
+        "_consommation_actuelle": "_cur",  # current
+        "_prise_connectee": "_plug",       # plug
+        "_prise_intelligente": "_smart",   # smart plug
+    }
+    for old, new in tech_abbrev.items():
+        name = name.replace(old, new)
+    
+    if len(name) <= available:
+        return name
+    
+    # Étape 3 : Abréger longues chaînes (4+ mots consécutifs)
+    def abbreviate_chain(match):
+        parts = match.group(0).split('_')
+        if len(parts) >= 4:
+            return ''.join(p[0] for p in parts)
+        return match.group(0)
+    
+    name = re.sub(r'\b\w+(?:_\w+){3,}', abbreviate_chain, name)
+    
+    if len(name) <= available:
+        return name
+    
+    # Étape 4 : Réduire mots longs (>6 lettres) à 4 lettres
+    parts = name.split('_')
+    for i in range(len(parts)):
+        if len(parts[i]) > 6 and len(name) > available:
+            parts[i] = parts[i][:4]
+            name = '_'.join(parts)
+    
+    if len(name) <= available:
+        return name
+    
+    # Étape 5 : Hash en dernier recours (garantie unicité)
+    import hashlib
+    keep_length = available - 5
+    hash_suffix = hashlib.md5(name.encode()).hexdigest()[:4]
+    return name[:keep_length] + "_" + hash_suffix
+
 
 async def create_energy_sensors(
     hass: HomeAssistant, 
@@ -432,35 +511,37 @@ async def create_energy_sensors(
 
         # Nommage
         base_name = source_id.replace("sensor.", "")
-        sensor_name = base_name.replace("_", " ").title()
+        base_short = _shorten_entity_name(base_name)
+        sensor_name = base_short.replace("_", " ").title()
+
 
         # Créer 5 cycles (hourly, daily, weekly, monthly, yearly)
         for cycle in CYCLES.keys():
-            unique_id = f"hse_{base_name}_{cycle}_energy"
-            name = f"HSE {sensor_name} {cycle.capitalize()}"
+            cycle_short = cycle[0]
+            
+            _LOGGER.warning(f"🔍 DEBUG SHORTENING: base_name={base_name} -> base_short={base_short}, final_unique_id=hse_live_{base_short}_{cycle_short}")
+            
+            if source_type == "energy":
+                unique_id = f"hse_{base_short}_{cycle_short}"
+                name = f"HSE {sensor_name} {cycle.capitalize()}"
+            else:
+                unique_id = f"hse_live_{base_short}_{cycle_short}"
+                name = f"HSE {sensor_name} {cycle.capitalize()}"
 
+            
             # Choisir la classe selon type
             if source_type == "energy":
                 sensor = CumulativeEnergyCycleSensor(
-                    hass=hass,
-                    source_entity=source_id,
-                    cycle=cycle,
-                    unique_id=unique_id,
-                    name=name,
-                    metadata=metadata,
+                    hass=hass, source_entity=source_id, cycle=cycle,
+                    unique_id=unique_id, name=name, metadata=metadata,
                 )
-                _LOGGER.debug(f"✅ ENERGY sensor créé: {name} (delta tracking)")
-            else:  # power
+            else:
                 sensor = PowerEnergyCycleSensor(
-                    hass=hass,
-                    source_entity=source_id,
-                    cycle=cycle,
-                    unique_id=unique_id,
-                    name=name,
-                    metadata=metadata,
+                    hass=hass, source_entity=source_id, cycle=cycle,
+                    unique_id=unique_id, name=name, metadata=metadata,
                 )
-                _LOGGER.debug(f"✅ POWER sensor créé: {name} (intégration)")
-
+            
             sensors.append(sensor)
+
 
     return sensors
