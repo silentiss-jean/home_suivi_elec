@@ -6,6 +6,7 @@ Architecture Phase 2 :
 - CumulativeEnergyCycleSensor : Pour sources energy native (kWh) via delta tracking
 - PowerEnergyCycleSensor : Pour sources power (W) via intégration trapézoïdale
 - Propagation métadonnées : is_virtual, reliability_score, reference_type, tags
+- ✅ FIX : Restauration de last_reset après redémarrage
 """
 from __future__ import annotations
 
@@ -42,7 +43,7 @@ class CumulativeEnergyCycleSensor(RestoreEntity, SensorEntity):
     def __init__(
         self,
         hass: HomeAssistant,
-        source_entity: str,
+        source_entity: str, 
         cycle: str,
         unique_id: str,
         name: str,
@@ -70,12 +71,25 @@ class CumulativeEnergyCycleSensor(RestoreEntity, SensorEntity):
         """Restore previous state and setup listeners."""
         await super().async_added_to_hass()
 
-        # Restaurer l'état précédent
+        # ✅ CORRECTION : Restaurer l'état précédent ET last_reset
         old_state = await self.async_get_last_state()
         if old_state is not None and old_state.state not in ("unknown", "unavailable"):
             try:
                 self._value = float(old_state.state)
-                _LOGGER.info(f"✅ [ENERGY-DELTA] État restauré pour {self.name}: {self._value} kWh")
+                
+                # ✅ Restaurer last_reset depuis les attributs
+                if old_state.attributes.get("last_reset"):
+                    try:
+                        self._last_reset = datetime.fromisoformat(old_state.attributes["last_reset"])
+                        _LOGGER.info(
+                            f"✅ [ENERGY-DELTA] État restauré pour {self.name}: "
+                            f"{self._value} kWh (last_reset: {self._last_reset})"
+                        )
+                    except Exception as e:
+                        _LOGGER.warning(f"⚠️ [ENERGY-DELTA] Impossible de restaurer last_reset: {e}")
+                else:
+                    _LOGGER.info(f"✅ [ENERGY-DELTA] État restauré pour {self.name}: {self._value} kWh")
+                    
             except (ValueError, TypeError):
                 _LOGGER.warning(f"⚠️ [ENERGY-DELTA] Impossible de restaurer {self.name}")
 
@@ -130,7 +144,7 @@ class CumulativeEnergyCycleSensor(RestoreEntity, SensorEntity):
                         f"({self._last_source_value:.3f} → {current_value:.3f} kWh)"
                     )
                     return
-            else:
+            else:            
                 # Calcul du delta normal
                 delta = current_value - self._last_source_value
 
@@ -259,12 +273,25 @@ class PowerEnergyCycleSensor(RestoreEntity, SensorEntity):
         """Restore previous state and setup listeners."""
         await super().async_added_to_hass()
 
-        # Restaurer l'état précédent
+        # ✅ CORRECTION : Restaurer l'état précédent ET last_reset
         old_state = await self.async_get_last_state()
         if old_state is not None and old_state.state not in ("unknown", "unavailable"):
-            try:
+            try:             
                 self._value = float(old_state.state)
-                _LOGGER.info(f"✅ [POWER-INTEGRATION] État restauré pour {self.name}: {self._value} kWh")
+                
+                # ✅ Restaurer last_reset depuis les attributs
+                if old_state.attributes.get("last_reset"):
+                    try:
+                        self._last_reset = datetime.fromisoformat(old_state.attributes["last_reset"])
+                        _LOGGER.info(
+                            f"✅ [POWER-INTEGRATION] État restauré pour {self.name}: "
+                            f"{self._value} kWh (last_reset: {self._last_reset})"
+                        )
+                    except Exception as e:
+                        _LOGGER.warning(f"⚠️ [POWER-INTEGRATION] Impossible de restaurer last_reset: {e}")
+                else:
+                    _LOGGER.info(f"✅ [POWER-INTEGRATION] État restauré pour {self.name}: {self._value} kWh")
+                    
             except (ValueError, TypeError):
                 _LOGGER.warning(f"⚠️ [POWER-INTEGRATION] Impossible de restaurer {self.name}")
 
@@ -306,7 +333,7 @@ class PowerEnergyCycleSensor(RestoreEntity, SensorEntity):
                         f"⚠️ [POWER-INTEGRATION] Énergie aberrante ignorée: {self._source_entity} "
                         f"+{energy_kwh:.3f} kWh (P_avg={avg_power:.1f}W, Δt={time_diff_hours*3600:.1f}s)"
                     )
-                else:
+                else:        
                     self._value += energy_kwh
 
                     _LOGGER.debug(
