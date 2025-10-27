@@ -195,8 +195,21 @@ function renderGroups(wrapper, { groupsByDevice, ignored, allCapteurs, onIgnore,
   const ignoredList = Array.from(ignored || []);
   const ignBlock = document.createElement("div");
   ignBlock.className = "ignored-block";
-  ignBlock.innerHTML = `<h3>Capteurs ignorés par défaut (${ignoredList.length})</h3>`;
+  
+  // ✅ NOUVELLE VERSION avec toggle
+  ignBlock.innerHTML = `
+    <div class="ignored-header" style="display: flex; align-items: center; gap: 8px; cursor: pointer;" onclick="toggleIgnored()">
+      <button type="button" style="border: none; background: none; font-size: 14px; cursor: pointer;">
+        <span class="toggle-icon-ignored">▶</span>
+      </button>
+      <h3 style="margin: 0;">Capteurs ignorés par défaut (${ignoredList.length})</h3>
+    </div>
+  `;
+  
   const ignUl = document.createElement("ul");
+  ignUl.style.display = "none"; // ✅ Fermé par défaut
+  ignUl.className = "ignored-list-content";
+  
   ignoredList.forEach(eid => {
     const c = allCapteurs[eid];
     const name = c?.friendly_name || eid;
@@ -211,6 +224,7 @@ function renderGroups(wrapper, { groupsByDevice, ignored, allCapteurs, onIgnore,
   });
   ignBlock.appendChild(ignUl);
   wrapper.appendChild(ignBlock);
+
 
   // Handlers
   wrapper.querySelectorAll("input.ignore-toggle").forEach(cb => {
@@ -244,3 +258,21 @@ export function renderDuplicates(rootContainer, ctx) {
   if (!grid || !wrapper) return;
   renderGroups(wrapper, ctx);
 }
+
+// ═══════════════════════════════════════════════════════════════
+// Fonction globale pour toggle des capteurs ignorés
+// ═══════════════════════════════════════════════════════════════
+window.toggleIgnored = function() {
+  const list = document.querySelector('.ignored-list-content');
+  const icon = document.querySelector('.toggle-icon-ignored');
+  
+  if (!list || !icon) return;
+  
+  if (list.style.display === 'none') {
+    list.style.display = 'block';
+    icon.textContent = '▼';
+  } else {
+    list.style.display = 'none';
+    icon.textContent = '▶';
+  }
+};
