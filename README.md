@@ -1,84 +1,109 @@
-README Backend - Synthèse et Organisation
-But du Backend
-Le backend orchestre les services métier essentiels, incluant l'API, la base de données (DB), les flux de données (dataflow) et les jobs planifiés. Il gère les interactions entre les composants pour assurer un traitement fluide des requêtes et des données.
+# home_suivi_elec
 
-Organisation Typique des Fichiers
-Le projet suit une structure modulaire pour favoriser la maintenabilité et la scalabilité :
+Intégration avancée Home Assistant pour le suivi, l’analyse et l’optimisation de la consommation électrique.
 
-main.py ou app.py : Point d'entrée du serveur, initialisation de l'application et routing principal.
+Fonctionnalités principales :
+- Détection intelligente et scoring des capteurs énergétiques (prises, Linky, Tapo, TP-Link...)
+- Tracking multi-capteurs en temps réel, calculs et historique des consommations et coûts
+- Interface graphique web embarquée
+- Export des données, gestion des contrats/abonnements, optimisation énergétique
 
-Modules dédiés : auth.py (authentification), db.py (connexion DB), models.py (modèles de données), routes.py (endpoints API), utils.py (outils helpers), config.json ou settings.py (configuration), tasks.py (jobs et tâches planifiées).
+-----
 
-Flux Principal
-Requête entrante : Arrive via un endpoint API.
+Structure du projet :
 
-Traitement : L'endpoint valide les paramètres et appelle le service métier correspondant.
+custom_components/home_suivi_elec/
+├── __init__.py
+├── config_flow.py
+├── const.py
+├── data/
+│   ├── capteurs_power.json
+│   ├── capteurs_selection.json
+│   ├── reference_integrations.json
+│   ├── user_config.json
+│   └── backups/
+├── debug_json_sets.py
+├── detect_energy.py
+├── detect_local.py
+├── detect_local_debug_standalone.py
+├── energy_analytics.py
+├── energy_export.py
+├── energy_tracking.py
+├── generator.py
+├── helpers/
+│   ├── integration_quality_fetch.py
+│   ├── validation.py
+│   └── __init__.py
+├── manage_selection.py
+├── manage_selection_views.py
+├── manifest.json
+├── migration_cleanup.py
+├── options_flow.py
+├── panel_selection.py
+├── panel_static/
+├── power_monitoring.py
+├── proxy_api.py
+├── sensor.py
+├── sensor_name_fixer.py
+├── sensor_quality_scorer.py
+├── sensor_sync_manager.py
+├── services.yaml
+├── utility_meter_manager.py
+├── web_static/
+├── web_static_backup_YYYYMMDD/
+└── __pycache__/
 
-Exécution : Le service interagit avec la DB ou effectue des traitements (ex. : ingestion de données).
+Légende :
+__init__.py                  : Initialisation du composant, gestion du setup
+config_flow.py               : Flow de configuration Home Assistant (UI)
+const.py                     : Constantes globales de l’intégration
+data/                        : Données utilisateurs, références, backups
+  capteurs_power.json        : État et config des capteurs détectés
+  capteurs_selection.json    : Configuration de sélection utilisateur
+  reference_integrations.json: Références d'intégrations supportées
+  user_config.json           : Config persistante utilisateur
+  backups/                   : Sauvegardes automatiques/historiques de configs
+debug_json_sets.py           : Jeux de données de debug (format JSON)
+detect_energy.py             : Détection générique de capteurs d’énergie
+detect_local.py              : Détection avancée locale des capteurs
+detect_local_debug_standalone.py : Script debug hors HA (standalone)
+energy_analytics.py          : Analyses détaillées des mesures d’énergie
+energy_export.py             : Export de données énergétiques
+energy_tracking.py           : Suivi intelligent multi-capteurs & gestion temps réel
+generator.py                 : Génération d’artefacts internes (entités, tests…)
+helpers/                     : Scripts/fonctions utilitaires spécifiques
+  integration_quality_fetch.py: Analyse qualité intégrations
+  validation.py              : Validation de données ou de config
+manage_selection.py          : Logique de gestion et sauvegarde des sélections
+manage_selection_views.py    : Gestion des vues et UI de sélection
+manifest.json                : Déclaration Home Assistant (version/info)
+migration_cleanup.py         : Migrations, cleanup et upgrade de config
+options_flow.py              : Gestion UI des options utilisateurs
+panel_selection.py           : Panel spécifique à la sélection des capteurs
+panel_static/                : Ressources frontend statiques (html/js)
+power_monitoring.py          : Suivi et mesures de puissance instantanée
+proxy_api.py                 : Proxy et interface avec APIs externes
+sensor.py                    : Définition des entités Sensor Home Assistant
+sensor_name_fixer.py         : Normalisation/correction des noms de capteurs
+sensor_quality_scorer.py     : Algorithmes de scoring de qualité pour les capteurs
+sensor_sync_manager.py       : Synchronisation et MAJ des capteurs avec HA
+services.yaml                : Déclaration des services personnalisés pour HA
+utility_meter_manager.py     : Gestionnaire des UtilityMeters (compteurs virtuels HA)
+web_static/                  : Frontend complet (HTML/JS/CSS) + panneaux custom
+web_static_backup_YYYYMMDD/  : Backups automatiques de l’UI web
+__pycache__/                 : Cache python (généré autom.)
 
-Réponse : Retour des résultats au client, avec gestion d'erreurs et logging.
+-----
 
-Dépendances Clés
-Framework web : FastAPI (recommandé pour sa performance et sa validation automatique) ou Flask.
+Installation :
+- Ajouter le dépôt dans HACS : https://github.com/silentiss-jean/home_suivi_elec.git
+- Installer l’intégration via HACS
+- Configurer via le panneau Home Assistant
 
-ORM pour DB : SQLAlchemy (pour les bases relationnelles complexes) ou Peewee (pour la simplicité).
+Documentation technique et scripts détaillés dans le dossier /docs/
 
-Requêtes HTTP : requests ou aiohttp pour les appels asynchrones.
+-----
 
-Traitement de données : pandas et numpy pour l'analyse et la manipulation.
-
-Tâches planifiées : Celery (pour les jobs distribués) ou schedule (pour les tâches simples).
-
-Structure Recommandée par Module
-Chaque module est conçu pour une séparation claire des responsabilités :
-
-Entrée serveur : Initialisation de l'app et définition du routing global (dans main.py).
-
-Configuration : Gestion des variables d'environnement, secrets et options (fichier .env ou config.json séparé du code).
-
-Modèles : Définition des objets DB et opérations CRUD via ORM (dans models.py).
-
-Endpoints/API : Spécification des routes, paramètres et validation (dans routes.py).
-
-Services : Logique métier pure, indépendante des routes (ex. : services.py).
-
-Utils : Fonctions helpers, conversions de formats et outils génériques (dans utils.py).
-
-Tests : Tests unitaires avec mocks pour chaque module (dossier tests/).
-
-Bonnes Pratiques
-Séparation des concerns : Isolez le routing de la logique métier pour une meilleure testabilité.
-
-Configuration sécurisée : Utilisez .env pour les secrets ; ne commitez jamais de données sensibles.
-
-Logging : Implémentez un logging structuré (ex. : avec logging de Python ou Loguru) pour tracer les flux et erreurs.
-
-Documentation : Ajoutez des docstrings à toutes les fonctions et classes ; utilisez des commentaires pour les sections complexes.
-
-Tests systématiques : Couvrez au moins 80% du code avec des tests unitaires et d'intégration ; intégrez-les via pytest.
-
-Autres : Versionnez avec Git, utilisez des linters (Black, Flake8) et préparez un déploiement (Docker, CI/CD avec GitHub Actions).
-
-Exemple d'Organisation des Fichiers (Générique)
-Voici un arbre de fichiers typique pour le projet :
-
-text
-backend/
-├── main.py                  # App FastAPI/Flask, routing général
-├── db.py                    # Connexion DB et sessions
-├── models.py                # Schémas ORM et modèles
-├── auth.py                  # Gestion utilisateurs, tokens JWT/OAuth
-├── routes.py                # Définition des endpoints API
-├── config.json              # Ou settings.py : variables de config
-├── dataflow.py              # Traitements de données, ingestion, formatage
-├── tasks.py                 # Jobs planifiés (Celery ou schedule)
-├── utils.py                 # Helpers et outils génériques
-├── tests/                   # Tests unitaires par module
-│   ├── test_auth.py
-│   ├── test_routes.py
-│   └── ...
-├── requirements.txt         # Dépendances Python
-├── .env.example             # Template pour variables d'environnement
-└── README.md                # Ce fichier
-
+Contribuer :
+Pour toute proposition, bug ou idée, ouvrez une issue ou envoyez une PR sur le dépôt GitHub.
 
