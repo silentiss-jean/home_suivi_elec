@@ -73,6 +73,84 @@ click V "docs/validation.md"
 > Ce diagramme présente tous les modules principaux et leurs flux.  
 >  
 > Pour modification collaborative : gardez le code source Mermaid à jour (voir `/docs/`) et regénérez ce SVG si besoin.
+ Il est généré depuis le code Mermaid ci-dessous : éditez facilement le code pour toute évolution, puis regénérez le SVG via Mermaid Live Editor ou VS Code.
+
+<details>
+<summary>Cliquez pour afficher/éditer le code Mermaid source</summary>
+
+flowchart TD
+subgraph BACKEND
+DL[detect_local_py]
+MS[manage_selection_py]
+MSV[manage_selection_views_py]
+ET[energy_tracking_py]
+SEN[sensor_py]
+QF[sensor_quality_scorer_py]
+SYNC[sensor_sync_manager_py]
+SNF[sensor_name_fixer_py]
+UM[utility_meter_manager_py]
+VAL[validation_py]
+IQ[integration_quality_fetch_py]
+PM[power_monitoring_py]
+OPO[options_flow_py]
+CFG[config_flow_py]
+PAPI[proxy_api_py]
+GEN[generator_py]
+PANEL[panel_selection_py]
+end
+subgraph FRONTEND
+    INDEX[index_html ou config_html]
+    WEB_STATIC[web_static]
+    JS[JS modules]
+    REACT[React Components]
+end
+
+subgraph HELPERS
+    H_INIT[helpers_init_py]
+    H_VAL[helpers_validation_py]
+    H_IQ[helpers_integration_quality_fetch_py]
+end
+
+DOCS[docs_md]
+
+DL -- "découverte sensors" --> MS
+MS -- "mise à jour sélection" --> ET
+MS -- "exposition sélection" --> MSV
+MSV -- "API REST sensors" --> WEB_STATIC
+SNF -- "correction noms" --> MS
+SYNC -- "synchronisation sensors" --> MS
+QF -- "scoring" --> MS
+QF -- "badge UI" --> WEB_STATIC
+QF -- "scoring" --> PANEL
+UM -- "synchronisation utility_meter" --> ET
+UM -- "management UM" --> MS
+ET -- "tracking énergie" --> SEN
+ET -- "exposition state" --> PAPI
+PM -- "live puissance" --> ET
+GEN -- "export dashboard" --> DOCS
+PAPI -- "APIs REST/Proxy" --> WEB_STATIC
+PANEL -- "panel UI" --> WEB_STATIC
+H_INIT --> VAL
+H_VAL --> VAL
+H_IQ --> QF
+
+INDEX -- "chargement UI" --> WEB_STATIC
+WEB_STATIC -- "sélections, mutations" --> PAPI
+PAPI -- "REST interfaces" --> MSV
+JS -- "logic config/js" --> WEB_STATIC
+REACT -- "panels avancés" --> WEB_STATIC
+DOCS -- "documentation / aide" --> WEB_STATIC
+DOCS -- "documentation / aide" --> INDEX
+GEN -- "exports YAML/JSON" --> DOCS
+GEN -- "exports" --> INDEX
+
+classDef backend fill:#D6EAF8;
+classDef frontend fill:#E8F8F5;
+classDef helpers fill:#FEF9E7;
+class BACKEND backend
+class FRONTEND frontend
+class HELPERS helpers
+</details>
 
 ---
 
