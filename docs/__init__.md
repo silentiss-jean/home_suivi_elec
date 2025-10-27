@@ -164,7 +164,7 @@ Exemple : Obtenir diagnostics globaux
 HISTORIQUE DES VERSIONS
 ===============================================================================
 
-Version 1.0 (27 octobre 2025)
+v1.0 beta (27 octobre 2025)
   ✅ Initialisation complète async/await
   ✅ Services personnalisés et APIs REST implémentés
   ✅ Copie automatisée UI + Panel Home Assistant

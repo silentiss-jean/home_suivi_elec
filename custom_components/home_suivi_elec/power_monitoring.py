@@ -5,7 +5,7 @@ Monitoring temps réel de la puissance (W).
 Crée des sensors HSE Live pour affichage instantané dans l'UI.
 Pas de cycles, pas de reset, juste un miroir enrichi du sensor source.
 
-VERSION : 2.5
+v1.0 beta
 DATE : 22 octobre 2025
 
 FONCTIONNALITÉS :

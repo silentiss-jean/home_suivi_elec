@@ -444,7 +444,7 @@ Avant toute modification :
 HISTORIQUE DES VERSIONS
 ================================================================================
 
-Version 1.0 (26 octobre 2025)
+v1.0 beta (26 octobre 2025)
   ✅ Système de scoring complet
   ✅ API REST fonctionnelles
   ✅ Badges visuels dans l'interface
