@@ -10,6 +10,150 @@ import { toast } from "./uiToast.js";
 
 console.info("[config] module chargé (modulaire, référence séparée via referencePanel.js)]");
 
+// ✅ NOUVEAU : Fonctions de scoring de qualité
+async function enrichWithQualityScores(allCapteurs) {
+  try {
+    const response = await fetch('/api/home_suivi_elec/get_sensor_quality_scores');
+    if (!response.ok) {
+      console.warn('[config] API quality_scores non disponible');
+      return allCapteurs;
+    }
+    
+    const data = await response.json();
+    if (!data.success || !data.sensors) return allCapteurs;
+    
+    // Créer un map pour accès rapide
+    const scoresMap = {};
+    data.sensors.forEach(s => {
+      const score = computeSensorScore(s);
+      scoresMap[s.entity_id] = {
+        score,
+        unit: s.unit,
+        recommendation: getRecommendationLabel(score),
+        stars: getStars(score)
+      };
+    });
+    
+    // Enrichir allCapteurs
+    Object.keys(allCapteurs).forEach(entityId => {
+      if (scoresMap[entityId]) {
+        allCapteurs[entityId].quality_score = scoresMap[entityId].score;
+        allCapteurs[entityId].quality_recommendation = scoresMap[entityId].recommendation;
+        allCapteurs[entityId].quality_stars = scoresMap[entityId].stars;
+      }
+    });
+                             
+    console.log('[config] ✅ Scores de qualité chargés');
+    return allCapteurs;
+  } catch (error) {
+    console.error('[config] Erreur enrichissement scores:', error);
+    return allCapteurs;
+  }
+}
+
+function computeSensorScore(sensor) {
+  let score = 0;
+  
+  const unit = (sensor.unit || sensor.unit_of_measurement || '').toLowerCase();
+  if (unit.includes('kwh') || unit.includes('wh')) {
+    score += 100;
+  } else if (unit.includes('w')) {
+    score += 50;
+  }
+  
+  if (sensor.state_class === 'total') score += 20;
+  else if (sensor.state_class === 'measurement') score += 10;
+  
+  if (sensor.is_premium) score += 15;
+  if (['platinum', 'gold'].includes(sensor.quality_scale)) score += 10;
+  
+  if (!sensor.is_virtual) score += 10;
+  
+  if (sensor.state && sensor.state !== 'unavailable') score += 5;
+  
+  return score;
+}
+
+function getRecommendationLabel(score) {
+  if (score >= 130) return '✅ EXCELLENT';
+  if (score >= 100) return '✅ BON';
+  if (score >= 70) return '⚠️ ACCEPTABLE';
+  if (score >= 50) return '⚠️ MOYEN';
+  return '❌ FAIBLE';
+}
+
+function getStars(score) {
+  if (score >= 130) return '⭐⭐⭐';
+  if (score >= 100) return '⭐⭐⭐';
+  if (score >= 70) return '⭐⭐';
+  if (score >= 50) return '⭐';
+  return '☆';
+}
+
+
+export function createQualityBadgeHTML(sensor) {
+  if (!sensor || !sensor.quality_score) return '';
+  
+  const score = sensor.quality_score;
+  let badgeClass = 'quality-badge';
+  
+  if (score >= 130) badgeClass += ' excellent';
+  else if (score >= 100) badgeClass += ' good';
+  else if (score >= 70) badgeClass += ' acceptable';
+  else if (score >= 50) badgeClass += ' medium';
+  else badgeClass += ' poor';
+  
+  const icon = (sensor.unit || '').toLowerCase().includes('kwh') ? '🔋' : '⚡';
+  
+  return `
+    <span class="${badgeClass}" title="Score de qualité: ${score}/150">
+      <span class="badge-icon">${icon}</span>
+      <span class="badge-label">${sensor.quality_recommendation || ''}</span>
+      <span class="badge-stars">${sensor.quality_stars || ''}</span>
+      <span class="badge-score">${score}/150</span>
+    </span>
+  `;
+}
+
+/**
+ * ✅ ÉTAPE 3/4 : Sépare les capteurs physiques des helpers
+ * 
+ * @param {Object} sensors - Objet {entity_id: capteur}
+ * @returns {Object} { physical, helpers }
+ */
+export function categorizeSensors(sensors) {
+  const physical = {};
+  const helpers = {};
+  
+  const helperIntegrations = [
+    'min_max', 'statistics', 'average', 'template', 
+    'utility_meter', 'integration', 'history_stats',
+    'derivative', 'filter'
+  ];
+  
+  Object.entries(sensors || {}).forEach(([entityId, sensor]) => {
+    if (!sensor) return;
+    
+    const integration = (sensor.integration || '').toLowerCase();
+    const isHelper = helperIntegrations.includes(integration) || 
+                     sensor.is_helper === true ||
+                     entityId.includes('_helper_') ||
+                     entityId.includes('_average_') ||
+                     entityId.includes('_total_') ||
+                     entityId.includes('_sum_');
+    
+    if (isHelper) {
+      helpers[entityId] = { ...sensor, is_helper: true };
+    } else {
+      physical[entityId] = { ...sensor, is_helper: false };
+    }
+  });
+  
+  console.log(`[config] 📊 Catégorisation : ${Object.keys(physical).length} physiques, ${Object.keys(helpers).length} helpers`);
+  
+  return { physical, helpers };
+}
+
 function deepClone(obj) {
   try { return JSON.parse(JSON.stringify(obj)); } catch { return obj; }
 }
@@ -69,7 +213,7 @@ function indexByDuplicateGroup(allCapteurs) {
     }
   });
   
-  return filtered;
+  return filtered;           
 }
 
 function annotateSameDevice(selectedMap, alternativesMap) {
@@ -134,6 +278,8 @@ export async function loadConfiguration() {
     for (const lst of [selected, alternatives]) {
       Object.values(lst || {}).flat().forEach(c => { if (c && c.entity_id) allCapteurs[c.entity_id] = c; });
     }
+    // ✅ NOUVEAU : Enrichir avec les scores de qualité
+    await enrichWithQualityScores(allCapteurs);
     window.__ALL_CAPTEURS__ = allCapteurs;
 
     const { outSel, outAlt } = applyIgnoredFilter(selected, alternatives, ignored_entities);
@@ -155,7 +301,7 @@ export async function loadConfiguration() {
       console.log("[config] 2. Appel initReferencePanel");
       await initReferencePanel(referencePanel, allCapteurs);
     }
-    
+                             
     content.innerHTML = "";
 
     content.innerHTML = "";
@@ -243,7 +389,7 @@ export async function loadConfiguration() {
         await saveSelectionToBackend();
         toast.info("Sélection enregistrée");
       }
-    };
+    };                       
 
     renderSelectionColumns(content, {
       selected: outSel,
@@ -287,7 +433,7 @@ export async function loadConfiguration() {
         }
       },
       refEntityId,
-      instantById
+      instantById            
     });
 
     console.log("[config] 3. Appel bindUserOptions");
@@ -331,7 +477,7 @@ export async function loadConfiguration() {
         return;
       }
 
-      try {
+      try {                  
         const json = await saveSelection(selections);
         if (json && json.success === false) {
           const srvDev = json.device_conflicts || [];

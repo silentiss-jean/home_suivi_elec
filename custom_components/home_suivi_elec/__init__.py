@@ -527,11 +527,19 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             import json
             with open(path, "r", encoding="utf-8") as f:
                 return json.load(f)
-
+    
+    # Import des vues de manage_selection_views
+    from .manage_selection_views import (
+        AutoSelectBestSensorsView,
+        GetSensorQualityScoresView
+    )
+    
     hass.http.register_view(SetIgnoredEntityView(hass))
     hass.http.register_view(ChooseBestForDeviceView(hass))
     hass.http.register_view(DiagnosticsView(hass))
     hass.http.register_view(SuiviElecProxyView())
+    hass.http.register_view(AutoSelectBestSensorsView(hass))
+    hass.http.register_view(GetSensorQualityScoresView(hass))
 
     try:
         await scan_sets(hass)

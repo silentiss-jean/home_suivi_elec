@@ -686,3 +686,157 @@ class ForceSyncView(HomeAssistantView):
         except Exception as e:
             _LOGGER.exception("Erreur force_sync: %s", e)
             return self.json({"success": False, "error": str(e)}, status_code=500)
+
+
+class AutoSelectBestSensorsView(HomeAssistantView):
+    """
+    API pour sélectionner automatiquement les meilleurs capteurs.
+    
+    ✅ ÉTAPE 2/4 : Filtre les helpers (min_max, template, etc.) en utilisant is_physical_sensor()
+    """
+    url = "/api/home_suivi_elec/auto_select_best_sensors"
+    name = "api:home_suivi_elec:auto_select_best_sensors"
+    requires_auth = False
+    cors_allowed = True
+
+    def __init__(self, hass: HomeAssistant) -> None:
+        self.hass = hass
+
+    async def post(self, request):
+        """Sélection automatique intelligente (capteurs physiques uniquement)."""
+        try:
+            # ✅ Importer les fonctions de scoring
+            from .sensor_quality_scorer import (
+                auto_select_best_sensors,
+                enrich_sensors_with_quality,
+                is_physical_sensor  # ✅ NOUVEAU
+            )
+            
+            loop = asyncio.get_running_loop()
+            
+            # Charger les capteurs détectés
+            detected = []
+            if os.path.exists(CAPTEURS_POWER_PATH):
+                detected = await loop.run_in_executor(None, lambda: _load_json(CAPTEURS_POWER_PATH))
+            
+            _LOGGER.info(f"[AUTO_SELECT] Total capteurs chargés : {len(detected)}")
+            
+            # Enrichir avec device_id, area, etc.
+            detected = _enrich_device_info(self.hass, detected or [])
+            
+            # ✅ ÉTAPE 2/4 : Filtrer les capteurs physiques AVANT enrichissement
+            physical_only = [s for s in detected if is_physical_sensor(s)]
+            helpers_count = len(detected) - len(physical_only)
+            
+            _LOGGER.info(
+                f"[AUTO_SELECT] Physiques : {len(physical_only)} | "
+                f"Helpers exclus : {helpers_count}"
+            )
+            
+            # Enrichir avec scores de qualité (UNIQUEMENT les physiques)
+            physical_only = enrich_sensors_with_quality(physical_only)
+            
+            # Auto-sélectionner les meilleurs
+            selected = auto_select_best_sensors(physical_only)
+            
+            # Formater pour sauvegarder
+            selection_by_integration = {}
+            for sensor in selected:
+                integration = sensor.get("integration", "unknown")
+                if integration not in selection_by_integration:
+                    selection_by_integration[integration] = []
+                
+                selection_by_integration[integration].append({
+                    "entity_id": sensor["entity_id"],
+                    "enabled": True,
+                    "auto_selected": True,
+                    "quality_score": sensor["quality_score"]
+                })
+            
+            # Sauvegarder
+            _save_json(CAPTEURS_SELECTION_PATH, selection_by_integration)
+            
+            _LOGGER.info(
+                f"[AUTO_SELECT] ✅ {len(selected)} capteurs physiques sélectionnés "
+                f"({helpers_count} helpers exclus)"
+            )
+            
+            return self.json({
+                "success": True,
+                "selected_count": len(selected),
+                "physical_sensors": len(physical_only),
+                "helpers_excluded": helpers_count,
+                "selection": selection_by_integration,
+                "message": (
+                    f"{len(selected)} meilleurs capteurs physiques sélectionnés. "
+                    f"{helpers_count} helpers exclus."
+                )
+            })
+            
+        except Exception as e:
+            _LOGGER.exception("Erreur auto_select_best_sensors: %s", e)
+            return self.json({"success": False, "error": str(e)}, status_code=500)
+
+
+class GetSensorQualityScoresView(HomeAssistantView):
+    """
+    API pour obtenir les scores de qualité de tous les capteurs.
+    
+    ✅ ÉTAPE 2/4 : Ajoute le flag is_helper dans la réponse
+    """
+    url = "/api/home_suivi_elec/get_sensor_quality_scores"
+    name = "api:home_suivi_elec:get_sensor_quality_scores"
+    requires_auth = False
+    cors_allowed = True
+
+    def __init__(self, hass: HomeAssistant) -> None:
+        self.hass = hass
+
+    async def get(self, request):
+        """Retourne les capteurs avec leurs scores (physiques et helpers séparés)."""
+        try:
+            from .sensor_quality_scorer import enrich_sensors_with_quality
+            
+            loop = asyncio.get_running_loop()
+            
+            # Charger capteurs
+            detected = []
+            if os.path.exists(CAPTEURS_POWER_PATH):
+                detected = await loop.run_in_executor(None, lambda: _load_json(CAPTEURS_POWER_PATH))
+            
+            detected = _enrich_device_info(self.hass, detected or [])
+            
+            # ✅ Enrichir avec scores (contient maintenant le flag is_helper)
+            detected = enrich_sensors_with_quality(detected)
+            
+            # Séparer physiques vs helpers
+            physical = [s for s in detected if not s.get("is_helper")]
+            helpers = [s for s in detected if s.get("is_helper")]
+            
+            # Grouper par device (physiques uniquement)
+            by_device = {}
+            for sensor in physical:
+                device_id = sensor.get("device_id", "no_device")
+                if device_id not in by_device:
+                    by_device[device_id] = []
+                by_device[device_id].append(sensor)
+            
+            _LOGGER.debug(
+                f"[QUALITY_SCORES] Total : {len(detected)} | "
+                f"Physiques : {len(physical)} | Helpers : {len(helpers)}"
+            )
+            
+            return self.json({
+                "success": True,
+                "total": len(detected),
+                "physical_count": len(physical),
+                "helpers_count": len(helpers),
+                "sensors": detected,  # Tous les capteurs (avec flag is_helper)
+                "physical": physical,  # Seulement les physiques
+                "helpers": helpers,    # Seulement les helpers
+                "by_device": by_device # Groupement par appareil (physiques uniquement)
+            })
+            
+        except Exception as e:
+            _LOGGER.exception("Erreur get_sensor_quality_scores: %s", e)
+            return self.json({"success": False, "error": str(e)}, status_code=500)
