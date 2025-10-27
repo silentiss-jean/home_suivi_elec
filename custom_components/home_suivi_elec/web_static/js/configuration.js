@@ -397,7 +397,7 @@ export async function loadConfiguration() {
       refEntityId,          
       handlers,
       getFold: (k, c) => {
-        try { return JSON.parse(sessionStorage.getItem(`fold:${k}:${c}`) || "true"); } catch { return true; }
+        try { return JSON.parse(sessionStorage.getItem(`fold:${k}:${c}`) || "false"); } catch { return false; }
       },
       setFold: (k, c, v) => {
         try { sessionStorage.setItem(`fold:${k}:${c}`, JSON.stringify(!!v)); } catch {}
