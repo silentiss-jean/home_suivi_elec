@@ -840,3 +840,32 @@ class GetSensorQualityScoresView(HomeAssistantView):
         except Exception as e:
             _LOGGER.exception("Erreur get_sensor_quality_scores: %s", e)
             return self.json({"success": False, "error": str(e)}, status_code=500)
+
+class HSESensorsPublicView(HomeAssistantView):
+    """GET /api/home_suivi_elec/lovelace_sensors - Liste tous les sensors HSE exposés, NON AUTH (usage local !)."""
+    url = "/api/home_suivi_elec/lovelace_sensors"
+    name = "api:home_suivi_elec:lovelace_sensors"
+    requires_auth = False
+    cors_allowed = True
+
+    def __init__(self, hass: HomeAssistant) -> None:
+        self.hass = hass
+
+    async def get(self, request):
+        try:
+            sensors = []
+            for state in self.hass.states.async_all():
+                if state.entity_id.startswith("sensor.hse_"):
+                    sensors.append({
+                        "entity_id": state.entity_id,
+                        "state": state.state,
+                        "attributes": dict(state.attributes)
+                    })
+            return self.json(sensors)
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).error(f"Erreur HSESensorsPublicView: {e}")
+            return self.json([])
+
+# Enregistre la vue dans async_setup ou async_setup_entry (__init__.py) :
+# hass.http.register_view(HSESensorsPublicView(hass))

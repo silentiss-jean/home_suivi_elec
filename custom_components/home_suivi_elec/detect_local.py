@@ -2,7 +2,7 @@
 """
 Détection automatique des capteurs power/energy depuis Home Assistant.
 
-v1.0 beta : Détection multi-intégration complète
+VERSION 2.10 : Détection multi-intégration complète
   ✅ Détection native sans subprocess jq
   ✅ Classification enrichie (device_class > unit > state_class)
   ✅ Filtrage intelligent avec valeurs par défaut
@@ -335,12 +335,12 @@ def __get_name_preference(entity_id: str, sensor_type: str) -> int:
     return 999
 
 # ============================================================================
-# DÉTECTION PRINCIPALE - v1.0 beta
+# DÉTECTION PRINCIPALE - VERSION 2.10
 # ============================================================================
 
 def __detect_from_hass(hass, config_entry=None) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
     """
-    v1.0 beta : Groupement par (device_id, integration) pour capturer
+    VERSION 2.10 : Groupement par (device_id, integration) pour capturer
     TOUTES les intégrations d'un même device physique.
     """
     try:
@@ -369,7 +369,7 @@ def __detect_from_hass(hass, config_entry=None) -> Tuple[List[Dict[str, Any]], L
     energy_platforms = __get_energy_platforms_from_registry(entity_reg, hass)
     _LOGGER.info(f"✅ Plateformes énergétiques détectées: {sorted(energy_platforms)}")
 
-    # CHANGEMENT v1.0 beta : Dict avec clé (device_id, integration)
+    # CHANGEMENT V2.10 : Dict avec clé (device_id, integration)
     devices: Dict[str, Dict[str, Any]] = {}
 
     for state in hass.states.async_all("sensor"):
@@ -420,7 +420,7 @@ def __detect_from_hass(hass, config_entry=None) -> Tuple[List[Dict[str, Any]], L
             safe_name = entity_id.replace("sensor.", "")[:50]
             device_id = f"virtual_{integration}_{safe_name}"
 
-        # CHANGEMENT v1.0 beta : Clé unique = device_id + integration
+        # CHANGEMENT V2.10 : Clé unique = device_id + integration
         device_key = f"{device_id}@{integration}"
 
         if device_key not in devices:
@@ -656,7 +656,7 @@ async def run_detect_local(*args, **kwargs) -> List[Dict[str, Any]]:
         duplicates = sum(1 for c in capteurs_final if c.get("is_duplicate"))
         suggested = sum(1 for c in capteurs_final if c.get("suggested_enabled"))
         
-        # NOUVEAU v1.0 beta : Compteur par intégration
+        # NOUVEAU V2.10 : Compteur par intégration
         integrations_count = {}
         for c in capteurs_final:
             integ = c.get("integration", "unknown")

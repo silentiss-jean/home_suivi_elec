@@ -81,3 +81,30 @@ window.showTab = function(tab) {
     loadConfiguration();
   }
 };
+// Import du module Génération
+import { loadGeneration } from './modules/generate.js';
+
+// Charger l'onglet Génération au DOMContentLoaded
+document.addEventListener('DOMContentLoaded', () => {
+  // Hook sur le bouton de l'onglet Génération
+  const generateTab = document.querySelector('button[onclick*="generation"]');
+  if (generateTab) {
+    generateTab.addEventListener('click', async () => {
+      // Charger le contenu de l'onglet
+      const container = document.getElementById('generation');
+      if (container && !container.dataset.loaded) {
+        try {
+          const response = await fetch('tabs/generate.html');
+          const html = await response.text();
+          container.innerHTML = html;
+          container.dataset.loaded = 'true';
+          
+          // Initialiser le module
+          await loadGeneration();
+        } catch (error) {
+          console.error('❌ Erreur chargement onglet Génération:', error);
+        }
+      }
+    });
+  }
+});

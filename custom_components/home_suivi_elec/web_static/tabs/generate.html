@@ -1,0 +1,41 @@
+<div id="generate-container">
+  <button id="refreshGenerate" class="primary" type="button" style="margin-bottom: 12px;">🔄 Actualiser</button>
+
+  <h2>🎨 Génération de cartes Lovelace</h2>
+  
+  <div class="card" style="margin-bottom: 20px;">
+    <div class="generate-actions" style="display: flex; gap: 10px; margin-bottom: 15px;">
+      <button id="btn-generate-yaml" class="primary" type="button">
+        📄 Générer YAML
+      </button>
+      <button id="btn-download-yaml" class="primary" type="button" style="background: #28a745;">
+        ⬇️ Télécharger
+      </button>
+      <button id="btn-preview" class="primary" type="button" style="background: #6c757d;">
+        👁️ Aperçu
+      </button>
+    </div>
+
+    <div id="stats-info" style="background: #f8f9fa; padding: 10px; border-radius: 5px; margin-bottom: 15px;">
+      <p><strong>Sensors HSE détectés :</strong> <span id="sensor-count">Chargement...</span></p>
+      <p><strong>Dernière génération :</strong> <span id="last-gen">Jamais</span></p>
+    </div>
+  </div>
+
+  <div id="preview-container" class="card" style="display: none; margin-bottom: 20px;">
+    <h3>📊 Aperçu du Dashboard</h3>
+    <div id="dashboard-preview" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 15px;">
+      <!-- Aperçu généré dynamiquement -->
+    </div>
+  </div>
+
+  <div class="card">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+      <h3>📝 Code YAML généré</h3>
+      <button id="btn-copy-yaml" class="primary" type="button" style="background: #28a745; padding: 5px 10px;">
+        📋 Copier
+      </button>
+    </div>
+    <pre id="yaml-code" style="background: #282c34; color: #abb2bf; padding: 15px; border-radius: 5px; overflow-x: auto; font-family: monospace; font-size: 13px; max-height: 500px;"><code>Cliquez sur "Générer YAML" pour commencer...</code></pre>
+  </div>
+</div>

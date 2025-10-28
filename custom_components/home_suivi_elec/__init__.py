@@ -26,6 +26,7 @@ from . import manage_selection
 from .proxy_api import SuiviElecProxyView
 # ✅ AJOUT : Import du correcteur automatique de noms
 from .sensor_name_fixer import async_setup_sensor_name_fixer, async_fix_all_long_sensors
+from .manage_selection_views import HSESensorsPublicView
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -540,7 +541,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     hass.http.register_view(SuiviElecProxyView())
     hass.http.register_view(AutoSelectBestSensorsView(hass))
     hass.http.register_view(GetSensorQualityScoresView(hass))
-
+    hass.http.register_view(HSESensorsPublicView(hass))
+    
     try:
         await scan_sets(hass)
     except TypeError:
