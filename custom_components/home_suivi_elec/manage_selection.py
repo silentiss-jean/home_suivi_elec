@@ -132,9 +132,6 @@ async def async_get_capteurs_index(hass: HomeAssistant) -> Dict[str, Dict[str, A
   hass.data["home_suivi_elec"]["capteurs_index"] = idx
   return idx                
 
-def get_pending_orphans(idx) -> List[Dict[str, Any]]:
-    """Retourne la liste des capteurs orphelins nécessitant une action admin (archive/suppression...)."""
-    return [c for c in idx.values() if c.get("ready_for_admin_action", False)]
 
 async def async_setup_selection_api(hass: HomeAssistant, sync_manager=None):
   """Enregistre les vues REST depuis le module dédié."""

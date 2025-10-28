@@ -38,10 +38,6 @@ SYNC_INTERVAL = timedelta(minutes=5)  # Scan périodique
 UNAVAILABLE_TIMEOUT = timedelta(days=7)  # Timeout avant suppression
 THROTTLE_DELAY = 30  # Secondes avant de synchroniser après un changement
 
-python
-ORPHAN_CLEANUP_DELAY_DAYS = 14  # ou ton délai métier
-def is_sensor_orphan(sensor):
-    return sensor.get("pending_cleanup", False)
 
 class SensorSyncManager:
     """
@@ -152,21 +148,6 @@ class SensorSyncManager:
             await self._backup_capteurs_file()
             capteurs = await self._load_capteurs()
             capteurs_dict = {c["entity_id"]: c for c in capteurs if c.get("entity_id")}
-            now = datetime.utcnow()
-            for sensor in capteurs_dict.values():
-                if is_sensor_orphan(sensor):
-                    orphaned_since = sensor.get("orphaned_since")
-                    if orphaned_since:
-                        age_days = (now - datetime.fromisoformat(orphaned_since)).days
-                        if age_days > ORPHAN_CLEANUP_DELAY_DAYS:
-                            sensor["ready_for_admin_action"] = True
-                        else:
-                            sensor["ready_for_admin_action"] = False
-                    else:
-                        sensor["ready_for_admin_action"] = False
-                else:
-                    sensor["ready_for_admin_action"] = False
-
             for action, entity_id in self._pending_changes:
                 if action == "add":
                     await self._add_sensor(entity_id, capteurs_dict)

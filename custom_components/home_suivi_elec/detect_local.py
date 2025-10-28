@@ -417,43 +417,8 @@ def __detect_from_hass(hass, config_entry=None) -> Tuple[List[Dict[str, Any]], L
         is_virtual = not has_device_id
         
         if is_virtual and not is_helper:
-            # NOUVEAU PATCH ANTI-ORPHELIN:
-            # Avant de créer une entrée virtuelle, on vérifie l'existence d'un sensor source physique accepté.
-            # Pour un sensor virtuel, la seule justification valide est qu'il agrège OBLIGATOIREMENT une source_entity présente dans la base
-            source_entity = state.attributes.get("source_entity")
-            # Vérification que le sensor source existe dans la base Home Assistant
-            
-        if not source_entity or not hass.states.get(source_entity):
-            _LOGGER.warning(f"[SECURITE] Sensor virtuel ORPHELIN : {entity_id} (source_entity absent ou non trouvé : {source_entity})")
-            # Ajout des champs "orphelin" dans le mapping pour gestion/admin côté backend et UI
-            sensor_data = {
-                "entity_id": entity_id,
-                "friendly_name": state.attributes.get("friendly_name", entity_id),
-                "orphaned_since": datetime.utcnow().isoformat(),
-                "pending_cleanup": True,
-                "archived": False,
-                "archive_date": None,
-                "cleanup_status": "pending"
-                # tu peux ajouter ici d’autres champs utiles pour l’UI/admin...
-            }
-            sensors.append(sensor_data)  # ou l’injecter dans ta structure dédiée
-            continue
-
             safe_name = entity_id.replace("sensor.", "")[:50]
             device_id = f"virtual_{integration}_{safe_name}"
-            device_key = f"{device_id}@{integration}"
-            if device_key not in devices:
-                devices[device_key] = {
-                    "device_id": device_id,
-                    "integration": integration,
-                    "name": state.attributes.get("friendly_name", entity_id),
-                    "manufacturer": integration.capitalize(),
-                    "model": "Virtual Sensor",
-                    "area": "",
-                    "is_virtual": is_virtual,
-                    "is_helper": is_helper,
-                    "sensors": {"energy": [], "power": []}
-                }
 
         # CHANGEMENT V2.10 : Clé unique = device_id + integration
         device_key = f"{device_id}@{integration}"

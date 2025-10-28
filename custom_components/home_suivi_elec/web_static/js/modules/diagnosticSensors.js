@@ -145,35 +145,3 @@ export async function loadDiagnosticSensors() {
     URL.revokeObjectURL(a.href);
   };
 }
-
-export async function loadOrphanSensors() {
-  const tbody = document.getElementById('orphans-tbody');
-  tbody.innerHTML = "<tr><td colspan='5'>Chargement...</td></tr>";
-  const resp = await fetch('/api/home_suivi_elec/orphelins');
-  const data = await resp.json();
-  const orphelins = data.orphelins || [];
-  let html = "";
-  for(const c of orphelins) {
-    html += `<tr>
-      <td>${c.friendly_name || c.entity_id}</td>
-      <td>${c.area_name || c.area_id || ""}</td>
-      <td>${c.orphaned_since || ""}</td>
-      <td>${c.cleanup_status || ""}</td>
-      <td>
-        <button onclick="actionOrphan('${c.entity_id}', 'archive')">Archiver</button>
-        <button onclick="actionOrphan('${c.entity_id}', 'delete')">Supprimer</button>
-        <button onclick="actionOrphan('${c.entity_id}', 'delay')">Reporter</button>
-      </td>
-    </tr>`;
-  }
-  tbody.innerHTML = html;
-}
-
-window.actionOrphan = async function(entity_id, action) {
-  await fetch('/api/home_suivi_elec/orphelins/action', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ entity_id, action })
-  });
-  loadOrphanSensors();
-};

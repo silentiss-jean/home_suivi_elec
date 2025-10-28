@@ -15,7 +15,6 @@ from homeassistant.core import HomeAssistant
 from homeassistant.components.http import HomeAssistantView
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.helpers.storage import Store
-from datetime import datetime
 
 from .manage_selection import (
     CAPTEURS_POWER_PATH, CAPTEURS_SELECTION_PATH, USER_CONFIG_PATH,
@@ -32,71 +31,6 @@ from .const import (
 _LOGGER = logging.getLogger(__name__)
 
 USER_STORE_KEY = f"{DOMAIN}_user_config_v1"
-
-from datetime import datetime
-
-def _load_capteurs_index(hass):
-    """Fonction utilitaire : charge/retourne l’index complet des capteurs exposés."""
-    from .manage_selection import async_get_capteurs_index
-    import asyncio
-    loop = asyncio.get_event_loop()
-    idx = loop.run_until_complete(async_get_capteurs_index(hass))
-    return idx
-
-class GetOrphanSensorsView(HomeAssistantView):
-    """Vue REST pour lister les capteurs orphelins candidats à admin action."""
-    url = "/api/home_suivi_elec/orphelins"
-    name = "api:home_suivi_elec:orphelins"
-    requires_auth = True
-
-    def __init__(self, hass: HomeAssistant):
-        self.hass = hass
-
-    async def get(self, request):
-        idx = await async_get_capteurs_index(self.hass)
-        orphans = [c for c in idx.values() if c.get("ready_for_admin_action", False)]
-        return self.json({"orphelins": orphans})
-
-class ActionOrphanSensorView(HomeAssistantView):
-    """POST /api/home_suivi_elec/orphelins/action — action admin sur un orphelin."""
-    url = "/api/home_suivi_elec/orphelins/action"
-    name = "api:home_suivi_elec:orphelins:action"
-    requires_auth = True
-
-    def __init__(self, hass: HomeAssistant):
-        self.hass = hass
-
-    async def post(self, request):
-        body = await request.json()
-        entity_id = body.get("entity_id")
-        action = body.get("action")  # "archive", "delete", "delay"
-        idx = await async_get_capteurs_index(self.hass)
-        capteur = idx.get(entity_id)
-        if not capteur:
-            return self.json_message("Not found", status_code=404)
-        if action == "archive":
-            capteur["archive_date"] = datetime.utcnow().isoformat()
-            capteur["archived"] = True
-            capteur["cleanup_status"] = "archived"
-        elif action == "delete":
-            capteur["cleanup_status"] = "deleted"
-            # Suppression finale à déclencher côté backend/cron/task si nécessaire
-        elif action == "delay":
-            capteur["orphaned_since"] = datetime.utcnow().isoformat()
-            capteur["cleanup_status"] = "pending"
-        else:
-            return self.json({"error": "Action inconnue"}, status_code=400)
-        # Sauvegarde : recharge et sauvegarde le JSON de référence
-        detected = []
-        if os.path.exists(CAPTEURS_POWER_PATH):
-            loop = asyncio.get_running_loop()
-            detected = await loop.run_in_executor(None, lambda: _load_json(CAPTEURS_POWER_PATH))
-        # on update la référence aussi (pour la persistance)
-        for c in detected:
-            if c.get("entity_id") == entity_id:
-                c.update(capteur)
-        _save_json(CAPTEURS_POWER_PATH, detected)
-        return self.json({"status": "ok", "action": action, "entity_id": entity_id})
 
 
 def _normalize(v: Optional[str]) -> str:
