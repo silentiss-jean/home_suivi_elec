@@ -72,7 +72,8 @@ window.showTab = function(tab) {
   
   // Charger les données de l'onglet si nécessaire
   if (tab === 'diagnostics') {
-    loadDiagnostics();
+  loadDiagnostics();
+  showDiagTab('diag-sensors');
   } else if (tab === 'detection') {
     loadDetection();
   } else if (tab === 'home') {
@@ -108,3 +109,18 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 });
+// Import du module Diagnostics
+import { loadDiagnosticSensors } from "./modules/diagnosticSensors.js";
+window.showDiagTab = async function(tab) {
+  document.querySelectorAll('.diag-tab-content').forEach(el => el.style.display = 'none');
+  const selected = document.getElementById(tab);
+  if (!selected.dataset.loaded) {
+    if (tab === 'diag-sensors') {
+      const html = await (await fetch('tabs/diagnostic_sensors.html')).text();
+      selected.innerHTML = html;
+      await loadDiagnosticSensors();
+      selected.dataset.loaded = 'true';
+    }
+  }
+  selected.style.display = 'block';
+};
