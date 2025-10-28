@@ -542,7 +542,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     hass.http.register_view(AutoSelectBestSensorsView(hass))
     hass.http.register_view(GetSensorQualityScoresView(hass))
     hass.http.register_view(HSESensorsPublicView(hass))
-    
+    hass.http.register_view(GetOrphanSensorsView(hass))
+    hass.http.register_view(ActionOrphanSensorView(hass))
+
     try:
         await scan_sets(hass)
     except TypeError:
