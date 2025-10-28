@@ -4,17 +4,18 @@
 ===============================================================================
 
 📋 TABLE DES MATIÈRES
-  1. Rôle du fichier
-  2. Fonctionnalités principales
-  3. Workflow et enchaînement backend
-  4. Interactions et dépendances principales
-  5. Points d’attention et dépannage
+ 1. Rôle du fichier
+ 2. Fonctionnalités principales
+ 3. Workflow et enchaînement backend
+ 4. Interactions et dépendances principales
+ 5. Gestion des capteurs orphelins (NOUVEAUTÉ v1.0.7)
+ 6. Points d’attention et dépannage
 
 ===============================================================================
 1. RÔLE DU FICHIER
 ===============================================================================
 
-Le module  réalise :
+Le module réalise :
 - La détection automatique de tous les capteurs d’énergie, puissance, et dispositifs pertinents déjà présents sur une instance Home Assistant,
 - L’initialisation automatisée des liaisons et des entités du backend nécessaires au suivi énergétique,
 - Une réduction massive de la configuration manuelle à la première utilisation.
@@ -47,12 +48,41 @@ Le module  réalise :
 - Peut être utilisé en conjonction avec debug_json_sets.py pour valider le résultat de la détection
 
 ===============================================================================
-5. POINTS D’ATTENTION ET DÉPANNAGE
+5. GESTION DES CAPTEURS ORPHELINS (NOUVEAUTÉ v1.0.7)
+===============================================================================
+
+Depuis la version 1.0.7, le module détecte et marque automatiquement les « capteurs orphelins » :  
+- Un capteur virtuel sans source valide (attribut `source_entity` absent ou inexistant dans l’instance HA)
+- Dès sa détection, le sensor reçoit :
+    • orphaned_since (datetime ISO UTC)
+    • pending_cleanup = True (flag de supervision)
+    • cleanup_status = "pending"
+
+Exemple de logique :
+
+    if is_virtual and not is_helper:
+        source_entity = state.attributes.get("source_entity")
+        if not source_entity or not hass.states.get(source_entity):
+            sensor_data["orphaned_since"] = datetime.utcnow().isoformat()
+            sensor_data["pending_cleanup"] = True
+            sensor_data["cleanup_status"] = "pending"
+            sensors.append(sensor_data)
+            continue
+
+Un capteur orphelin reste dans cet état jusqu’à:
+- Réassociation à une source valide (reset des flags)
+- Traitement manuel ou automatique par l’admin (API/Frontend, voir `sensor_sync_manager.py` et `manage_selection.py`)
+- Purge ou archivage après délai, selon la configuration système
+
+===============================================================================
+6. POINTS D’ATTENTION ET DÉPANNAGE
 ===============================================================================
 
 - Si des entités attendues ne remontent pas, lancer manuellement la détection (service HA)
 - Adapter l’algorithme si de nouvelles intégrations matérielles sont ajoutées à l’écosystème
+- Pour le suivi des orphelins, vérifier la liste exposée dans le frontend admin
 
 ===============================================================================
 FIN DE LA DOCUMENTATION
 ===============================================================================
+

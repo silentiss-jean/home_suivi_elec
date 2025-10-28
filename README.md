@@ -24,6 +24,7 @@
 - 🤝 **Aucune config YAML obligatoire** : tout se fait dans l’UI
 - 📚 **Documentation modulaire** et maintenable dans [`docs/`](docs/)
 - 🔒 **APIs, proxy sécurisé & architecture modulaire**
+- 🛡️ **Supervision automatique des capteurs orphelins** : détection, purge, archivage ou report manuel en 1 clic via l’UI d’administration et REST API dédiée (nouveauté v1.0.7)
 
 ---
 
@@ -232,8 +233,16 @@ E --> H[detect_local.py, manage_selection.py, etc.]
 | generator.py        | UI, Lovelace YAML      | Génération auto, download dash   |
 | utility_meter_manager.py| tracking/detectors | Synchro avec utility_meter HA    |
 | helpers/validation.py| flows, UI             | Validation enrichie              |
-
+| **detect_local.py**   | **sensor_sync_manager.py** | **Repérage & suivi capteurs orphelins**|
+| **sensor_sync_manager.py** | **manage_selection.py** | **Queue purge/archivage orphelins**   |
+| **manage_selection.py** | **frontend_admin (JS/UI)** | **REST API actions orphelin**        |
 ---
+
+🔥 Nouveautés version 1.0.7 (Octobre 2025)
+------------------------------------------
+> • Prise en charge complète des **capteurs orphelins** : tout sensor virtuel sans source valide est désormais automatiquement détecté, daté, marqué en attente de purge ou archivage.
+> • Actions disponibles en panel admin ou via API REST : archivage, suppression ou report différé, avec synchronisation backend temps réel.
+> • Nouveaux endpoints REST `/api/home_suivi_elec/orphelins` pour gestion/remontée UI, automation cron et diagnostics.
 
 ## 🏅 Points forts de l’intégration
 

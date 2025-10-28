@@ -1,141 +1,72 @@
 ===============================================================================
- GESTION DE LA SÉLECTION DES CAPTEURS - HOME SUIVI ÉLEC
+ INTERFACE DE SÉLECTION & API ORPHELINS – HOME SUIVI ÉLEC
  Documentation complète - Octobre 2025
 ===============================================================================
 
 📋 TABLE DES MATIÈRES
-  1. Vue d'ensemble
-  2. Architecture, flux et fichiers liés
-  3. Fonctions et logique principale
-  4. APIs REST et synchronisation front-end
-  5. Données JSON, format et exemples
-  6. Workflow utilisateur complet (+ UI)
-  7. Personnalisation & extension
-  8. Dépannage
+ 1. Rôle du fichier
+ 2. Fonctionnalités principales
+ 3. API de gestion des capteurs orphelins (depuis v1.0.7)
+ 4. Interactions et dépendances principales
+ 5. Points d’attention et dépannage
 
 ===============================================================================
-1. VUE D'ENSEMBLE
+1. RÔLE DU FICHIER
 ===============================================================================
 
- gère toute la logique de sélection, de sauvegarde et de filtrage des capteurs énergétiques à suivre dans l’intégration.
-Il synchronise l’état métier entre Home Assistant (backend / data/) et le frontend (UI web et panel selection), tout en conservant la cohérence via un fichier centralisé .
-
-Rôles :
-- Gestion du format, de la sauvegarde asynchrone, et des accès concurrents à la sélection
-- Filtrage de la liste/état des capteurs à exposer dans l’interface
-- APIs REST pour lecture/écriture avec le front (configPanel, configuration.js, selectionPanel.js…)
+Le module manage_selection.py regroupe :
+- La gestion des sélections/synchronisations d’entités côté admin/utilisateur avancé
+- L’exposition API REST des entités critiques (ex : capteurs éligibles au suivi, capteurs orphelins)
+- Les actions massives ou unitaires côté backend sur les capteurs suivis
 
 ===============================================================================
-2. ARCHITECTURE, FLUX ET FICHIERS LIÉS
+2. FONCTIONNALITÉS PRINCIPALES
 ===============================================================================
 
-┌──────────────────────────────────────────────────────┐
-│ Backend (manage_selection.py)                        │
-├──────────────────────────────────────────────────────┤
-│ - async_setup_selection_api/hass : expose APIs       │
-│ - Fonctions load_json/save_json/add/get/disabling    │
-│ - Accès/MAJ : data/capteurs_selection.json           │
-├──────────────────────────────────────────────────────┤
-│ Fichiers utilisés :                                 │
-│    • data/capteurs_selection.json                   │
-│    • manage_selection_views.py (déclare REST UI)    │
-│    • configuration.js, selectionPanel.js (Front)    │
-│    • selectionPanel.jsx (React panel)               │
-└──────────────────────────────────────────────────────┘
+- Exposition d’un endpoint REST pour la sélection/affichage des entités
+- Export JSON pour le frontend d’admin (listes paramétrables, filtres, etc.)
+- Actions PATCH/POST pour la gestion de la base de capteurs surveillés (édition, archivage, suppression...)
+- Extension v1.0.7 : gestion directe des capteurs orphelins (API + actions associées)
 
 ===============================================================================
-3. FONCTIONS ET LOGIQUE PRINCIPALE
+3. API DE GESTION DES CAPTEURS ORPHELINS (depuis v1.0.7)
 ===============================================================================
 
-Fonctions clés :
-- **load_json(path)** : lit la sélection (JSON) asynchrone
-- **save_json(data, path)** : écrit la sélection asynchrone + backups automatiques
-- **get_selected_capteurs(hass, ...)**
-    → Retourne la sélection courante (par intégration/filtre/type)
-- **add_capteur(selection, capteur)**
-    → Ajoute/active un capteur dans la bonne section
-- **disable_capteur(selection, entity_id)**
-    → Désactive/unflag un capteur donné
+- Endpoint principal : 
+    • GET : liste tous les capteurs avec , détail des champs métiers utiles (nom, zone, date orphelin, dernier état)
+    • PATCH/POST : modification état ou suppression/archivage/report différé d’un capteur orphelin (attributs cibles : archived, deleted, orphaned_since, cleanup_status)
+    • Call typique : 
 
-Fonctions avancées/REST :
-- **async_setup_selection_api(hass[, sync_manager])**
-    → Expose toutes les APIs REST vers le frontend (lecture, écriture, auto-selection, recherche doublons)
+- La base des orphelins exposés est synchronisée en temps réel avec sensor_sync_manager.py
 
-===============================================================================
-4. APIS REST ET SYNCHRONISATION FRONT-END
-===============================================================================
+- Actions autorisées via API :
+    -  : archivage logiciel, non suppression immédiate
+    -  : suppression immédiate ou mise en attente de purge
+    -  : report du traitement (reset d’horodatage ou notifié plus tard)
+    - toute restitution ou revalidation d’une source retire le sensor de la liste
 
-- **get_sensors / get_selection** : expose la liste des capteurs sélectionnables
-- **save_selection** : stocke toute la sélection depuis l’UI (checkbox)
-- **set_ignored_entity / choose_best_for_device** : gestion avancée des doublons
-- **auto_select_best_sensors** : sélection intelligente via scoring qualité
+Exemple de payload API :
 
-Ces endpoints sont utilisés par :
-- configuration.js (chargement + binding checkbox + badges + synchronisation état)
-- selectionPanel.js (interface React ou JS custom)
-
-L’appel POST/GET est asynchrone et la sélection est rechargée à chaque modification (aucun reload HA requis).
+    {
+        "id": "sensor.virtuel_inconnu_42",
+        "action": "archive"
+    }
 
 ===============================================================================
-5. DONNÉES JSON, FORMAT ET EXEMPLES
+4. INTERACTIONS ET DÉPENDANCES PRINCIPALES
 ===============================================================================
 
-Fichier clé :  (maj auto après chaque save/sélection)
-
-Exemple :
-
-{
-"tapo": [
-{ "entity_id": "sensor.bureau_prise_ordinateur_today_energy", "enabled": true, "quality_score": 120 }
-],
-"powercalc": [ ... ],
-"mqtt": [ ... ],
-...
-}
-Champs principaux d’un capteur :
-- entity_id (str, unique)
-- enabled (bool)
-- auto_selected (bool, optionnel)
-- quality_score (int, optionnel)
-- ... (autres métadonnées si enrichissement)
+- Relié au frontend d’administration custom (tableau de gestion orphelins)
+- Dialogue direct avec sensor_sync_manager.py pour l’exactitude de l’état exposé
+- Utilisé par les autres services métier (purge, historique...)
 
 ===============================================================================
-6. WORKFLOW UTILISATEUR (BACK + FRONT)
+5. POINTS D’ATTENTION ET DÉPANNAGE
 ===============================================================================
 
-1. L’utilisateur coche/décoche ses capteurs dans l’interface (configPanel/React ou JS)
-2. Le frontend envoie (POST) la sélection complète via 
-3. manage_selection.py met à jour  (sauvegarde atomique, backup auto)
-4. Toute nouvelle sélection est visible instantanément dans l’UI ET prise en compte par les calculs Home Assistant
-5. Les APIs REST permettent récupération, auto-filtrage, et interaction directe avec la sélection via JS ou terminal (curl)
-
-**Note :**
-- La sélection peut être modifiée soit depuis l’UI Home Assistant, soit depuis le frontend custom (onglet Configuration ou Sélection).
-- Les deux flux convergent vers ce même backend et ce même fichier clé.
-
-===============================================================================
-7. PERSONNALISATION & EXTENSION
-===============================================================================
-
-- Ajouter des attributs personnalisés à chaque capteur (score, tags…) : enrichir le format JSON + adaptater le load/save dans manage_selection.py.
-- Intégrer un scoring custom ou automatique (via sensor_quality_scorer.py) dans la sélection.
-- Modifier le comportement API (filtre, auto-selection) en adaptant async_setup_selection_api (REST).
-
-===============================================================================
-8. DÉPANNAGE
-===============================================================================
-
-PROBLÈME 1 : Capteur non visible dans l’UI
-→ Vérifier qu’il apparaît dans capteurs_selection.json + valider enabled:true
-
-PROBLÈME 2 : Sélection non enregistrée
-→ Vérifier les requêtes POST du front (console réseau) / logs du backend
-
-PROBLÈME 3 : Sélection O/N pas prise en compte dans Home Assistant
-→ Forcer le rechargement de l’intégration, ou relancer la détection
-
-PROBLÈME 4 : Doublons/Conflits non gérés
-→ Utiliser la fonction auto_select_best_sensors ou “choisir le meilleur” dans l’UI
+- Un sensor archivé reste visible dans les historiques, mais inactif
+- La suppression ne peut être annulée que via restauration HA
+- Toute modification API se retrouve instantanément côté UI
 
 ===============================================================================
 FIN DE LA DOCUMENTATION
