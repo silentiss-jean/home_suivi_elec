@@ -140,20 +140,8 @@ table thead th { background: #f2f2f2; }
   </div>
 </div>
 
-<!-- Onglet principal Diagnostic -->
+<!-- 🔧 Diagnostic -->
 <div id="diagnostics" class="tab-content">
-
-  <!-- Barre de sous-onglets -->
-  <div class="diag-tabs" style="margin-bottom:16px;">
-    <button type="button" onclick="showDiagTab('diag-sensors')">Capteurs</button>
-    <!-- Future extension : <button>Coûts</button>, etc. -->
-  </div>
-
-  <!-- Container du tab detailed capteurs -->
-  <div id="diag-sensors" class="diag-tab-content"></div>
-
-  <!-- Ancienne partie Diagnostic technique globale -->
-  <!-- Tu peux soit la laisser pour garder le diagnostic “classique”, soit la migrer/séparer vers des sous-onglets comme fait ici pour les capteurs -->
   <h2>🔧 Diagnostic technique</h2>
   <div id="diagnosticsPanel">
     <div id="diagnosticsGlobal"></div>
@@ -168,7 +156,6 @@ table thead th { background: #f2f2f2; }
     <button id="refreshDiagnostics" class="primary" type="button">🔄 Rafraîchir Diagnostic</button>
   </div>
 </div>
-
 
 <!-- 🔍 Détection -->
 <div id="detection" class="tab-content">
