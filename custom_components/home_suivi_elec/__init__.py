@@ -1,4 +1,3 @@
-
 # -*- coding: utf-8 -*-
 """Home Suivi Élec — Services + API REST + copie UI simplifiée avec démarrage différé."""
 
@@ -303,227 +302,104 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             self.hass = hass
 
         async def get(self, request):
+            """
+            Diagnostic natif HSE (remplace UtilityMeter) :
+            Liste tous les capteurs HSE activés, affiche leur état, statut, et remonte alertes/anomalies.
+            Structure complète alignée sur manage_selection_views.py
+            """
             try:
+                from .manage_selection_views import _load_json, CAPTEURS_POWER_PATH, _enrich_device_info
+                import os
+                import asyncio
+
                 loop = asyncio.get_running_loop()
-                from .manage_selection import CAPTEURS_SELECTION_PATH, CAPTEURS_POWER_PATH, USER_CONFIG_PATH
-
-                detected = []
+                sensors = []
                 if os.path.exists(CAPTEURS_POWER_PATH):
-                    detected = await loop.run_in_executor(None, lambda: self._load_json(CAPTEURS_POWER_PATH))
-
-                selection = {}
-                if os.path.exists(CAPTEURS_SELECTION_PATH):
-                    selection = await loop.run_in_executor(None, lambda: self._load_json(CAPTEURS_SELECTION_PATH))
-
-                selected_ids = set()
-                for integ, lst in (selection or {}).items():
-                    for row in lst or []:
-                        if row.get("enabled") and row.get("entity_id"):
-                            selected_ids.add(row["entity_id"])
+                    sensors = await loop.run_in_executor(None, lambda: _load_json(CAPTEURS_POWER_PATH))
+                    sensors = _enrich_device_info(self.hass, sensors or [])
 
                 sources = []
-                integration_sensors = []
-                utility_meters = []
                 alerts = []
+                dump_sensors = []
 
-                for cap in detected or []:
-                    eid = cap.get("entity_id")
-                    if not eid or eid not in selected_ids:
-                        continue
-
+                for sensor in sensors:
+                    eid = sensor.get("entity_id")
+                    friendly = sensor.get("friendly_name", eid)
                     state_obj = self.hass.states.get(eid)
-                    state_value = state_obj.state if state_obj else "unavailable"
+                    state = state_obj.state if state_obj else "unavailable"
+                    unit = sensor.get("unit", "?")
                     last_changed = state_obj.last_changed.isoformat() if state_obj else None
 
+                    # Détection et codage du statut
                     status = "✅ OK"
                     data_type = "numérique"
                     action = "-"
+                    anomaly = None
 
-                    if state_value in ("unknown", "unavailable"):
-                        status = "❌ Indisponible" if state_value == "unavailable" else "⚠️ Unknown"
+                    if state in ("unknown", "unavailable"):
+                        status = "❌ Indisponible" if state == "unavailable" else "⚠️ Unknown"
+                        anomaly = status
                         alerts.append({
                             "type": "warning",
                             "entity_id": eid,
-                            "message": f"Capteur source {eid} est {state_value}"
+                            "message": f"Capteur {eid} est {state}"
                         })
                     else:
                         try:
-                            float(state_value)
-                        except:
+                            float(state)
+                        except Exception:
                             status = "⚠️ Non numérique"
                             data_type = "chaîne"
                             action = "Normaliser via template"
+                            anomaly = status
                             alerts.append({
                                 "type": "error",
                                 "entity_id": eid,
-                                "message": f"Capteur source {eid} publie une chaîne: '{state_value}'"
+                                "message": f"Capteur {eid} publie une chaîne: '{state}'"
                             })
 
                     sources.append({
                         "entity_id": eid,
-                        "friendly_name": cap.get("friendly_name", eid),
-                        "state": state_value,
-                        "unit": cap.get("unit", "?"),
+                        "friendly_name": friendly,
+                        "state": state,
+                        "unit": unit,
                         "status": status,
                         "data_type": data_type,
                         "last_changed": last_changed,
                         "action": action
                     })
-
-                    from .utility_meter_manager import _classify_entity
-                    kind = _classify_entity(self.hass, eid)
-
-                    if kind == "power":
-                        integ_name = get_integration_helper_name(eid)
-                        integ_entity_id = f"sensor.{integ_name}"
-                        integ_state_obj = self.hass.states.get(integ_entity_id)
-                        integ_state = integ_state_obj.state if integ_state_obj else "unavailable"
-                        integ_status = "✅ OK"
-                        integ_reason = "-"
-
-                        if integ_state in ("unknown", "unavailable"):
-                            integ_status = "⚠️ Unknown (attente 2 valeurs)" if integ_state == "unknown" else "❌ Unavailable"
-                            if data_type == "chaîne":
-                                integ_reason = "Source non numérique"
-                            elif state_value in ("unavailable", "unknown"):
-                                integ_reason = "Source indisponible"
-                            alerts.append({
-                                "type": "warning",
-                                "entity_id": integ_entity_id,
-                                "message": f"Sensor d'intégration {integ_entity_id} est {integ_state}"
-                            })
-
-                        integration_sensors.append({
-                            "entity_id": integ_entity_id,
-                            "source": eid,
-                            "state": integ_state,
-                            "unit": "kWh",
-                            "status": integ_status,
-                            "last_changed": integ_state_obj.last_changed.isoformat() if integ_state_obj else None,
-                            "reason": integ_reason
-                        })
-
-                        for cycle in UTILITY_METER_CYCLES:
-                            meter_name = get_meter_name(eid, cycle)
-                            meter_entity_id = f"sensor.{meter_name}"
-                            meter_state_obj = self.hass.states.get(meter_entity_id)
-                            meter_state = meter_state_obj.state if meter_state_obj else "unavailable"
-                            meter_status = "✅ OK"
-
-                            if meter_state in ("unknown", "unavailable"):
-                                meter_status = "⚠️ Unknown" if meter_state == "unknown" else "❌ Unavailable"
-                                alerts.append({
-                                    "type": "error",
-                                    "entity_id": meter_entity_id,
-                                    "message": f"Utility Meter {meter_entity_id} est {meter_state}"
-                                })
-
-                            utility_meters.append({
-                                "entity_id": meter_entity_id,
-                                "cycle": cycle,
-                                "source": integ_entity_id,
-                                "state": meter_state,
-                                "unit": "kWh",
-                                "status": meter_status
-                            })
-
-                    elif kind == "energy":
-                        for cycle in UTILITY_METER_CYCLES:
-                            meter_name = get_meter_name(eid, cycle)
-                            meter_entity_id = f"sensor.{meter_name}"
-                            meter_state_obj = self.hass.states.get(meter_entity_id)
-                            meter_state = meter_state_obj.state if meter_state_obj else "unavailable"
-                            meter_status = "✅ OK"
-
-                            if meter_state in ("unknown", "unavailable"):
-                                meter_status = "⚠️ Unknown" if meter_state == "unknown" else "❌ Unavailable"
-                                alerts.append({
-                                    "type": "error",
-                                    "entity_id": meter_entity_id,
-                                    "message": f"Utility Meter {meter_entity_id} est {meter_state}"
-                                })
-
-                            utility_meters.append({
-                                "entity_id": meter_entity_id,
-                                "cycle": cycle,
-                                "source": eid,
-                                "state": meter_state,
-                                "unit": cap.get("unit", "kWh"),
-                                "status": meter_status
-                            })
-
-                errors = len([a for a in alerts if a["type"] == "error"])
-                warnings = len([a for a in alerts if a["type"] == "warning"])
-
-                if errors > 0:
-                    global_status = "error"
-                elif warnings > 0:
-                    global_status = "warning"
-                else:
-                    global_status = "ok"
-
-                yaml_path = "/config/packages/home_suivi_elec_utility_meter.yaml"
-                last_yaml_gen = None
-                if os.path.exists(yaml_path):
-                    mtime = os.path.getmtime(yaml_path)
-                    last_yaml_gen = datetime.fromtimestamp(mtime).isoformat()
-
-                # === DUMP GLOBAL BACKEND : résumé de TOUS les capteurs (actifs ou non) ===
-                all_detected = detected
-                selection_data = selection
-
-                dump_sensors = []
-                for sensor in all_detected or []:
-                    eid = sensor.get("entity_id")
                     dump_sensors.append({
                         "entity_id": eid,
-                        "nom": sensor.get("friendly_name", sensor.get("nom", eid)),
+                        "nom": friendly,
                         "zone": sensor.get("zone"),
                         "type": sensor.get("type"),
                         "integration": sensor.get("integration"),
-                        "enabled": eid in selected_ids,
-                        "anomaly": None
+                        "enabled": sensor.get("enabled", True),
+                        "anomaly": anomaly
                     })
 
+                errors = len([a for a in alerts if a["type"] == "error"])
+                warnings = len([a for a in alerts if a["type"] == "warning"])
+                global_status = "error" if errors > 0 else "warning" if warnings > 0 else "ok"
+
                 dump_global = {
-                    "total_detected": len(all_detected),
-                    "total_selected": len(selected_ids),
-                    "total_non_selected": len([x for x in dump_sensors if not x["enabled"]]),
+                    "total_detected": len(sensors),
+                    "total_enabled": len([s for s in dump_sensors if s["enabled"]]),
+                    "total_non_enabled": len([s for s in dump_sensors if not s["enabled"]]),
                     "sensors": dump_sensors
                 }
-                
-#                _LOGGER.warning(">>>> DUMP TEST: entrée diagnostic backend")
-#                _LOGGER.warning("[DUMP BACKEND]\n%s", json.dumps(dump_global, indent=2, ensure_ascii=False))
-                _LOGGER.warning("[DUMP BACKEND] %s", dump_global)
-                return self.json({
-                    "global_status": global_status,
-                    "sources": sources,
-                    "integration_sensors": integration_sensors,
-                    "utility_meters": utility_meters,
-                    "alerts": alerts,
-                    "last_yaml_generation": last_yaml_gen,
-                    "stats": {
-                        "sources_ok": len([s for s in sources if s["status"] == "✅ OK"]),
-                        "sources_total": len(sources),
-                        "integration_sensors_ok": len([s for s in integration_sensors if s["status"] == "✅ OK"]),
-                        "integration_sensors_total": len(integration_sensors),
-                        "utility_meters_ok": len([m for m in utility_meters if m["status"] == "✅ OK"]),
-                        "utility_meters_total": len(utility_meters)
-                    },
-                    "global_dump": dump_global
-                })
 
+                # Retour complet de diagnostic natif
+                return self.json({
+                    "sources": sources,
+                    "alerts": alerts,
+                    "global_status": global_status,
+                    "dump": dump_global
+                })
             except Exception as e:
                 _LOGGER.exception("Erreur get_diagnostics: %s", e)
-                return self.json({
-                    "global_status": "error",
-                    "sources": [],
-                    "integration_sensors": [],
-                    "utility_meters": [],
-                    "alerts": [],
-                    "global_dump": {"error": str(e)}
-                }, status_code=500)
-
+                return self.json({"error": str(e)}, status_code=500)
+                
         def _load_json(self, path: str):
             import json
             with open(path, "r", encoding="utf-8") as f:
