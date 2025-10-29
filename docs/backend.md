@@ -85,7 +85,28 @@ Ce diagramme illustre la chaîne complète depuis la détection des capteurs jus
 
 ⸻
 
-3.1 __init__.py — Orchestrateur principal
+3.1 init.py — Résumé et accès rapide
+Rôle métier : Orchestration et setup global de l’intégration, enregistrement services, endpoints, lifecycle et gestion hass.data.
+
+Fichier Python : custom_components/home_suivi_elec/init.py
+
+Classe(s) principale(s) : N/A (fonctionnel)
+
+Fonctions critiques : async_setup, async_setup_entry, setup_sensors_after_detection, _delayed_start
+
+Services HA : generate_local_data, generate_selection, fix_sensor_names, copy_ui_files, migrate_cleanup
+
+Endpoints REST : /api/home_suivi_elec/set_ignored_entity, /api/home_suivi_elec/get_diagnostics, /api/home_suivi_elec/choose_best_for_device
+
+Clés hass.data : DOMAIN, energy_sensors, sync_manager, options
+
+Logs/caractéristiques : [SETUP_ENTRY], [SERVICE], [INIT], [RESET], [MIGRATION]
+
+Exemples d’usage : Setup automatique après démarrage HA, orchestration des modules backend, enregistrement panneau UI.
+
+Pour debuguer : Vérifier état des services HA, endpoints REST, analyse hass.data, logs setup global.
+
+
 
 🧠 Rôle central  
 - Point d’entrée du backend : initialise tous les modules et listeners, enregistre les services HA et endpoints REST.  
@@ -140,7 +161,27 @@ Ce diagramme illustre la chaîne complète depuis la détection des capteurs jus
 
 ⸻
 
-3.2 detect_local.py — Détection des capteurs power/energy
+3.2 detect_local.py — Résumé et accès rapide
+Rôle métier : Détection automatique, annotation et classification des capteurs power/energy physiques/virtuels/helpers.
+
+Fichier Python : custom_components/home_suivi_elec/detect_local.py
+
+Classe(s) principale(s) : N/A
+
+Fonctions critiques : run_detect_local, __detect_from_hass, __annotate_and_deduplicate
+
+Services HA : run_detect_local
+
+Endpoints REST : N/A
+
+Clés hass.data : energy_sensors
+
+Logs/caractéristiques : [DETECT], logs exclusion, doublons, multi-intégration
+
+Exemples d’usage : Scan complet des capteurs lors du boot, enrichissement et priorisation, update du fichier JSON liste sensors.
+
+Pour debuguer : Vérifier mapping JSON, logs détection, état hass.data et exclusions.
+
 🧠 Rôle métier
 
 Détecte automatiquement tous les capteurs “energy” et “power” présents dans l’instance Home Assistant, via analyse du registre d’entités, du registre de devices et des plateformes d’intégration.
@@ -227,7 +268,26 @@ Toujours passer par les routines principales (__detect_from_hass, __annotate_and
 
 ⸻
 
-3.3 manage_selection.py — Sélection & mapping métier des capteurs
+3.3 manage_selection.py — Résumé et accès rapide
+Rôle métier : Indexation métier, mapping et enrichissement des capteurs, export sélection et accès panel.
+
+Fichier Python : custom_components/home_suivi_elec/manage_selection.py
+
+Classe(s) principale(s) : N/A
+
+Fonctions critiques : async_get_capteurs_index, _enrich_base, async_setup_selection_api
+
+Services HA : generate_selection
+
+Endpoints REST : /api/home_suivi_elec/selection, /api/home_suivi_elec/selection_view
+
+Clés hass.data : capteurs_index
+
+Logs/caractéristiques : logs enrichissement, mapping, warnings fichiers absents
+
+Exemples d’usage : Génération index métier pour sélection et panel, mapping enrichi, export JSON/YAML sélection.
+
+Pour debuguer : Utiliser async_get_capteurs_index, analyser index, logs mapping, fichiers JSON.
 🧠 Rôle métier
 
 Gère l’index métier enrichi des capteurs power (entity_id → infos détaillées : device, qualité, intégration, mapping, flags métier).
@@ -316,7 +376,27 @@ Vérifier les logs d’enrichissement et mapping sur panel selection/backend
 
 ⸻
 
-3.4 sensor_quality_scorer.py — Scoring qualité & recommandation capteurs
+3.4 sensor_quality_scorer.py — Résumé et accès rapide
+Rôle métier : Scoring qualité, diagnostic sensors, exclusion helpers/statistics pour auto-mapping backend.
+
+Fichier Python : custom_components/home_suivi_elec/sensor_quality_scorer.py
+
+Classe(s) principale(s) : N/A
+
+Fonctions critiques : compute_sensor_score, is_physical_sensor, auto_select_best_sensors, enrich_sensors_with_quality
+
+Services HA : N/A
+
+Endpoints REST : relayé via selection_view
+
+Clés hass.data : N/A direct (index via manage_selection)
+
+Logs/caractéristiques : [SCORE], [HELPER], logs exclusion/doublon
+
+Exemples d’usage : Attribuer score métier, labelliser sensors, choisir automatiquement best mapping.
+
+Pour debuguer : Tester enrich_sensors_with_quality, logs scoring/tags/exclusion helpers.
+
 🧠 Rôle métier
 
 Calcule et attribue un score de qualité (quantitatif et qualitatif) à chaque capteur énergétique détecté.
@@ -390,7 +470,27 @@ Vérifier toute divergence métier en croisant avec integration_quality.yaml.
 
 ⸻
 
-3.5 sensor.py — Enregistrement et suivi entités sensor HSE
+3.5 sensor.py — Résumé et accès rapide
+Rôle métier : Enregistrement/ajout de toutes les entités “sensor” (énergie et power live) dans Home Assistant.
+
+Fichier Python : custom_components/home_suivi_elec/sensor.py
+
+Classe(s) principale(s) : N/A
+
+Fonctions critiques : async_setup_entry
+
+Services HA : N/A
+
+Endpoints REST : N/A
+
+Clés hass.data : energy_sensors, live_power_sensors
+
+Logs/caractéristiques : logs nombre de sensors, warning sensors absents
+
+Exemples d’usage : Ajout complet des sensors HSE (cycles + live) dans la plateforme home assistant.
+
+Pour debuguer : Analyser logs sensor.py, inspecter listes hass.data après setup.
+
 🧠 Rôle métier
 
 Gère l’enregistrement des entités “sensor” HSE dans Home Assistant, représentant cycles d’énergie (kWh) et mesures de puissance live (W).
@@ -460,7 +560,27 @@ Vérifier les logs d’enregistrement pour suivre la séquence (nombre et type d
 Contrôler que les valeurs sont bien actualisées via les cycles (tracking) ou temps réel (power live).
 ⸻
 
-3.6 sensor_quality_scorer.py — Scoring qualité & diagnostic capteurs (récapitulatif IA)
+
+3.6 sensor_quality_scorer.py — Résumé et accès rapide
+Rôle métier : Analyse, scoring et diagnostic métier des capteurs énergétiques ; automatisation de la sélection “best sensor”, exclusion helpers/stats.
+
+Fichier Python : custom_components/home_suivi_elec/sensor_quality_scorer.py
+
+Classe(s) principale(s) : N/A (module fonctionnel)
+
+Fonctions critiques : compute_sensor_score, is_physical_sensor, get_sensor_recommendation_label, auto_select_best_sensors, enrich_sensors_with_quality
+
+Services HA : N/A
+
+Endpoints REST : Relayé via selection_view/panel_selection
+
+Clés hass.data : N/A direct (index/mapping via manage_selection.py)
+
+Logs/caractéristiques : [SCORE], [HELPER], logs exclusion, warning helpers
+
+Exemples d’usage : Scoring métier auto, exclusion helpers pour sélection backend/panel auto.
+
+Pour debuguer : Tester enrich_sensors_with_quality/scores, logs, exclusion, tags, mapping auto vs helpers.
 🧠 Rôle métier
 
 Évalue la qualité de chaque sensor énergétique (reliability, pertinence métier, exclusion helpers).
@@ -544,7 +664,27 @@ Consulter les logs pour détection/exclusion helpers ou tags alternatifs/doublon
 
 ⸻
 
-3.7 generator.py — Génération automatique des dashboards Lovelace & exports YAML
+3.7 generator.py — Résumé et accès rapide
+Rôle métier : Génération automatique des dashboards Lovelace et exports YAML pour les capteurs suivis.
+
+Fichier Python : custom_components/home_suivi_elec/generator.py
+
+Classe(s) principale(s) : N/A
+
+Fonctions critiques : run_all, generate_complete_dashboard, generate_overview_card, write_yaml_file
+
+Services HA : N/A
+
+Endpoints REST : N/A
+
+Clés hass.data : N/A
+
+Logs/caractéristiques : Log initialisation, nombre de sensors générés, warnings sensors manquants
+
+Exemples d’usage : Génération/export d’un dashboard YAML adapté à l’énergie détectée pour insertion Raw Editor.
+
+Pour debuguer : Vérifier run_all, logs dashboard, contenu export YAML généré.
+
 🧠 Rôle métier
 
 Génère automatiquement la configuration Lovelace basée sur l’ensemble des sensors HSE détectés/suivis.
@@ -635,7 +775,27 @@ En cas de sensors manquants, vérifie la chaîne de sélection/tracking/scoring.
 
 ⸻
 
-3.8 helpers/validation.py — Routines de validation et contrôle d’intégrité
+3.8 helpers/validation.py — Résumé et accès rapide
+Rôle métier : Validation centralisée des données et champs critiques (heure, période, float) ; protection des flows/config contre valeurs invalides.
+
+Fichier Python : custom_components/home_suivi_elec/helpers/validation.py
+
+Classe(s) principale(s) : N/A
+
+Fonctions critiques : validate_time, HOUR_PATTERN
+
+Services HA : N/A
+
+Endpoints REST : N/A
+
+Clés hass.data : N/A
+
+Logs/caractéristiques : Exception vol.Invalid, logs erreur validation horaires
+
+Exemples d’usage : Validation format horaire/plage avant création ou update config/option ; filtration flows UI.
+
+Pour debuguer : Appeler validate_time, vérifier logs error/invalid, enrichir règles Voluptuous.
+
 🧠 Rôle métier
 
 Fournit les routines de validation centralisées pour les champs et objets métiers manipulés par le backend (“Home Suivi Élec”).
@@ -700,7 +860,27 @@ Ce module est la “barrière de conformité” pour toutes les données critiqu
 
 ⸻
 
-3.9 energy_analytics.py — Analyse avancée, prédiction et diagnostic énergétique
+3.9 energy_analytics.py — Résumé et accès rapide
+Rôle métier : Analyse avancée de consommation énergétique, détection d’anomalies, prédictions et comparaisons annuelles.
+
+Fichier Python : custom_components/home_suivi_elec/energy_analytics.py
+
+Classe(s) principale(s) : N/A
+
+Fonctions critiques : detect_consumption_anomaly, predict_monthly_consumption, compare_yearly_consumption
+
+Services HA : N/A
+
+Endpoints REST : N/A
+
+Clés hass.data : N/A
+
+Logs/caractéristiques : [ANOMALIE], [PRÉDICTION], [COMPARAISON]
+
+Exemples d’usage : Prédiction mensualisée, détection surconsommation, comparaison inter-annuelle.
+
+Pour debuguer : Lancer fonctions sur historiques, analyser logs diagnostics détaillés.
+
 🧠 Rôle métier
 
 Réalise l’analyse détaillée des consommations énergétiques : détection d’anomalies, prédictions mensuelles, et comparaisons annuelles.
@@ -787,7 +967,27 @@ Corriger le threshold ou la période si besoin pour affiner la détection et pr�
 
 ⸻
 
-3.10 energy_export.py — Export, backup & intégration externe des données énergie
+3.10 energy_export.py — Résumé et accès rapide
+Rôle métier : Export, backup automatisé et intégration externe des données énergie (JSON, CSV, InfluxDB).
+
+Fichier Python : custom_components/home_suivi_elec/energy_export.py
+
+Classe(s) principale(s) : N/A
+
+Fonctions critiques : setup_json_backup, setup_influxdb_export, export_to_csv
+
+Services HA : N/A
+
+Endpoints REST : N/A
+
+Clés hass.data : N/A
+
+Logs/caractéristiques : Log backup JSON, export CSV, export InfluxDB, erreurs backup
+
+Exemples d’usage : Backup quotidien JSON, export CSV manuel, vérification dump InfluxDB.
+
+Pour debuguer : Contrôler structure fichiers/backups, logs backup/export.
+
 🧠 Rôle métier
 
 Automatise le backup quotidien des données énergie en JSON.
@@ -882,7 +1082,28 @@ Inspecter la présence et la configuration de l’intégration InfluxDB dans HA
 
 Examiner les logs pour toute exception ou erreur d’écriture
 
-3.11 panel_selection.py — Initialisation et gestion du panneau UI statique
+3.11 panel_selection.py — Résumé et accès rapide
+Rôle métier : Initialisation automatique du panneau UI sidebar pour configuration et diagnostic métier.
+
+Fichier Python : custom_components/home_suivi_elec/panel_selection.py
+
+Classe(s) principale(s) : N/A
+
+Fonctions critiques : async_setup_panel
+
+Services HA : N/A
+
+Endpoints REST : N/A
+
+Clés hass.data : home_suivi_elec_panel_registered
+
+Logs/caractéristiques : Création panel, absence de fichiers, logs registration
+
+Exemples d’usage : Ajout automatique du panneau Home Suivi Élec dans la sidebar HA.
+
+Pour debuguer : Vérifier présence panel.js/panel.html, logs registration et réparation.
+
+
 🧠 Rôle métier
 
 Met en place le panneau statique “Home Suivi Élec” accessible dans la barre latérale Home Assistant.
@@ -962,7 +1183,27 @@ Contrôler la clé dans hass.data pour éviter double initialisation
 Confirmer la présence du panneau dans la sidebar après boot/reload
 
 
-3.12 sensor_name_fixer.py — Correcteur automatique des noms de sensors HSE
+3.12 sensor_name_fixer.py — Résumé et accès rapide
+Rôle métier : Correction automatique des noms capteurs (entity_id) pour compatibilité HA, suppression doublons.
+
+Fichier Python : custom_components/home_suivi_elec/sensor_name_fixer.py
+
+Classe(s) principale(s) : N/A
+
+Fonctions critiques : async_setup_sensor_name_fixer, async_fix_all_long_sensors, _shorten_entity_name
+
+Services HA : N/A
+
+Endpoints REST : N/A
+
+Clés hass.data : N/A
+
+Logs/caractéristiques : Correction nom, warning hashing, logs correction massive
+
+Exemples d’usage : Raccourcir automatiquement entity_id trop longs sur boot ou demande.
+
+Pour debuguer : Lancer correction massive, vérifier logs, registry de nom.
+
 🧠 Rôle métier
 
 Raccourcit et harmonise automatiquement les noms (entity_id) des sensors HSE créés par l’intégration, pour rester compatible avec Home Assistant (limite stricte de longueur).
@@ -1050,7 +1291,27 @@ Tester la fonction de raccourcissement directement (cas exceptionnel/hash)
 
 
 
-3.13 sensor_sync_manager.py — Gestionnaire de synchronisation automatique des capteurs
+3.13 sensor_sync_manager.py — Résumé et accès rapide
+Rôle métier : Synchronisation automatique (add/remove/update/unavailability) des sensors dans le backend, backup JSON.
+
+Fichier Python : custom_components/home_suivi_elec/sensor_sync_manager.py
+
+Classe(s) principale(s) : SensorSyncManager
+
+Fonctions critiques : get_status, _on_entity_registry_changed, force_sync
+
+Services HA : N/A
+
+Endpoints REST : N/A
+
+Clés hass.data : sync_manager
+
+Logs/caractéristiques : Ajout/suppression sensors, backup, sync périodique, erreur
+
+Exemples d’usage : Sync incrémentale suite à event HA, backup backups JSON avant purge.
+
+Pour debuguer : Inspecter logs sync, status manager, cohérence fichier backups.
+
 🧠 Rôle métier
 
 Gère la synchronisation incrémentale et automatisée des capteurs “sensor” (ajout, suppression, indisponibilité, modification) dans le backend.
@@ -1157,7 +1418,28 @@ Inspecter la présence et la rotation des backups
 
 Utiliser la méthode get_status() pour diagnostic côté API/backend
 
-3.14 power_monitoring.py — Monitoring temps réel de la puissance (W)
+3.14 power_monitoring.py — Résumé et accès rapide
+Rôle métier : Création et mise à jour temps réel des sensors HSE Live pour tracking puissance électrique (W).
+
+Fichier Python : custom_components/home_suivi_elec/power_monitoring.py
+
+Classe(s) principale(s) : LivePowerSensor (SensorEntity)
+
+Fonctions critiques : async_setup_power_monitoring, load_power_sensors, create_live_power_sensors, async_track_state_change_event
+
+Services HA : N/A
+
+Endpoints REST : N/A
+
+Clés hass.data : live_power_sensors
+
+Logs/caractéristiques : Création sensor live, logs update valeur, indisponibilité, logs dashboard
+
+Exemples d’usage : Suivi live puissance via sensors dédiés (hse_live_*), affichage dashboard Lovelace.
+
+Pour debuguer : Vérifier création/mise à jour sensors, logs, dashboard panel.
+
+
 🧠 Rôle métier
 
 Crée et administre les sensors HSE Live pour le suivi instantané de la puissance électrique (W) dans Home Assistant.
@@ -1251,7 +1533,28 @@ Tester les updates temps réel et la gestion des erreurs/value
 Vérifier la structure JSON et la configuration backend (source, nom, device_id, etc.)
 
 
-3.15 debug_json_sets.py — Outils de vérification et diagnostic JSON backend
+3.15 debug_json_sets.py — Résumé et accès rapide
+Rôle métier : Outils de scan et diagnostic des fichiers JSON backend (détection sets non sérialisables).
+
+Fichier Python : custom_components/home_suivi_elec/debug_json_sets.py
+
+Classe(s) principale(s) : N/A
+
+Fonctions critiques : scan_sets, _read_json_file
+
+Services HA : N/A
+
+Endpoints REST : N/A
+
+Clés hass.data : N/A
+
+Logs/caractéristiques : Warning set détecté, logs fichier non conforme, erreur lecture
+
+Exemples d’usage : Scan automatique avant migration, correction des formats de données.
+
+Pour debuguer : Lancer scan_sets, lire logs, corriger structure JSON/dict/set.
+
+
 🧠 Rôle métier
 
 Fournit des outils de debug pour la vérification automatique des structures JSON utilisées dans le backend Home Suivi Élec.
@@ -1315,7 +1618,28 @@ Corriger dans le code source ou le backend métiers toute apparition de set ou t
 Repasser le scan pour confirmer la conformité des fichiers JSON avant update/backup ou migration
 
 
-3.16 const.py — Constantes globales et dictionnaires de configuration
+3.16 const.py — Résumé et accès rapide
+Rôle métier : Centralisation des constantes métier, chemins, options, clés, tarifs et conventions d’intégration.
+
+Fichier Python : custom_components/home_suivi_elec/const.py
+
+Classe(s) principale(s) : N/A
+
+Fonctions critiques : N/A (ensemble de variables)
+
+Services HA : N/A
+
+Endpoints REST : N/A
+
+Clés hass.data : DOMAIN, FICHIER_CAPTEURS, CONF_PRIX_HT, autres clés métiers
+
+Logs/caractéristiques : N/A
+
+Exemples d’usage : Initialisation des valeurs flows/config/option, mapping d’options métier.
+
+Pour debuguer : Vérifier la présence et la valeur des constantes en cas d’erreur de nommage ou de config.
+
+
 🧠 Rôle métier
 
 Centralise toutes les constantes, clés, conventions de nommage et valeurs par défaut utilisées par l’intégration Home Suivi Élec.
@@ -1378,7 +1702,29 @@ Maintenir const.py au centre du cycle métier (ne jamais dupliquer une constante
 
 Corriger ou enrichir via ce fichier toute nouvelle clé métier ou option UI/flow/diagnostic backend
 
-3.17 config_flow.py — Flux de configuration Home Assistant (UI setup, tarifs, options)
+3.17 config_flow.py — Résumé et accès rapide
+Rôle métier : Gestion du flux de configuration UI principal à l’ajout de l’intégration (nom, contrat, tarifs…).
+
+Fichier Python : custom_components/home_suivi_elec/config_flow.py
+
+Classe(s) principale(s) : HomeSuiviElecFlow
+
+Fonctions critiques : async_step_user, async_step_tarifs, async_get_options_flow
+
+Services HA : N/A (flux config HA natif)
+
+Endpoints REST : N/A
+
+Clés hass.data : N/A
+
+Logs/caractéristiques : Création entry, abort doublon, logs validation
+
+Exemples d’usage : Formulaire initial d’installation, mapping options métier, configuration hub.
+
+Pour debuguer : Tester chaque étape, vérifier logs, abort doublon, data entry.
+
+
+
 🧠 Rôle métier
 
 Gère le flux de configuration principal lors de l’ajout/installation de l’intégration “Home Suivi Élec” dans Home Assistant.
@@ -1462,7 +1808,28 @@ Inspecter abort et gestion des doublons à chaque ajout
 
 Lier les modifications à options_flow pour extension métier
 
-3.18 options_flow.py — Options avancées, modification et personnalisation UI
+3.18 options_flow.py — Résumé et accès rapide
+Rôle métier : Flux UI avancé pour modification dynamique options contrat/tarif/config après installation.
+
+Fichier Python : custom_components/home_suivi_elec/options_flow.py
+
+Classe(s) principale(s) : HomeSuiviElecOptionsFlow
+
+Fonctions critiques : async_step_init
+
+Services HA : N/A
+
+Endpoints REST : N/A
+
+Clés hass.data : N/A
+
+Logs/caractéristiques : Modification entry, logs validation, entry créée
+
+Exemples d’usage : Changement de tarif, plage horaire, options backend et UI après installation.
+
+Pour debuguer : Vérifier flux UI, logs création/modification entry, mapping avec const.py.
+
+
 🧠 Rôle métier
 
 Permet à l’utilisateur de modifier les paramètres de l’intégration “Home Suivi Élec” après installation, directement depuis l’UI Home Assistant.
@@ -1539,7 +1906,27 @@ Corriger tout problème de validation ou affichage via Voluptuous/schema
 
 
 
-3.19 proxy_api.py — Proxy API frontend-backend, gestion sécurité et authentification
+3.19 proxy_api.py — Résumé et accès rapide
+Rôle métier : Proxy API sécurisé pour accès frontend (UI/panel) à tous les endpoints backend métiers.
+
+Fichier Python : custom_components/home_suivi_elec/proxy_api.py
+
+Classe(s) principale(s) : SuiviElecProxyView (HomeAssistantView)
+
+Fonctions critiques : post
+
+Services HA : N/A
+
+Endpoints REST : /api/home_suivi_elec/proxy
+
+Clés hass.data : N/A
+
+Logs/caractéristiques : Appel proxy, logs erreur, gestion CORS/auth, endpoint non transmis
+
+Exemples d’usage : Appel centralisé backend via panel frontend, sécurité et log des accès distants.
+
+Pour debuguer : Simuler POST proxy, lire logs, vérifier gestion endpoints/auth/CORS.
+
 🧠 Rôle métier
 
 Fait office de proxy entre les requêtes frontend (UI, panel) et les API backend métiers.
