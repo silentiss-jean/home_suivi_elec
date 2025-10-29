@@ -522,6 +522,8 @@ flowchart TD
     SCORER --> VALIDATION
     TRACKING --> VALIDATION
 
+![Schéma global Backend](diagram-backend.svg)
+
 Cas particuliers (orphelins, purge, archivage)
 
 5. API et endpoints
