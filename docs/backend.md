@@ -324,6 +324,145 @@ flowchart TD
 | `power_monitoring.py` | Module de suivi temps réel : mesure instantanée de la puissance, alertes et analyse rapide. |
 | `detect_local_debug_standalone.py` / `detect_energy.py` | Outils utilitaires de test et de débogage : permettent d’exécuter la détection locale hors du contexte Home Assistant. |
 
+## 🔗 Table de correspondance Besoin métier / Service / API / Module / Fichier
+
+| Besoin métier                         | Service HA / Action           | Module (Fichier)                  | Endpoint REST                           |
+|---------------------------------------|-------------------------------|------------------------------------|-----------------------------------------|
+| Détection des capteurs                | run_detect_local              | detect_local.py                    | /api/home_suivi_elec/detect             |
+| Sélection & mapping                   | generate_selection, update_selection, reset_selection | manage_selection.py         | /api/home_suivi_elec/selection          |
+| Gestion des vues sélection            | selection_view, auto_select   | manage_selection_views.py           | /api/home_suivi_elec/selection_view     |
+| Scoring qualité capteurs              | score_sensors                 | sensor_quality_scorer.py            | /api/home_suivi_elec/score              |
+| Suivi énergétique                     | track_energy, sync_tracker    | energy_tracking.py                  | /api/home_suivi_elec/track              |
+| Analyse avancée (diagnostic/prédiction)| analytics_run, compare_years  | energy_analytics.py                 | /api/home_suivi_elec/analytics          |
+| Export, backup énergétique            | export_energy, backup_energy  | energy_export.py                    | /api/home_suivi_elec/export             |
+| Génération Lovelace/dashboard         | generate_dashboard, export_lovelace | generator.py                  | /api/home_suivi_elec/generate           |
+| Gestion entités sensors HSE           | create_sensor, update_sensor, delete_sensor | sensor.py                  | /api/home_suivi_elec/sensor             |
+| Validation & diagnostic backend       | validate_data, diagnostic_run | helpers/validation.py               | /api/home_suivi_elec/validate           |
+| Migration & nettoyage backend         | migration_cleanup             | migration_cleanup.py                | /api/home_suivi_elec/cleanup            |
+| Debug sets & parsing JSON             | scan_sets, debug_json         | debug_json_sets.py                  | /api/home_suivi_elec/debug_sets         |
+| Correction nom capteur                | fix_sensor_names              | sensor_name_fixer.py                | /api/home_suivi_elec/fix_names          |
+| Panel UI, gestion sélection           | panel_selection               | panel_selection.py                  | /api/home_suivi_elec/panel_selection    |
+| Synchronisation backend               | sync_sensors                  | sensor_sync_manager.py              | /api/home_suivi_elec/sync               |
+| Monitor & analyse power temps réel    | monitor_power, real_time      | power_monitoring.py                 | /api/home_suivi_elec/power_monitor      |
+| Proxy API (sécurité, accès externe)   | proxy_api                     | proxy_api.py                        | /api/home_suivi_elec/proxy              |
+
+## 🗄️ Table de mapping hass.data : clés, objets et modules
+
+| Clé dans hass.data                 | Objet stocké / Description                         | Source/Module associé           |
+|------------------------------------|----------------------------------------------------|---------------------------------|
+| DATA_HSE_MANAGER                   | Instance manager global HSE, cœur de l’intégration | __init__.py, manage_selection.py|
+| DATA_DETECTED_DEVICES              | Liste des devices/capteurs détectés                | detect_local.py                 |
+| DATA_SELECTED_SENSORS              | Liste des capteurs sélectionnés                    | manage_selection.py             |
+| DATA_TRACKERS                      | Objets trackers énergétiques (par périodicité)     | energy_tracking.py              |
+| DATA_SCORE_CACHE                   | Cache des scores qualité pour chaque capteur       | sensor_quality_scorer.py        |
+| DATA_ANALYTICS_RESULTS             | Stockage analyses avancées et diagnostics          | energy_analytics.py             |
+| DATA_BACKUP                        | Données backup/export énergétique                  | energy_export.py                |
+| DATA_PANEL_SELECTION               | État et historique sélection côté panel UI         | panel_selection.py              |
+| DATA_SYNC_MANAGER                  | Statut synchronisation sensors/entities            | sensor_sync_manager.py          |
+| DATA_MIGRATION_STATUS              | Statut et logs de migration/cleanup                | migration_cleanup.py            |
+| DATA_JSON_SETS_DEBUG               | Sets JSON en debug, logs parsing                   | debug_json_sets.py              |
+| DATA_FIX_NAMES_LOGS                | Logs et corrections noms capteurs                  | sensor_name_fixer.py            |
+| DATA_CONST                         | Constantes globales partagées                      | const.py                        |
+| DATA_OPTIONS                       | Options utilisateur/config avancée                 | config_flow.py, options_flow.py |
+| DATA_POWER_MONITOR                 | Statut monitoring power temps réel                 | power_monitoring.py             |
+| DATA_PROXY_API_STATUS              | Statut proxy backend, endpoints externes           | proxy_api.py                    |
+
+![Schéma global Backend](Service_API_Module_hass_data.svg)
+
+flowchart TD
+
+    subgraph Services/API
+      SDetect["run_detect_local\n/api/detect"]
+      SSelect["generate_selection\n/api/selection"]
+      SScore["score_sensors\n/api/score"]
+      STrack["track_energy\n/api/track"]
+      SAnalytics["analytics_run\n/api/analytics"]
+      SExport["export_energy\n/api/export"]
+      SPanel["panel_selection\n/api/panel_selection"]
+      SSync["sync_sensors\n/api/sync"]
+      SMigrate["migration_cleanup\n/api/cleanup"]
+      SDebug["scan_sets\n/api/debug_sets"]
+      SFix["fix_sensor_names\n/api/fix_names"]
+      SPowerMonitor["monitor_power\n/api/power_monitor"]
+      SProxy["proxy_api\n/api/proxy"]
+    end
+
+    subgraph Modules Backend
+      Detect[detect_local.py]
+      Select[manage_selection.py]
+      Views[manage_selection_views.py]
+      Score[sensor_quality_scorer.py]
+      Track[energy_tracking.py]
+      Analytics[energy_analytics.py]
+      Export[energy_export.py]
+      Gen[generator.py]
+      Sensor[sensor.py]
+      Panel[panel_selection.py]
+      Sync[sensor_sync_manager.py]
+      Migrate[migration_cleanup.py]
+      Debug[debug_json_sets.py]
+      Fix[sensor_name_fixer.py]
+      PM["power_monitoring.py"]
+      Proxy[proxy_api.py]
+      Const[const.py]
+      Options["config_flow.py\noptions_flow.py"]
+    end
+
+    subgraph hass.data
+      DManager[DATA_HSE_MANAGER]
+      DDevices[DATA_DETECTED_DEVICES]
+      DSelected[DATA_SELECTED_SENSORS]
+      DTrackers[DATA_TRACKERS]
+      DScore[DATA_SCORE_CACHE]
+      DAnalytics[DATA_ANALYTICS_RESULTS]
+      DBackup[DATA_BACKUP]
+      DPanel[DATA_PANEL_SELECTION]
+      DSync[DATA_SYNC_MANAGER]
+      DMigrate[DATA_MIGRATION_STATUS]
+      DDebug[DATA_JSON_SETS_DEBUG]
+      DFix[DATA_FIX_NAMES_LOGS]
+      DConst[DATA_CONST]
+      DOptions[DATA_OPTIONS]
+      DPower[DATA_POWER_MONITOR]
+      DProxy[DATA_PROXY_API_STATUS]
+    end
+
+    %% Services vers Modules
+    SDetect --> Detect
+    SSelect --> Select
+    SScore --> Score
+    STrack --> Track
+    SAnalytics --> Analytics
+    SExport --> Export
+    SPanel --> Panel
+    SSync --> Sync
+    SMigrate --> Migrate
+    SDebug --> Debug
+    SFix --> Fix
+    SPowerMonitor --> PM
+    SProxy --> Proxy
+
+    %% Modules vers hass.data
+    Detect --> DDevices
+    Select --> DSelected
+    Track --> DTrackers
+    Score --> DScore
+    Analytics --> DAnalytics
+    Export --> DBackup
+    Panel --> DPanel
+    Sync --> DSync
+    Migrate --> DMigrate
+    Debug --> DDebug
+    Fix --> DFix
+    Gen --> DSelected
+    Sensor --> DSelected
+    Const --> DConst
+    Options --> DOptions
+    PM --> DPower
+    Proxy --> DProxy
+    Views --> DPanel
+
+
 6. API et endpoints
 	•	📡 Liste complète des endpoints REST exposés
 	•	⚙️ Paramètres, payloads et exemples d’usage
@@ -354,4 +493,5 @@ flowchart TD
 10. Ressources associées
 	•	Liens vers chaque fichier source
 	•	Diagrammes techniques et documentation complémentaire
+
 
