@@ -269,6 +269,9 @@ E --> H[detect_local.py, manage_selection.py, etc.]
 </div>
 
 ---
+section “🔎 
+Navigation debug/IA” : docs/scripts/home_suivi_elec_backend_navigation.py 
+Un utilitaire CLI/AI de navigation backend est disponible dans docs/scripts/cli_backend_nav.py
 
 _Fait pour la **stabilité**, la **performance**… et le **fun** 🧑‍💻⚡._
 

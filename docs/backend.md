@@ -1,5 +1,39 @@
 🧠 Documentation du Backend – home_suivi_elec
 
+> **Navigation IA & Debug automatisé**
+>
+> Un script de navigation Python (`home_suivi_elec_backend_navigation.py`) est disponible dans [docs/scripts/] pour permettre à une IA, un agent CLI, ou à un dev de mapper instantanément chaque besoin métier, bug ou point d’entrée vers la bonne section de la documentation et le bon fichier backend.
+>
+> Utilisation type :  
+> - Recherche rapide de la fonction/fichier à partir d’un bug, d’un log ou d’un besoin métier  
+> - Automatisation du crawling debug ou des suggestions d’analyse par un agent AI  
+> - Génération d’outils CLI/docs/outils test/maintenance automatique  
+> 
+> Voir l’index ci-dessous et le script pour usage avancé.
+
+## 🗂️ Index recherche rapide
+
+| Besoin Métier / Fonction | Section | Fichier (chemin) |
+|-------------------------|---------|------------------|
+| Orchestration backend   | 3.1     | custom_components/home_suivi_elec/__init__.py |
+| Détection capteurs      | 3.2     | custom_components/home_suivi_elec/detect_local.py |
+| Sélection/mapping       | 3.3     | custom_components/home_suivi_elec/manage_selection.py |
+| Scoring qualité         | 3.4     | custom_components/home_suivi_elec/sensor_quality_scorer.py |
+| Création sensors HSE    | 3.5     | custom_components/home_suivi_elec/sensor.py |
+| Génération Lovelace/YAML| 3.7     | custom_components/home_suivi_elec/generator.py |
+| Analytics énergétique   | 3.9     | custom_components/home_suivi_elec/energy_analytics.py |
+| Export/backup énergie   | 3.10    | custom_components/home_suivi_elec/energy_export.py |
+| Panel UI (sidebar)      | 3.11    | custom_components/home_suivi_elec/panel_selection.py |
+| Correction noms sensors | 3.12    | custom_components/home_suivi_elec/sensor_name_fixer.py |
+| Synchronisation sensors | 3.13    | custom_components/home_suivi_elec/sensor_sync_manager.py |
+| Monitoring puissance    | 3.14    | custom_components/home_suivi_elec/power_monitoring.py |
+| Debug JSON backend      | 3.15    | custom_components/home_suivi_elec/debug_json_sets.py |
+| Constantes globales     | 3.16    | custom_components/home_suivi_elec/const.py |
+| Config UI initiale      | 3.17    | custom_components/home_suivi_elec/config_flow.py |
+| Options UI avancées     | 3.18    | custom_components/home_suivi_elec/options_flow.py |
+| Proxy API frontend      | 3.19    | custom_components/home_suivi_elec/proxy_api.py |
+
+
 ⸻
 
 1. Introduction générale
