@@ -1,4 +1,4 @@
-🧠 Documentation du Backend – home_suivi_elec
+**🧠 Rôle métier** Documentation du Backend – home_suivi_elec
 
 > **Navigation IA & Debug automatisé**
 >
@@ -81,7 +81,7 @@ Le backend de home_suivi_elec vise à :
 	•	Calcul de scores qualité
 	•	Détection et gestion des doublons, capteurs orphelins, anomalies
 
-🔗 Autres fonctionnalités
+**🔗 Interactions et dépendances** Autres fonctionnalités
 	•	Synchronisation avec les entités natives Home Assistant (utility_meter)
 	•	Exposition d’API backend pour piloter toutes les actions
 	•	Automatisation de la génération de dashboards et exports
@@ -128,7 +128,7 @@ Exemples d’usage : Setup automatique après démarrage HA, orchestration des m
 
 Pour debuguer : Vérifier état des services HA, endpoints REST, analyse hass.data, logs setup global.
 
-🧠 Rôle central  
+**🧠 Rôle métier** Rôle central  
 
 - Point d’entrée du backend : initialise tous les modules et listeners, enregistre les services HA et endpoints REST.  
 
@@ -136,7 +136,7 @@ Pour debuguer : Vérifier état des services HA, endpoints REST, analyse hass.da
 
 - Inscription du panel UI personnalisé dans la sidebar (via frontend.async_register_built_in_panel).
 
-⚙️ Fonctionnement technique
+**⚙️ Fonctionnement technique** Fonctionnement technique
 
 - Setup différé asynchrone après démarrage Home Assistant (event listener EVENT_HOMEASSISTANT_STARTED).
 
@@ -161,19 +161,19 @@ Pour debuguer : Vérifier état des services HA, endpoints REST, analyse hass.da
 - Stockage structuré dans hass.data :
     • `hass.data[DOMAIN][“energy_sensors”]`, `sync_manager`, `options`, etc.
 
-🔗 Interactions et dépendances
+**🔗 Interactions et dépendances** Interactions et dépendances
 
 - Importe et lance : detect_local.py, generator.py, manage_selection.py, manage_selection_views.py, panel_selection.py, energy_tracking.py, migration_cleanup.py, sensor_sync_manager.py, power_monitoring.py, sensor_name_fixer.py, proxy_api.py…
 
 - Déclenche les flows UI : config_flow.py, options_flow.py.
 
-🔄 Cycle de vie
+**🔄 Cycle de vie** Cycle de vie
 
 - Boot / reload → setup complet backend, initialisation/hydratation hass.data, fallback, listeners.
 
 - Unload → suppression, nettoyage backend, reset des listeners/services.
 
-🧪 Exemple
+**🧪 Exemple(s)** Exemple
 
 - Démarrage de HA → __init__.py enregistre services, configure panel, détecte et sélectionne les capteurs, configure tracking, expose endpoints API REST et lance diagnostics asynchrones.
 
@@ -222,7 +222,7 @@ Exemples d’usage : Scan complet des capteurs lors du boot, enrichissement et p
 
 Pour debuguer : Vérifier mapping JSON, logs détection, état hass.data et exclusions.
 
-🧠 Rôle métier
+**🧠 Rôle métier** Rôle métier
 
 Détecte automatiquement tous les capteurs “energy” et “power” présents dans l’instance Home Assistant, via analyse du registre d’entités, du registre de devices et des plateformes d’intégration.
 
@@ -232,7 +232,7 @@ Enrichit chaque capteur avec des métadonnées détaillées : plateforme déclar
 
 Annote et gère la déduplication par signature physique pour éviter les doublons.
 
-⚙️ Fonctionnement technique
+**⚙️ Fonctionnement technique** Fonctionnement technique
 
 Fichier central pour la collecte et classification des sensors energy/power, exécute des groupements multi-intégration, et propose un mapping optimisé pour la suite du backend (sélection, scoring, tracking).
 
@@ -244,7 +244,7 @@ Exporte tous les résultats dans un fichier JSON (_CAPTEURS_FILE) utilisé par l
 
 Version 2.10+ : détection multi-intégration complète, tagging enrichi pour UI/groupement, détection approfondie des plateformes pour chaque device physique.
 
-🔗 Interactions et dépendances
+**🔗 Interactions et dépendances** Interactions et dépendances
 
 Exécuté et appelé via le service HA run_detect_local depuis init.py.
 
@@ -254,7 +254,7 @@ Utilise les helpers/validation pour le contrôle de fiabilité et exclusion mét
 
 Écrit les capteurs détectés dans hass.data et sur disque pour diagnostic/audit.
 
-🔄 Cycle de vie
+**🔄 Cycle de vie** Cycle de vie
 
 À chaque scan/démarrage ou sur demande (service HA/API), relance la détection et l’annotation de tous les capteurs.
 
@@ -262,11 +262,11 @@ Gère l’ajout/suppression/mise à jour des capteurs selon leur disponibilité,
 
 Maintient la cohérence du mapping sur le backend (mise à jour du fichier JSON et état hass.data).
 
-🧪 Exemple
+**🧪 Exemple(s)** Exemple
 
 Démarrage ou service HA run_detect_local : détecte physiquement tous les capteurs energy/power, enrichit leurs métadonnées, annote les doublons, priorise et stocke pour la suite des flows backend.
 
-Debug & Repérage rapide (IA) :
+**Debug & Repérage rapide (IA)** rapide (IA) :
 
 Principales fonctions métier :
 
@@ -325,7 +325,8 @@ Logs/caractéristiques : logs enrichissement, mapping, warnings fichiers absents
 Exemples d’usage : Génération index métier pour sélection et panel, mapping enrichi, export JSON/YAML sélection.
 
 Pour debuguer : Utiliser async_get_capteurs_index, analyser index, logs mapping, fichiers JSON.
-🧠 Rôle métier
+
+**🧠 Rôle métier** Rôle métier
 
 Gère l’index métier enrichi des capteurs power (entity_id → infos détaillées : device, qualité, intégration, mapping, flags métier).
 
@@ -335,7 +336,7 @@ Permet l’enrichissement (tags, scoring, qualité intégration via fichier YAML
 
 Exporte la sélection finale et tous les mappings vers le backend, la UI, et les autres modules métiers.
 
-⚙️ Fonctionnement technique
+**⚙️ Fonctionnement technique** Fonctionnement technique
 
 Stocke l’index _CAPTEURS_INDEX (entity_id → dict enrichi) en RAM + hass.data.
 
@@ -347,7 +348,7 @@ Expose des fonctions utilitaires (async_get_capteurs_index) pour la récup et di
 
 Gère la classification premium/référence, tags d’exclusion ou d’alternative, flags mapping optimal.
 
-🔗 Interactions et dépendances
+**🔗 Interactions et dépendances** Interactions et dépendances
 
 Récupère en entrée le mapping capteurs depuis detect_local.py (via JSON/RAM).
 
@@ -357,17 +358,17 @@ Enregistrement des vues REST et APIs (via manage_selection_views.py, async_setup
 
 Échange avec user_config, options, qualité intégration.
 
-🔄 Cycle de vie
+**🔄 Cycle de vie** Cycle de vie
 
 Chargé à chaque scan/démarrage ou reload, met à jour l’index et la sélection active.
 
 Structure en RAM et sur disque, exposée via API et diagnostic.
 
-🧪 Exemple
+**🧪 Exemple(s)** Exemple
 
 Un device power, plusieurs capteurs (physiques/virtuels/helpers), manage_selection.py en fait l’index, tague le capteur optimal/référence, enrichit les métadonnées, expose la sélection pour la UI et le backend.
 
-Debug & Repérage rapide (IA) :
+**Debug & Repérage rapide (IA)** rapide (IA) :
 
 Classe principale : (organisation fonctionnelle, index RAM : _CAPTEURS_INDEX)
 
@@ -433,7 +434,7 @@ Exemples d’usage : Attribuer score métier, labelliser sensors, choisir automa
 
 Pour debuguer : Tester enrich_sensors_with_quality, logs scoring/tags/exclusion helpers.
 
-🧠 Rôle métier
+**🧠 Rôle métier** Rôle métier
 
 Calcule et attribue un score de qualité (quantitatif et qualitatif) à chaque capteur énergétique détecté.
 
@@ -443,7 +444,7 @@ Permet de classifier et diagnostiquer la pertinence métier de chaque sensor (EX
 
 Alimente la logique auto-sélection pour les flows backend (sélection, mapping, diagnostics).
 
-⚙️ Fonctionnement technique
+**⚙️ Fonctionnement technique** Fonctionnement technique
 
 Exclusion stricte des helpers/aggrégateurs (min_max, statistics, template, utility_meter, integration, etc.) pour les calculs de coût et scoring automatique.
 
@@ -453,7 +454,7 @@ Méthodes de diagnostic et enrichissement : get_sensor_recommendation_label(scor
 
 Logique de sélection automatisée : auto_select_best_sensors(sensors) — par device_id, sépare orphelins et helpers exclus.
 
-🔗 Interactions et dépendances
+**🔗 Interactions et dépendances** Interactions et dépendances
 
 Invocable via manage_selection.py, panel_selection.py, flows backend (auto-mapping et export diagnostics).
 
@@ -461,19 +462,19 @@ Exposé via API backend, diagnostics, panel Lovelace.
 
 Interagit avec les JSON/YAML métier pour l’intégration et scoring (“integration_quality”, “user_config”).
 
-🔄 Cycle de vie
+**🔄 Cycle de vie** Cycle de vie
 
 À chaque scan/reload/demande, enrichit l’ensemble des capteurs détectés ou sélectionnés avec scores, recommandations, diagnostics.
 
 Structure enrichie exposée côté panel et diagnostic.
 
-🧪 Exemple
+**🧪 Exemple(s)** Exemple
 
 Un capteur TP-Link energy physique reçoit score maximal, labellisé EXCELLENT. Un helper min_max ou template reçoit score réduit (<50), labellisé “Pour statistiques uniquement”.
 
 La sélection backend privilégie les capteurs physiques et tague les autres comme non-recommandés/statistiques.
 
-Debug & Repérage rapide (IA) :
+**Debug & Repérage rapide (IA)** rapide (IA) :
 
 Fonctions critiques :
 
@@ -525,7 +526,7 @@ Exemples d’usage : Ajout complet des sensors HSE (cycles + live) dans la plate
 
 Pour debuguer : Analyser logs sensor.py, inspecter listes hass.data après setup.
 
-🧠 Rôle métier
+**🧠 Rôle métier** Rôle métier
 
 Gère l’enregistrement des entités “sensor” HSE dans Home Assistant, représentant cycles d’énergie (kWh) et mesures de puissance live (W).
 
@@ -533,7 +534,7 @@ Fusionne les listes de sensors d’énergie (hourly, daily, weekly, monthly, yea
 
 Assure que tous les sensors sélectionnés/back-end (tracking et power live) sont exposés côté UI et utilisables sur le dashboard Lovelace ou toute automatisation.
 
-⚙️ Fonctionnement technique
+**⚙️ Fonctionnement technique** Fonctionnement technique
 
 Fonction centrale : async_setup_entry(hass, entry, async_add_entities)
 
@@ -547,7 +548,7 @@ Log chaque enregistrement avec le nombre de sensors énergie et power live.
 
 Émet un warning si aucun sensor n’est disponible à l’enregistrement.
 
-🔗 Interactions et dépendances
+**🔗 Interactions et dépendances** Interactions et dépendances
 
 Appelé automatiquement par __init__.py lors du setup “sensor” de l’intégration.
 
@@ -555,17 +556,17 @@ Dépend des flows d’initialisation et mapping : lists construites par energy_t
 
 Expose les sensors “hse_*” pour Lovelace, UI, automatisations et export backend.
 
-🔄 Cycle de vie
+**🔄 Cycle de vie** Cycle de vie
 
 À chaque entrée/configuration/reload : mise à jour complète des sensors exposés dans Home Assistant.
 
 S’assure que tout changement côté backend ou mapping (ajout/suppression d’un sensor ou device) est reflété dans la plateforme sensor.
 
-🧪 Exemple
+**🧪 Exemple(s)** Exemple
 
 Sur un setup HSE, plusieurs sensors d’énergie (daily, monthly) et de puissance live sont listés en RAM, réunis et ajoutés d’un seul bloc côté Home Assistant.
 
-Debug & Repérage rapide (IA) :
+**Debug & Repérage rapide (IA)** rapide (IA) :
 
 Fonction principale : async_setup_entry
 
@@ -613,7 +614,8 @@ Logs/caractéristiques : [SCORE], [HELPER], logs exclusion, warning helpers
 Exemples d’usage : Scoring métier auto, exclusion helpers pour sélection backend/panel auto.
 
 Pour debuguer : Tester enrich_sensors_with_quality/scores, logs, exclusion, tags, mapping auto vs helpers.
-🧠 Rôle métier
+
+**🧠 Rôle métier** Rôle métier
 
 Évalue la qualité de chaque sensor énergétique (reliability, pertinence métier, exclusion helpers).
 
@@ -623,7 +625,7 @@ Diagnostique et distingue sensors physiques (priorité), virtuels, et helpers/st
 
 Pilote la recommandation métier pour auto-sélection, panel UI et diagnostics internes.
 
-⚙️ Fonctionnement technique
+**⚙️ Fonctionnement technique** Fonctionnement technique
 
 Fonction centrale : compute_sensor_score(sensor) (pondère multiple critères métiers, type, intégration, fiabilité).
 
@@ -641,7 +643,7 @@ auto_select_best_sensors (choix optimal et exclusion helpers/doublons)
 
 Utilisation d’une constante d’exclusions pour helpers/aggrégateurs (min_max, utility_meter, integration, etc.).
 
-🔗 Interactions et dépendances
+**🔗 Interactions et dépendances** Interactions et dépendances
 
 Invocable depuis manage_selection.py, flows backend, panel_selection, UI Lovelace.
 
@@ -649,19 +651,19 @@ Mise à jour des diagnostics, scoring et recommandations côté panel admin, API
 
 Référence les fichiers/metas métier (mapping, YAML, JSON).
 
-🔄 Cycle de vie
+**🔄 Cycle de vie** Cycle de vie
 
 Scoring et tagging à chaque scan, reload ou demande API/service HA.
 
 Label, diagnostic et “star-rating” mis à jour et exposés dans la UI backend + Lovelace.
 
-🧪 Exemple
+**🧪 Exemple(s)** Exemple
 
 Physique TP-Link : score >95, “EXCELLENT”, exclusif pour mapping > dashboard.
 
 Helper/statistics : score <50, “À ignorer sauf pour stats”, exclus du tracking auto.
 
-Debug & Repérage rapide (IA) :
+**Debug & Repérage rapide (IA)** rapide (IA) :
 
 Points d’entrée critiques :
 
@@ -715,7 +717,7 @@ Exemples d’usage : Génération/export d’un dashboard YAML adapté à l’é
 
 Pour debuguer : Vérifier run_all, logs dashboard, contenu export YAML généré.
 
-🧠 Rôle métier
+**🧠 Rôle métier** Rôle métier
 
 Génère automatiquement la configuration Lovelace basée sur l’ensemble des sensors HSE détectés/suivis.
 
@@ -723,7 +725,7 @@ Propose une vue d’ensemble : top 10 consommateurs, graphiques historiques, d
 
 Permet la génération/export asynchrone d’un dashboard YAML prêt à l’intégration (via l’UI ou en mode Raw Editor/YAML).
 
-⚙️ Fonctionnement technique
+**⚙️ Fonctionnement technique** Fonctionnement technique
 
 Fonctions de génération vues/caractéristiques :
 
@@ -745,7 +747,7 @@ Exporte en YAML via generate_yaml_config(capteurs) et write_yaml_file(filename, 
 
 Point d’entrée principal : async def run_all(hass, options) qui orchestre la génération complète (dashboard + YAML).
 
-🔗 Interactions et dépendances
+**🔗 Interactions et dépendances** Interactions et dépendances
 
 Utilisé après sélection et scoring : consomme la liste des sensors issus manage_selection, tracking, scoring.
 
@@ -753,13 +755,13 @@ Utilisé après sélection et scoring : consomme la liste des sensors issus ma
 
 Les dashboards et vues générées sont prêtes à intégrer dans l’UI Lovelace (Home Assistant) ou à personnaliser.
 
-🔄 Cycle de vie
+**🔄 Cycle de vie** Cycle de vie
 
 À chaque demande/scan/refresh, met à jour l’ensemble des vues et exports en fonction des sensors détectés.
 
 Warning si aucun sensor HSE détecté, log complet sur la génération.
 
-🧪 Exemple
+**🧪 Exemple(s)** Exemple
 
 Un appel à run_all(hass, options) génère :
 
@@ -769,7 +771,7 @@ Export YAML auto-documenté prêt à être copié/collé dans l’UI ou le fichi
 
 Log détaillé du nombre de sensors inclus et des vues générées
 
-Debug & Repérage rapide (IA) :
+**Debug & Repérage rapide (IA)** rapide (IA) :
 
 Fonctions clés :
 
@@ -825,13 +827,13 @@ Exemples d’usage : Validation format horaire/plage avant création ou update c
 
 Pour debuguer : Appeler validate_time, vérifier logs error/invalid, enrichir règles Voluptuous.
 
-🧠 Rôle métier
+**🧠 Rôle métier** Rôle métier
 
 Fournit les routines de validation centralisées pour les champs et objets métiers manipulés par le backend (“Home Suivi Élec”).
 
 Garantit l’intégrité et la conformité des données avant stockage, exposition panel, ou exploitation backend.
 
-⚙️ Fonctionnement technique
+**⚙️ Fonctionnement technique** Fonctionnement technique
 
 Utilisation de schémas Voluptuous (import vol) pour valider les formats et types utilisés dans la configuration ou les flows backend.
 
@@ -843,25 +845,25 @@ Fonction principale : validate_time(value: str) -> str
 → Vérifie toute chaîne passée au backend (définition horaire, période de consommation…)
 → Lève une exception Voluptuous si le format n’est pas valide vol.Invalid
 
-🔗 Interactions et dépendances
+**🔗 Interactions et dépendances** Interactions et dépendances
 
 Appelée dans les flows de config et d’options (config_flow.py, options_flow.py), pour sécuriser la saisie utilisateur et éviter les erreurs de structuration.
 
 Utilisée par les modules métiers pour validation horaire ou champs critiques (tracking, export, analytics).
 
-🔄 Cycle de vie
+**🔄 Cycle de vie** Cycle de vie
 
 Appel systématique pour tout champ critique devant être validé avant sauvegarde/export/back-end.
 
 Produit logs/erreurs pour toute saisie non valide.
 
-🧪 Exemple
+**🧪 Exemple(s)** Exemple
 
 Un utilisateur renseigne “18:30” comme période de déclenchement : validate_time("18:30") accepte la valeur.
 
 Une saisie incorrecte “27:99” : exception Voluptuous levée, le backend rejette, loge et prévient côté UI/panel.
 
-Debug & Repérage rapide (IA) :
+**Debug & Repérage rapide (IA)** rapide (IA) :
 
 Fonctions clés :
 
@@ -909,7 +911,7 @@ Exemples d’usage : Prédiction mensualisée, détection surconsommation, compa
 
 Pour debuguer : Lancer fonctions sur historiques, analyser logs diagnostics détaillés.
 
-🧠 Rôle métier
+**🧠 Rôle métier** Rôle métier
 
 Réalise l’analyse détaillée des consommations énergétiques : détection d’anomalies, prédictions mensuelles, et comparaisons annuelles.
 
@@ -917,7 +919,7 @@ Détection automatique des consommations anormales par calcul statistique sur l�
 
 Génère des prédictions mensuelles (sur la base de l’historique journalier) et des comparaisons intelligentes avec les années précédentes.
 
-⚙️ Fonctionnement technique
+**⚙️ Fonctionnement technique** Fonctionnement technique
 
 Détection d’anomalies :
 
@@ -945,7 +947,7 @@ Compare consommation actuelle à celle de l’année précédente à même date
 
 Retourne info détaillée (différence, pourcentage, tendance, message business)
 
-🔗 Interactions et dépendances
+**🔗 Interactions et dépendances** Interactions et dépendances
 
 Utilise le module Home Assistant recorder/history pour accéder aux historiques des sensors.
 
@@ -953,13 +955,13 @@ Consommé par le panel selection, la UI backend, les exports analytics, ou les r
 
 Appel asynchrone via service HA, API ou integration directe backend.
 
-🔄 Cycle de vie
+**🔄 Cycle de vie** Cycle de vie
 
 Appelé à chaque demande/refresh/back-end ou panel pour génération d’analyse sur demande.
 
 Génère logs, diagnostics et messages métier pour visualisation UI et panel admin.
 
-🧪 Exemple
+**🧪 Exemple(s)** Exemple
 
 detect_consumption_anomaly(hass, "sensor.energy_daily") -> signale s’il y a surconsommation ce jour vs historique.
 
@@ -967,7 +969,7 @@ predict_monthly_consumption(hass, "sensor.energy_daily") -> prédit la facture e
 
 compare_yearly_consumption(hass, "sensor.energy_yearly") -> compare l’évolution de la consommation sur 2 ans.
 
-Debug & Repérage rapide (IA) :
+**Debug & Repérage rapide (IA)** rapide (IA) :
 
 Fonctions clés :
 
@@ -1015,7 +1017,7 @@ Exemples d’usage : Backup quotidien JSON, export CSV manuel, vérification dum
 
 Pour debuguer : Contrôler structure fichiers/backups, logs backup/export.
 
-🧠 Rôle métier
+**🧠 Rôle métier** Rôle métier
 
 Automatise le backup quotidien des données énergie en JSON.
 
@@ -1023,7 +1025,7 @@ Permet l’export au format CSV à la demande (pour audit, analyse ou import ext
 
 Intègre nativement l’export vers InfluxDB si l’intégration Home Assistant est activée.
 
-⚙️ Fonctionnement technique
+**⚙️ Fonctionnement technique** Fonctionnement technique
 
 Backup JSON :
 
@@ -1049,7 +1051,7 @@ Fonction principale : async def export_to_csv(hass, sensor_ids, output_file)
 
 Retourne True/False selon succès, logge le résultat
 
-🔗 Interactions et dépendances
+**🔗 Interactions et dépendances** Interactions et dépendances
 
 Appelé par init.py lors du setup, et utilisable à la demande ou via service HA/API.
 
@@ -1057,7 +1059,7 @@ Peut être couplé aux routines d’export ou de diagnostic du panel, ou utilis�
 
 Affecte le backup, la maintenance, l’audit qualité pour la version métier et partenaire.
 
-🔄 Cycle de vie
+**🔄 Cycle de vie** Cycle de vie
 
 Backup JSON planifié tous les jours.
 
@@ -1065,7 +1067,7 @@ Export InfluxDB activé automatiquement si disponible et configurable.
 
 Export CSV sur demande ou dans la maintenance/audit.
 
-🧪 Exemple
+**🧪 Exemple(s)** Exemple
 
 Lancement auto à 00h05 → backup du jour (home_suivi_elec_energy_backup.json)
 
@@ -1073,7 +1075,7 @@ Export CSV depuis backend : valeurs d’un sous-ensemble de sensors énergie.
 
 InfluxDB gère les exports nativement, mais le module logge et peut servir pour traitements custom.
 
-Debug & Repérage rapide (IA) :
+**Debug & Repérage rapide (IA)** rapide (IA) :
 
 Fonctions clés :
 
@@ -1129,7 +1131,7 @@ Exemples d’usage : Ajout automatique du panneau Home Suivi Élec dans la sideb
 
 Pour debuguer : Vérifier présence panel.js/panel.html, logs registration et réparation.
 
-🧠 Rôle métier
+**🧠 Rôle métier** Rôle métier
 
 Met en place le panneau statique “Home Suivi Élec” accessible dans la barre latérale Home Assistant.
 
@@ -1137,7 +1139,7 @@ Gère la configuration, la création et l’enregistrement automatique des fichi
 
 Permet l’accès à la configuration avancée, sélection, visualisation et diagnostic métier du backend via une interface dédiée.
 
-⚙️ Fonctionnement technique
+**⚙️ Fonctionnement technique** Fonctionnement technique
 
 Fonction principale : async_setup_panel(hass: HomeAssistant)
 
@@ -1153,7 +1155,7 @@ Utilise une iframe pointant vers /home_suivi_elec/panel.html avec icône dédié
 
 Stocke l’état d’enregistrement du panneau dans hass.data["home_suivi_elec_panel_registered"] pour éviter double setup.
 
-🔗 Interactions et dépendances
+**🔗 Interactions et dépendances** Interactions et dépendances
 
 Appelé par init.py lors du boot initial ou du reload backend.
 
@@ -1161,13 +1163,13 @@ Dépend du code statique frontend : panel.js et panel.html (gérés côté repo 
 
 Intégré avec la structure de données backend pour diagnostic, visualisation et configuration advanced via panel UI.
 
-🔄 Cycle de vie
+**🔄 Cycle de vie** Cycle de vie
 
 À chaque boot, vérifie le setup et l’enregistrement du panel sur la sidebar, évite la duplication via la marque backend.
 
 Génère les fichiers statiques et HTML si absents, maintenance simplifiée depuis le backend (auto-repair).
 
-🧪 Exemple
+**🧪 Exemple(s)** Exemple
 
 Démarrage backend :
 → Crée panel_static si besoin
@@ -1175,7 +1177,7 @@ Démarrage backend :
 → Ajoute Suivi Élec dans la barre latérale
 → Redirige vers l’UI avancée (sélection, mapping, diagnostics métiers)
 
-Debug & Repérage rapide (IA) :
+**Debug & Repérage rapide (IA)** rapide (IA) :
 
 Fonction clé : async_setup_panel(hass)
 
@@ -1227,7 +1229,7 @@ Exemples d’usage : Raccourcir automatiquement entity_id trop longs sur boot ou
 
 Pour debuguer : Lancer correction massive, vérifier logs, registry de nom.
 
-🧠 Rôle métier
+**🧠 Rôle métier** Rôle métier
 
 Raccourcit et harmonise automatiquement les noms (entity_id) des sensors HSE créés par l’intégration, pour rester compatible avec Home Assistant (limite stricte de longueur).
 
@@ -1235,7 +1237,7 @@ Corrige silencieusement à la création ou sur déclenchement manuel : supprim
 
 Assure l’absence de collision, doublon ou perte d’accès pour les sensors métiers (énergie, puissance…).
 
-⚙️ Fonctionnement technique
+**⚙️ Fonctionnement technique** Fonctionnement technique
 
 Détecte à chaque création d’entity HSE une longueur excessive (ex : >50 caractères).
 
@@ -1253,7 +1255,7 @@ Callback sur modification du registry d’entités (_on_entity_registry_updated)
 
 Setup centralisé via async_setup_sensor_name_fixer(hass) appelé depuis init.py à chaque démarrage/reload
 
-🔗 Interactions et dépendances
+**🔗 Interactions et dépendances** Interactions et dépendances
 
 Relié à init.py pour activation globale ou correction massive au boot
 
@@ -1261,7 +1263,7 @@ Intégré au flow de création de sensors HSE côté backend
 
 Utilise le registry HA (entity_registry) pour diagnostic, suppression ou renommage
 
-🔄 Cycle de vie
+**🔄 Cycle de vie** Cycle de vie
 
 Surveillance continue des créations d’entités HSE
 
@@ -1269,12 +1271,12 @@ Correction automatique lors du démarrage Home Assistant + création de sensor H
 
 Suppression automatique des entités longues inutiles ou remplacées.
 
-🧪 Exemple
+**🧪 Exemple(s)** Exemple
 
 Un sensor très long : sensor.hse_clim_appart1_wifi_commutateur_sur_rail_din_puissance_hourly
 → Corrigé en sensor.hse_live_cwcsrdp_h avec hashing si necessary.
 
-Debug & Repérage rapide (IA) :
+**Debug & Repérage rapide (IA)** rapide (IA) :
 
 Fonctions clés :
 
@@ -1332,7 +1334,7 @@ Exemples d’usage : Sync incrémentale suite à event HA, backup backups JSON a
 
 Pour debuguer : Inspecter logs sync, status manager, cohérence fichier backups.
 
-🧠 Rôle métier
+**🧠 Rôle métier** Rôle métier
 
 Gère la synchronisation incrémentale et automatisée des capteurs “sensor” (ajout, suppression, indisponibilité, modification) dans le backend.
 
@@ -1340,7 +1342,7 @@ Assure la cohérence métier et la mise à jour continue du fichier capteurs_pow
 
 Automatisation du backup, gestion des états et suivi des sensors non disponibles ou en attente de suppression.
 
-⚙️ Fonctionnement technique
+**⚙️ Fonctionnement technique** Fonctionnement technique
 
 Classe : SensorSyncManager
 
@@ -1370,7 +1372,7 @@ get_status(): diagnostic métier backend du gestionnaire
 
 force_sync(): relance la synchronisation totale sur demande ou erreur
 
-🔗 Interactions et dépendances
+**🔗 Interactions et dépendances** Interactions et dépendances
 
 Relié à detect_local.py pour la redétection complète lors d’ajout ou suppression de capteur.
 
@@ -1378,7 +1380,7 @@ Lecture et écriture du fichier JSON capteurs_power.json, backups gérés dans /
 
 Utilisé par init.py pour coordination globale ou diagnostic backend.
 
-🔄 Cycle de vie
+**🔄 Cycle de vie** Cycle de vie
 
 Démarrage ou reload backend : setup/init du gestionnaire, relance du scan et écoute évènements.
 
@@ -1386,13 +1388,13 @@ Synchronisation et backup à chaque changement métier (création/suppression/in
 
 Nettoyage automatique des capteurs obsolètes ou trop longtemps indisponibles.
 
-🧪 Exemple
+**🧪 Exemple(s)** Exemple
 
 Création d’un sensor : registry event → add → incrémental sync → backup → mise à jour du JSON
 
 Capteur indisponible pendant 7 jours : tag, suppression programmée, backup puis suppression physique
 
-Debug & Repérage rapide (IA) :
+**Debug & Repérage rapide (IA)** rapide (IA) :
 
 Classe principale : SensorSyncManager
 
@@ -1458,7 +1460,7 @@ Exemples d’usage : Suivi live puissance via sensors dédiés (hse_live_*), aff
 
 Pour debuguer : Vérifier création/mise à jour sensors, logs, dashboard panel.
 
-🧠 Rôle métier
+**🧠 Rôle métier** Rôle métier
 
 Crée et administre les sensors HSE Live pour le suivi instantané de la puissance électrique (W) dans Home Assistant.
 
@@ -1466,7 +1468,7 @@ Miroir enrichi des sensors “power” natifs : chaque entité source reçoit 
 
 Permet l’affichage sur les cartes Live Lovelace et la génération d’alertes sur consommation élevée.
 
-⚙️ Fonctionnement technique
+**⚙️ Fonctionnement technique** Fonctionnement technique
 
 Classe principale : LivePowerSensor(SensorEntity)
 
@@ -1490,7 +1492,7 @@ Stockage RAM :
 
 Les sensors live sont stockés en liste dans hass.data[DOMAIN]["live_power_sensors"], prêts à être enregistrés (via sensor.py) lors du setup.
 
-🔗 Interactions et dépendances
+**🔗 Interactions et dépendances** Interactions et dépendances
 
 Appelé par init.py lors du setup global backend.
 
@@ -1498,7 +1500,7 @@ Les sensors sont créés sur la base du fichier capteurs_power.json (généré p
 
 Exposé côté UI et dashboard Lovelace pour affichage temps réel.
 
-🔄 Cycle de vie
+**🔄 Cycle de vie** Cycle de vie
 
 À chaque scan/config/reload, génère la liste et initialise les “sensor.hse_live_*”.
 
@@ -1506,13 +1508,13 @@ Met à jour en temps réel sur chaque changement d’état du sensor source.
 
 Gère la disponibilité et les erreurs “unknown/unavailable” automatiquement.
 
-🧪 Exemple
+**🧪 Exemple(s)** Exemple
 
 Pour chaque capteur power (“sensor.tp_link_energy_appart1_power”), la classe crée “sensor.hse_live_tp_link_energy_appart1” avec mirroring direct de la puissance.
 
 Les valeurs sont affichées en temps réel sur Lovelace (carte Gauge, history…) et permettent le suivi instantané métier.
 
-Debug & Repérage rapide (IA) :
+**Debug & Repérage rapide (IA)** rapide (IA) :
 
 Classe principale : LivePowerSensor(SensorEntity)
 
@@ -1570,13 +1572,13 @@ Exemples d’usage : Scan automatique avant migration, correction des formats de
 
 Pour debuguer : Lancer scan_sets, lire logs, corriger structure JSON/dict/set.
 
-🧠 Rôle métier
+**🧠 Rôle métier** Rôle métier
 
 Fournit des outils de debug pour la vérification automatique des structures JSON utilisées dans le backend Home Suivi Élec.
 
 Détecte notamment les sets ou types non convertibles dans les fichiers JSON métiers, évitant les warning/erreurs au parsing par Home Assistant.
 
-⚙️ Fonctionnement technique
+**⚙️ Fonctionnement technique** Fonctionnement technique
 
 Fonction asynchrone principale : async def scan_sets(hass)
 
@@ -1592,23 +1594,23 @@ Fonction utilitaire interne : _read_json_file(fichier: Path)
 
 Ouverture sécurisée et parsing JSON, log sur erreur de lecture ou conversion
 
-🔗 Interactions et dépendances
+**🔗 Interactions et dépendances** Interactions et dépendances
 
 Appelé lors du debug général backend, ou sur demande (shell, service custom, maintenance).
 
 Couvre tous les JSON de data/intermédiaire du backend ( sélection, mapping, index, analytics...).
 
-🔄 Cycle de vie
+**🔄 Cycle de vie** Cycle de vie
 
 À la demande, scan complet et log des datas utilisées dans le backend.
 
 Permet diagnostic express pour maintenance, audit qualité ou vérification avant migration.
 
-🧪 Exemple
+**🧪 Exemple(s)** Exemple
 
 Après refonte d’une structure ou migration, l’appel à scan_sets(hass) signale si un fichier JSON contient des objets non convertibles (ex : des sets python), pour correction immédiate avant blocage en production.
 
-Debug & Repérage rapide (IA) :
+**Debug & Repérage rapide (IA)** rapide (IA) :
 
 Fonction principale à vérifier : scan_sets(hass)
 
@@ -1652,13 +1654,13 @@ Exemples d’usage : Initialisation des valeurs flows/config/option, mapping d�
 
 Pour debuguer : Vérifier la présence et la valeur des constantes en cas d’erreur de nommage ou de config.
 
-🧠 Rôle métier
+**🧠 Rôle métier** Rôle métier
 
 Centralise toutes les constantes, clés, conventions de nommage et valeurs par défaut utilisées par l’intégration Home Suivi Élec.
 
 Garantit la cohérence des intitulés, types d’abonnement, tarifs, clés d’options et chemins des fichiers backend.
 
-⚙️ Fonctionnement technique
+**⚙️ Fonctionnement technique** Fonctionnement technique
 
 Définit le domaine de l’intégration : DOMAIN = "home_suivi_elec"
 
@@ -1674,25 +1676,25 @@ CONTRATS = { "prix_unique": "Tarif unique", "heures_creuses": "Heures Pleines / 
 
 Précise les valeurs par défaut métier pour chaque type de contrat, abonnement mensuel, plages horaires HC, prix HP/HC...
 
-🔗 Interactions et dépendances
+**🔗 Interactions et dépendances** Interactions et dépendances
 
 Importé par tous les modules critiques du backend (detect_local, manage_selection, config_flow, options_flow, generator, tracking...).
 
 Utilisé pour initialiser, valider et manipuler les données de config/utilisateur dans les flows et UI.
 
-🔄 Cycle de vie
+**🔄 Cycle de vie** Cycle de vie
 
 Chargé à chaque setup ou import backend.
 
 Utilisé à la création, configuration, validation et génération de tous les objets métiers.
 
-🧪 Exemple
+**🧪 Exemple(s)** Exemple
 
 Génération d’un sensor énergie : utilise les clés et valeurs métier de const.py pour renseigner son nom, period et tarifs associés.
 
 Création ou validation d’une nouvelle config : utilise les clés ConfigFlow/options et les valeurs par défaut métiers.
 
-Debug & Repérage rapide (IA) :
+**Debug & Repérage rapide (IA)** rapide (IA) :
 
 Clés métiers principales :
 
@@ -1734,7 +1736,7 @@ Exemples d’usage : Formulaire initial d’installation, mapping options métie
 
 Pour debuguer : Tester chaque étape, vérifier logs, abort doublon, data entry.
 
-🧠 Rôle métier
+**🧠 Rôle métier** Rôle métier
 
 Gère le flux de configuration principal lors de l’ajout/installation de l’intégration “Home Suivi Élec” dans Home Assistant.
 
@@ -1742,7 +1744,7 @@ Permet à l’utilisateur de définir le nom du hub, le type de contrat d’éle
 
 Centralise la gestion des doublons, validation et création des entrées de configuration dans Home Assistant.
 
-⚙️ Fonctionnement technique
+**⚙️ Fonctionnement technique** Fonctionnement technique
 
 Classe principale : HomeSuiviElecFlow(config_entries.ConfigFlow)
 
@@ -1758,7 +1760,7 @@ Création d'une nouvelle entrée avec titre et data consolidée, stockée en RAM
 
 Liaison options : méthode statique async_get_options_flow, retourne le flow avancé (modification à posteriori via Options UI)
 
-🔗 Interactions et dépendances
+**🔗 Interactions et dépendances** Interactions et dépendances
 
 Utilise les constantes/dictionnaires métier de const.py (DOMAIN, CONTRATS, DEFAULTS, etc.)
 
@@ -1766,20 +1768,20 @@ Liaison à options_flow.py pour la gestion avancée (modification ultérieure)
 
 Appelé automatiquement lors de l’installation ou de la configuration dans HA UI
 
-🔄 Cycle de vie
+**🔄 Cycle de vie** Cycle de vie
 
 À chaque installation ou ajout de l’intégration : setup initial guidé par formulaire
 
 À chaque modification : options_flow associé pour changement des paramètres
 
-🧪 Exemple
+**🧪 Exemple(s)** Exemple
 
 Utilisateur installe “Home Suivi Élec” :
 → Saisie du nom du hub, choix contrat, tarifs, horaires
 → Validation doublon et structure métier
 → Création de l’entrée et activation du backend
 
-Debug & Repérage rapide (IA) :
+**Debug & Repérage rapide (IA)** rapide (IA) :
 
 Classe principale : HomeSuiviElecFlow
 
@@ -1837,7 +1839,7 @@ Exemples d’usage : Changement de tarif, plage horaire, options backend et UI a
 
 Pour debuguer : Vérifier flux UI, logs création/modification entry, mapping avec const.py.
 
-🧠 Rôle métier
+**🧠 Rôle métier** Rôle métier
 
 Permet à l’utilisateur de modifier les paramètres de l’intégration “Home Suivi Élec” après installation, directement depuis l’UI Home Assistant.
 
@@ -1845,7 +1847,7 @@ Offre une interface avancée pour ajuster le contrat, tarifs, plages horaires, o
 
 Garantit la cohérence métier et la validation des entrées lors de chaque modification.
 
-⚙️ Fonctionnement technique
+**⚙️ Fonctionnement technique** Fonctionnement technique
 
 Classe principale : HomeSuiviElecOptionsFlow(config_entries.OptionsFlow)
 
@@ -1859,7 +1861,7 @@ Valide les données saisies via Voluptuous et config_validation (float positif, 
 
 Crée une nouvelle entrée d’options dans Home Assistant (stockée base, accessible à l’intégration)
 
-🔗 Interactions et dépendances
+**🔗 Interactions et dépendances** Interactions et dépendances
 
 Relié directement à config_flow.py (appel via async_get_options_flow)
 
@@ -1867,7 +1869,7 @@ Utilise toutes les constantes métiers définies dans const.py (tarifs, types, o
 
 Permet la modification dynamique sans restart via panel UI
 
-🔄 Cycle de vie
+**🔄 Cycle de vie** Cycle de vie
 
 Appelé à chaque modification utilisateur (menu Options, ou settings dans Home Assistant)
 
@@ -1875,11 +1877,11 @@ Permet la reconfiguration métier à la volée : contrats, tarifs, plages horair
 
 Valide et sauvegarde chaque modification (impact backend direct)
 
-🧪 Exemple
+**🧪 Exemple(s)** Exemple
 
 L’utilisateur change le tarif HC à 0.11 : formulaire dynamique → validation → sauvegarde entry → backend mis à jour.
 
-Debug & Repérage rapide (IA) :
+**Debug & Repérage rapide (IA)** rapide (IA) :
 
 Classe principale : HomeSuiviElecOptionsFlow
 
@@ -1931,7 +1933,7 @@ Exemples d’usage : Appel centralisé backend via panel frontend, sécurité et
 
 Pour debuguer : Simuler POST proxy, lire logs, vérifier gestion endpoints/auth/CORS.
 
-🧠 Rôle métier
+**🧠 Rôle métier** Rôle métier
 
 Fait office de proxy entre les requêtes frontend (UI, panel) et les API backend métiers.
 
@@ -1939,7 +1941,7 @@ Permet de centraliser et sécuriser les appels depuis le panel ou la UI vers le 
 
 Peut contourner temporairement l’authentification Home Assistant pour certains endpoints (optionnelle via requires_auth).
 
-⚙️ Fonctionnement technique
+**⚙️ Fonctionnement technique** Fonctionnement technique
 
 Classe principale : SuiviElecProxyView(HomeAssistantView)
 
@@ -1965,7 +1967,7 @@ Logge toutes les tentatives et erreurs proxy
 
 Message d’erreur si endpoint non transmis ou exception rencontrée
 
-🔗 Interactions et dépendances
+**🔗 Interactions et dépendances** Interactions et dépendances
 
 Appelé par la UI frontend, panel_selection, ou toute interface JS personnalisée.
 
@@ -1973,17 +1975,17 @@ Centralise tous les appels du frontend pour sécuriser, monitorer et loguer l’
 
 Relié à la route proxy /api/home_suivi_elec/proxy— n’expose pas les vrais endpoints backend en direct.
 
-🔄 Cycle de vie
+**🔄 Cycle de vie** Cycle de vie
 
 Initialisé au boot/reload dans le backend (via init.py ou directement par le panel)
 
 Intercepte toutes les requêtes panel/frontend nécessitant accès backend
 
-🧪 Exemple
+**🧪 Exemple(s)** Exemple
 
 L’UI frontend fait un POST /api/home_suivi_elec/proxy avec payload { "endpoint": "/api/home_suivi_elec/get_diagnostics" } → le proxy transfère vers l’API backend, retourne la réponse sécurisée (auth facultative).
 
-Debug & Repérage rapide (IA) :
+**Debug & Repérage rapide (IA)** rapide (IA) :
 
 Classe principale : SuiviElecProxyView
 
@@ -2015,7 +2017,7 @@ Remonter toute exception ou configuration incorrecte via logs et status HTTP
 
 4. Flows et interactions
 
-🔄 Cycle de vie des données
+**🔄 Cycle de vie** Cycle de vie des données
 
 flowchart TD
     DETECT[detect_local.py 🔎 Détection]
