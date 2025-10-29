@@ -415,10 +415,7 @@ Chaque capteur actif et validé est présenté avec ses mesures, son score quali
 Un export CSV personnalisé est généré pour analyse externe ou archivage
 
 
-3.7 utility_meter_manager.py
-A SUPPRIMER
-
-3.8 helpers/validation.py
+3.7 helpers/validation.py
 
 🛠️ Responsabilité principale
 Ce module fournit les routines de validation et de contrôle d'intégrité pour les données, objets et flows internes du backend.
@@ -473,7 +470,25 @@ Un sensor nouvellement créé est validé : ses attributs, sa source et ses m�
 
 Lors d’un export CSV, les données sont validées pour absence de valeurs corrompues ou incohérentes
 
+3.8 energy_analytics.py
+Responsabilité :
+Analyse, diagnostic et prédiction avancée sur les données énergétiques : détection d’anomalies, comparaison de profils, estimation/prévision.
 
+Cycle de vie :
+Exploite les historiques fournis par energy_tracking.py. Génère alertes, recommandations, synthèses mensuelles ou annuelles.
+
+Fonctions clés :
+Détection de surconsommation, analyse comparative, reporting personnalisé, synthèses statistiques.
+
+3.9 energy_export.py
+Responsabilité :
+Export et sauvegarde des données énergétiques : backup JSON, export CSV, synchronisation vers bases externes (InfluxDB, autres).
+
+Cycle de vie :
+Sauvegarde régulière, export sur demande ou événement, archivage historique pour audit/exploitation externe.
+
+Fonctions clés :
+Export CSV/JSON, intégration InfluxDB, backup planning.
 
 Formats enrichis
 
@@ -481,6 +496,31 @@ Formats enrichis
 Cycle de vie des données
 
 Diagramme de séquence/flow principal
+flowchart TD
+    DETECT[detect_local.py\n🔎Détection]
+    SELECTION[manage_selection.py\n🎯Sélection / Mapping]
+    SCORER[sensor_quality_scorer.py\n🏅Scoring / Diagnostic]
+    TRACKING[energy_tracking.py\n📈Suivi / Historique]
+    ANALYTICS[energy_analytics.py\n🧮Analyse / Prédictions]
+    EXPORT[energy_export.py\n🚚Export / Backup]
+    SENSOR[sensor.py\n🪪Gestion entités HSE]
+    GENERATOR[generator.py\n🖼️Génération dashboards]
+    VALIDATION[helpers/validation.py\n✅Validation]
+    
+    DETECT --> SELECTION
+    SELECTION --> SCORER
+    SCORER --> SELECTION
+    SELECTION --> TRACKING
+    TRACKING --> GENERATOR
+    TRACKING --> ANALYTICS
+    TRACKING --> EXPORT
+    GENERATOR --> SENSOR
+    GENERATOR --> EXPORT
+    ANALYTICS --> GENERATOR
+    SENSOR --> VALIDATION
+    DETECT --> VALIDATION
+    SCORER --> VALIDATION
+    TRACKING --> VALIDATION
 
 Cas particuliers (orphelins, purge, archivage)
 
