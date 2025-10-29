@@ -11,6 +11,8 @@
 > 
 > Voir l’index ci-dessous et le script pour usage avancé.
 
+Mention “Un utilitaire CLI/AI de navigation backend est disponible dans docs/scripts/cli_backend_nav.py” 
+
 ## 🗂️ Index recherche rapide
 
 | Besoin Métier / Fonction | Section | Fichier (chemin) |
