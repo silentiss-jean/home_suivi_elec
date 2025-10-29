@@ -2,19 +2,13 @@
 
 > **Navigation IA & Debug automatisé**
 >
-
 > Un script de navigation Python (`home_suivi_elec_backend_navigation.py`) est disponible dans [docs/scripts/] pour permettre à une IA, un agent CLI, ou à un dev de mapper instantanément chaque besoin métier, bug ou point d’entrée vers la bonne section de la documentation et le bon fichier backend.
 >
-
 > Utilisation type :  
-
 > - Recherche rapide de la fonction/fichier à partir d’un bug, d’un log ou d’un besoin métier  
-
 > - Automatisation du crawling debug ou des suggestions d’analyse par un agent AI  
-
 > - Génération d’outils CLI/docs/outils test/maintenance automatique  
 > 
-
 > Voir l’index ci-dessous et le script pour usage avancé.
 
 Mention “Un utilitaire CLI/AI de navigation backend est disponible dans docs/scripts/cli_backend_nav.py” 
@@ -22,42 +16,25 @@ Mention “Un utilitaire CLI/AI de navigation backend est disponible dans docs/s
 ## 🗂️ Index recherche rapide
 
 | Besoin Métier / Fonction | Section | Fichier (chemin) |
-
 |-------------------------|---------|------------------|
-
 | Orchestration backend   | 3.1     | custom_components/home_suivi_elec/__init__.py |
-
 | Détection capteurs      | 3.2     | custom_components/home_suivi_elec/detect_local.py |
-
 | Sélection/mapping       | 3.3     | custom_components/home_suivi_elec/manage_selection.py |
-
 | Scoring qualité         | 3.4     | custom_components/home_suivi_elec/sensor_quality_scorer.py |
-
 | Création sensors HSE    | 3.5     | custom_components/home_suivi_elec/sensor.py |
-
 | Génération Lovelace/YAML| 3.7     | custom_components/home_suivi_elec/generator.py |
-
 | Analytics énergétique   | 3.9     | custom_components/home_suivi_elec/energy_analytics.py |
-
 | Export/backup énergie   | 3.10    | custom_components/home_suivi_elec/energy_export.py |
-
 | Panel UI (sidebar)      | 3.11    | custom_components/home_suivi_elec/panel_selection.py |
-
 | Correction noms sensors | 3.12    | custom_components/home_suivi_elec/sensor_name_fixer.py |
-
 | Synchronisation sensors | 3.13    | custom_components/home_suivi_elec/sensor_sync_manager.py |
-
 | Monitoring puissance    | 3.14    | custom_components/home_suivi_elec/power_monitoring.py |
-
 | Debug JSON backend      | 3.15    | custom_components/home_suivi_elec/debug_json_sets.py |
-
 | Constantes globales     | 3.16    | custom_components/home_suivi_elec/const.py |
-
 | Config UI initiale      | 3.17    | custom_components/home_suivi_elec/config_flow.py |
-
 | Options UI avancées     | 3.18    | custom_components/home_suivi_elec/options_flow.py |
-
 | Proxy API frontend      | 3.19    | custom_components/home_suivi_elec/proxy_api.py |
+
 
 ⸻
 
@@ -107,100 +84,20 @@ Ce diagramme illustre la chaîne complète depuis la détection des capteurs jus
 3. Modules principaux
 
 ⸻
+
 #### 3.1 init.py — Résumé et accès rapide
-Rôle métier : Orchestration et setup global de l’intégration, enregistrement services, endpoints, lifecycle et gestion hass.data.
 
-Fichier Python : custom_components/home_suivi_elec/init.py
+- **Rôle métier** : Orchestration et setup global de l’intégration, enregistrement services, endpoints, lifecycle et gestion hass.data.
+- **Fichier Python** : custom_components/home_suivi_elec/init.py
+- **Classe(s) principale(s)** : N/A (fonctionnel)
+- **Fonctions critiques** : async_setup, async_setup_entry, setup_sensors_after_detection, _delayed_start
+- **Services HA** : generate_local_data, generate_selection, fix_sensor_names, copy_ui_files, migrate_cleanup
+- **Endpoints REST** : /api/home_suivi_elec/set_ignored_entity, /api/home_suivi_elec/get_diagnostics, /api/home_suivi_elec/choose_best_for_device
+- **Clés hass.data** : DOMAIN, energy_sensors, sync_manager, options
+- **Logs/caractéristiques** : [SETUP_ENTRY], [SERVICE], [INIT], [RESET], [MIGRATION]
+- **Exemples d’usage** : Setup automatique après démarrage HA, orchestration des modules backend, enregistrement panneau UI.
+- **Pour debuguer** : Vérifier état des services HA, endpoints REST, analyse hass.data, logs setup global. Inspecter hass.data à chaque setup/reload, vérifier panel UI sidebar et logs boot. Analyse des logs pour chaque phase du boot/setup asynchrone et exceptions/fallback signalés.
 
-Classe(s) principale(s) : N/A (fonctionnel)
-
-Fonctions critiques : async_setup, async_setup_entry, setup_sensors_after_detection, _delayed_start
-
-Services HA : generate_local_data, generate_selection, fix_sensor_names, copy_ui_files, migrate_cleanup
-
-Endpoints REST : /api/home_suivi_elec/set_ignored_entity, /api/home_suivi_elec/get_diagnostics, /api/home_suivi_elec/choose_best_for_device
-
-Clés hass.data : DOMAIN, energy_sensors, sync_manager, options
-
-Logs/caractéristiques : [SETUP_ENTRY], [SERVICE], [INIT], [RESET], [MIGRATION]
-
-Exemples d’usage : Setup automatique après démarrage HA, orchestration des modules backend, enregistrement panneau UI.
-
-Pour debuguer : Vérifier état des services HA, endpoints REST, analyse hass.data, logs setup global.
-
-🧠 Rôle central  
-
-- Point d’entrée du backend : initialise tous les modules et listeners, enregistre les services HA et endpoints REST.  
-
-- Gère la chaîne complète : détection → sélection → scoring → création/sync entités → dashboards → diagnostics → maintenance (migration/cleanup).
-
-- Inscription du panel UI personnalisé dans la sidebar (via frontend.async_register_built_in_panel).
-
-⚙️ Fonctionnement technique
-
-- Setup différé asynchrone après démarrage Home Assistant (event listener EVENT_HOMEASSISTANT_STARTED).
-
-- Enregistrement manuel des services Home Assistant :
-    • `generate_local_data` → déclenche détection automatique
-    • `generate_lovelace_auto` → génère dashboards Lovelace
-    • `generate_selection` → génère mapping sélection
-    • `reset_integration_sensor`, `migrate_cleanup` → maintenance, migration/nettoyage
-    • `fix_sensor_names` → corrige automatiquement les noms de sensors
-    • `copy_ui_files` → copie UI statique Lovelace
-
-- Installe les endpoints REST natifs :
-    • `/api/home_suivi_elec/set_ignored_entity` : ignore/unignore une entité
-    • `/api/home_suivi_elec/choose_best_for_device` : choisit le meilleur capteur par device
-    • `/api/home_suivi_elec/get_diagnostics` : diagnostic natif complet sur l'état des sensors HSE
-    • endpoints `selection_view`, `score`, `panel_selection`, `proxy_api`, etc.
-
-- Gère le fallback automatique si le setup ou la détection initiale échoue (tâche `_delayed_start` lancée en asynchrone).
-
-- Orchestration du setup des modules critiques : energy_tracking, power_monitoring, sensor_sync_manager...
-
-- Stockage structuré dans hass.data :
-    • `hass.data[DOMAIN][“energy_sensors”]`, `sync_manager`, `options`, etc.
-
-🔗 Interactions et dépendances
-
-- Importe et lance : detect_local.py, generator.py, manage_selection.py, manage_selection_views.py, panel_selection.py, energy_tracking.py, migration_cleanup.py, sensor_sync_manager.py, power_monitoring.py, sensor_name_fixer.py, proxy_api.py…
-
-- Déclenche les flows UI : config_flow.py, options_flow.py.
-
-🔄 Cycle de vie
-
-- Boot / reload → setup complet backend, initialisation/hydratation hass.data, fallback, listeners.
-
-- Unload → suppression, nettoyage backend, reset des listeners/services.
-
-🧪 Exemple
-
-- Démarrage de HA → __init__.py enregistre services, configure panel, détecte et sélectionne les capteurs, configure tracking, expose endpoints API REST et lance diagnostics asynchrones.
-
-- En cas d’erreur/crash sur setup, fallback automatique et logs détaillés pour monitor/debug.
-
----
-
-**Debug & Repérage rapide (IA) :**
-
-- **Fonctions principales :** `async_setup`, `async_setup_entry`, `setup_sensors_after_detection`, `_delayed_start`, panel registration.
-
-- **Services HA enregistrés :** (voir ci-dessus, ou direct via code)
-
-- **Endpoints REST :** listés ci-dessus, observables dans le module (via `HomeAssistantView`)
-
-- **Clés hass.data manipulées :** `DOMAIN`, `energy_sensors`, `sync_manager`, `options`.
-
-- **Logs et exceptions caractéristiques :** `[SETUP_ENTRY]`, `[SERVICE]`, `[INIT]`, `[RESET]`, `[MIGRATION]`, `[COPY_UI]`.
-
-- **Pour debuguer :**
-    1. Vérifie l’appel/état de chaque service HA et endpoint REST (via logs et méthodes).
-    2. Inspecte hass.data (hydration à chaque setup/reload).
-    3. Vérifie le panel UI côté sidebar et son état.
-    4. Analyse les logs pour chaque phase du boot/setup asynchrone.
-    5. Suis les exceptions/fallback signalés dans les logs du composant.
-
-⸻
 #### 3.2 detect_local.py — Résumé et accès rapide
 Rôle métier : Détection automatique, annotation et classification des capteurs power/energy physiques/virtuels/helpers.
 
@@ -304,7 +201,10 @@ Vérifier l’effet des exclusions (platforms detectés/exclus, helpers activés
 
 Toujours passer par les routines principales (__detect_from_hass, __annotate_and_deduplicate) pour analyse des cycles métier
 
+
+
 ⸻
+
 #### 3.3 manage_selection.py — Résumé et accès rapide
 Rôle métier : Indexation métier, mapping et enrichissement des capteurs, export sélection et accès panel.
 
@@ -412,6 +312,7 @@ Utiliser les endpoints REST pour diagnostic et visualisation
 Vérifier les logs d’enrichissement et mapping sur panel selection/backend
 
 ⸻
+
 #### 3.4 sensor_quality_scorer.py — Résumé et accès rapide
 Rôle métier : Scoring qualité, diagnostic sensors, exclusion helpers/statistics pour auto-mapping backend.
 
@@ -503,7 +404,9 @@ Passer la liste des sensors “bruts” dans enrich_sensors_with_quality pour ob
 
 Vérifier toute divergence métier en croisant avec integration_quality.yaml.
 
+
 ⸻
+
 #### 3.5 sensor.py — Résumé et accès rapide
 Rôle métier : Enregistrement/ajout de toutes les entités “sensor” (énergie et power live) dans Home Assistant.
 
@@ -593,6 +496,8 @@ Vérifier les logs d’enregistrement pour suivre la séquence (nombre et type d
 
 Contrôler que les valeurs sont bien actualisées via les cycles (tracking) ou temps réel (power live).
 ⸻
+
+
 #### 3.6 sensor_quality_scorer.py — Résumé et accès rapide
 Rôle métier : Analyse, scoring et diagnostic métier des capteurs énergétiques ; automatisation de la sélection “best sensor”, exclusion helpers/stats.
 
@@ -693,7 +598,9 @@ Contrôler la structure enrichie (fonction enrich_sensors_with_quality)
 
 Consulter les logs pour détection/exclusion helpers ou tags alternatifs/doublons
 
+
 ⸻
+
 #### 3.7 generator.py — Résumé et accès rapide
 Rôle métier : Génération automatique des dashboards Lovelace et exports YAML pour les capteurs suivis.
 
@@ -804,6 +711,7 @@ Pour chaque carte/vue, teste les paramètres sensors (top 10, mapping, cycles…
 En cas de sensors manquants, vérifie la chaîne de sélection/tracking/scoring.
 
 ⸻
+
 #### 3.8 helpers/validation.py — Résumé et accès rapide
 Rôle métier : Validation centralisée des données et champs critiques (heure, période, float) ; protection des flows/config contre valeurs invalides.
 
@@ -888,6 +796,7 @@ Corriger ou reporter toute exception pour prise en compte côté config/flows et
 Ce module est la “barrière de conformité” pour toutes les données critiques.
 
 ⸻
+
 #### 3.9 energy_analytics.py — Résumé et accès rapide
 Rôle métier : Analyse avancée de consommation énergétique, détection d’anomalies, prédictions et comparaisons annuelles.
 
@@ -994,6 +903,7 @@ Analyser les logs/exceptions pour traitement des sensors absents ou données cor
 Corriger le threshold ou la période si besoin pour affiner la détection et prédiction
 
 ⸻
+
 #### 3.10 energy_export.py — Résumé et accès rapide
 Rôle métier : Export, backup automatisé et intégration externe des données énergie (JSON, CSV, InfluxDB).
 
@@ -1108,6 +1018,7 @@ Contrôler le format CSV et l’intégrité des données exportées
 Inspecter la présence et la configuration de l’intégration InfluxDB dans HA
 
 Examiner les logs pour toute exception ou erreur d’écriture
+
 #### 3.11 panel_selection.py — Résumé et accès rapide
 Rôle métier : Initialisation automatique du panneau UI sidebar pour configuration et diagnostic métier.
 
@@ -1128,6 +1039,7 @@ Logs/caractéristiques : Création panel, absence de fichiers, logs registration
 Exemples d’usage : Ajout automatique du panneau Home Suivi Élec dans la sidebar HA.
 
 Pour debuguer : Vérifier présence panel.js/panel.html, logs registration et réparation.
+
 
 🧠 Rôle métier
 
@@ -1206,6 +1118,8 @@ Sur erreur de UI, vérifier les logs backend pour auto-réparation/registre
 Contrôler la clé dans hass.data pour éviter double initialisation
 
 Confirmer la présence du panneau dans la sidebar après boot/reload
+
+
 #### 3.12 sensor_name_fixer.py — Résumé et accès rapide
 Rôle métier : Correction automatique des noms capteurs (entity_id) pour compatibilité HA, suppression doublons.
 
@@ -1311,6 +1225,9 @@ Surveiller les logs pour chaque création/déclenchement/correction
 Vérifier dans le registry que tous les entity_id HSE sont conformes (<50 caractères)
 
 Tester la fonction de raccourcissement directement (cas exceptionnel/hash)
+
+
+
 #### 3.13 sensor_sync_manager.py — Résumé et accès rapide
 Rôle métier : Synchronisation automatique (add/remove/update/unavailability) des sensors dans le backend, backup JSON.
 
@@ -1437,6 +1354,7 @@ Examiner les logs sur chaque branche métier (add, remove, unavailable, availabl
 Inspecter la présence et la rotation des backups
 
 Utiliser la méthode get_status() pour diagnostic côté API/backend
+
 #### 3.14 power_monitoring.py — Résumé et accès rapide
 Rôle métier : Création et mise à jour temps réel des sensors HSE Live pour tracking puissance électrique (W).
 
@@ -1457,6 +1375,7 @@ Logs/caractéristiques : Création sensor live, logs update valeur, indisponibil
 Exemples d’usage : Suivi live puissance via sensors dédiés (hse_live_*), affichage dashboard Lovelace.
 
 Pour debuguer : Vérifier création/mise à jour sensors, logs, dashboard panel.
+
 
 🧠 Rôle métier
 
@@ -1549,6 +1468,8 @@ Contrôler les logs lors de l’ajout/création, mirroring d’état et indispon
 Tester les updates temps réel et la gestion des erreurs/value
 
 Vérifier la structure JSON et la configuration backend (source, nom, device_id, etc.)
+
+
 #### 3.15 debug_json_sets.py — Résumé et accès rapide
 Rôle métier : Outils de scan et diagnostic des fichiers JSON backend (détection sets non sérialisables).
 
@@ -1569,6 +1490,7 @@ Logs/caractéristiques : Warning set détecté, logs fichier non conforme, erreu
 Exemples d’usage : Scan automatique avant migration, correction des formats de données.
 
 Pour debuguer : Lancer scan_sets, lire logs, corriger structure JSON/dict/set.
+
 
 🧠 Rôle métier
 
@@ -1631,6 +1553,8 @@ Inspecter tous les logs pour warning de set/structuration incompatible
 Corriger dans le code source ou le backend métiers toute apparition de set ou type non sérialisable
 
 Repasser le scan pour confirmer la conformité des fichiers JSON avant update/backup ou migration
+
+
 #### 3.16 const.py — Résumé et accès rapide
 Rôle métier : Centralisation des constantes métier, chemins, options, clés, tarifs et conventions d’intégration.
 
@@ -1651,6 +1575,7 @@ Logs/caractéristiques : N/A
 Exemples d’usage : Initialisation des valeurs flows/config/option, mapping d’options métier.
 
 Pour debuguer : Vérifier la présence et la valeur des constantes en cas d’erreur de nommage ou de config.
+
 
 🧠 Rôle métier
 
@@ -1713,6 +1638,7 @@ Contrôler le chemin métier et valeurs par défaut pour tout problème sur la c
 Maintenir const.py au centre du cycle métier (ne jamais dupliquer une constante hors de ce fichier)
 
 Corriger ou enrichir via ce fichier toute nouvelle clé métier ou option UI/flow/diagnostic backend
+
 #### 3.17 config_flow.py — Résumé et accès rapide
 Rôle métier : Gestion du flux de configuration UI principal à l’ajout de l’intégration (nom, contrat, tarifs…).
 
@@ -1733,6 +1659,8 @@ Logs/caractéristiques : Création entry, abort doublon, logs validation
 Exemples d’usage : Formulaire initial d’installation, mapping options métier, configuration hub.
 
 Pour debuguer : Tester chaque étape, vérifier logs, abort doublon, data entry.
+
+
 
 🧠 Rôle métier
 
@@ -1816,6 +1744,7 @@ Vérifier le mapping avec const.py pour toute requête de contrat ou tarif
 Inspecter abort et gestion des doublons à chaque ajout
 
 Lier les modifications à options_flow pour extension métier
+
 #### 3.18 options_flow.py — Résumé et accès rapide
 Rôle métier : Flux UI avancé pour modification dynamique options contrat/tarif/config après installation.
 
@@ -1836,6 +1765,7 @@ Logs/caractéristiques : Modification entry, logs validation, entry créée
 Exemples d’usage : Changement de tarif, plage horaire, options backend et UI après installation.
 
 Pour debuguer : Vérifier flux UI, logs création/modification entry, mapping avec const.py.
+
 
 🧠 Rôle métier
 
@@ -1910,6 +1840,9 @@ Vérifier correspondance avec DEFAULTS, CONTRATS et clés métiers de const.py
 Inspecter logs backend sur chaque modification et validation métiers
 
 Corriger tout problème de validation ou affichage via Voluptuous/schema
+
+
+
 #### 3.19 proxy_api.py — Résumé et accès rapide
 Rôle métier : Proxy API sécurisé pour accès frontend (UI/panel) à tous les endpoints backend métiers.
 
@@ -2013,6 +1946,7 @@ Contrôler la gestion du CORS et de l’authentification selon besoin
 
 Remonter toute exception ou configuration incorrecte via logs et status HTTP
 
+
 4. Flows et interactions
 
 🔄 Cycle de vie des données
@@ -2049,89 +1983,51 @@ flowchart TD
 ## **5. Autres scripts backend**
 
 | Fichier | Rôle |
-
 |----------|------|
-
 | `migration_cleanup.py` | Gère la migration des anciennes entités et le nettoyage des entités obsolètes lors d’une mise à jour. |
-
 | `detect_local_debug_standalone.py` / `detect_energy.py` | Outils utilitaires de test et de débogage : permettent d’exécuter la détection locale hors du contexte Home Assistant. |
 
 ## 🔗 Table de correspondance Besoin métier / Service / API / Module / Fichier
 
 | Besoin métier                         | Service HA / Action           | Module (Fichier)                  | Endpoint REST                           |
-
 |---------------------------------------|-------------------------------|------------------------------------|-----------------------------------------|
-
 | Détection des capteurs                | run_detect_local              | detect_local.py                    | /api/home_suivi_elec/detect             |
-
 | Sélection & mapping                   | generate_selection, update_selection, reset_selection | manage_selection.py         | /api/home_suivi_elec/selection          |
-
 | Gestion des vues sélection            | selection_view, auto_select   | manage_selection_views.py           | /api/home_suivi_elec/selection_view     |
-
 | Scoring qualité capteurs              | score_sensors                 | sensor_quality_scorer.py            | /api/home_suivi_elec/score              |
-
 | Suivi énergétique                     | track_energy, sync_tracker    | energy_tracking.py                  | /api/home_suivi_elec/track              |
-
 | Analyse avancée (diagnostic/prédiction)| analytics_run, compare_years  | energy_analytics.py                 | /api/home_suivi_elec/analytics          |
-
 | Export, backup énergétique            | export_energy, backup_energy  | energy_export.py                    | /api/home_suivi_elec/export             |
-
 | Génération Lovelace/dashboard         | generate_dashboard, export_lovelace | generator.py                  | /api/home_suivi_elec/generate           |
-
 | Gestion entités sensors HSE           | create_sensor, update_sensor, delete_sensor | sensor.py                  | /api/home_suivi_elec/sensor             |
-
 | Validation & diagnostic backend       | validate_data, diagnostic_run | helpers/validation.py               | /api/home_suivi_elec/validate           |
-
 | Migration & nettoyage backend         | migration_cleanup             | migration_cleanup.py                | /api/home_suivi_elec/cleanup            |
-
 | Debug sets & parsing JSON             | scan_sets, debug_json         | debug_json_sets.py                  | /api/home_suivi_elec/debug_sets         |
-
 | Correction nom capteur                | fix_sensor_names              | sensor_name_fixer.py                | /api/home_suivi_elec/fix_names          |
-
 | Panel UI, gestion sélection           | panel_selection               | panel_selection.py                  | /api/home_suivi_elec/panel_selection    |
-
 | Synchronisation backend               | sync_sensors                  | sensor_sync_manager.py              | /api/home_suivi_elec/sync               |
-
 | Monitor & analyse power temps réel    | monitor_power, real_time      | power_monitoring.py                 | /api/home_suivi_elec/power_monitor      |
-
 | Proxy API (sécurité, accès externe)   | proxy_api                     | proxy_api.py                        | /api/home_suivi_elec/proxy              |
 
 ## 🗄️ Table de mapping hass.data : clés, objets et modules
 
 | Clé dans hass.data                 | Objet stocké / Description                         | Source/Module associé           |
-
 |------------------------------------|----------------------------------------------------|---------------------------------|
-
 | DATA_HSE_MANAGER                   | Instance manager global HSE, cœur de l’intégration | __init__.py, manage_selection.py|
-
 | DATA_DETECTED_DEVICES              | Liste des devices/capteurs détectés                | detect_local.py                 |
-
 | DATA_SELECTED_SENSORS              | Liste des capteurs sélectionnés                    | manage_selection.py             |
-
 | DATA_TRACKERS                      | Objets trackers énergétiques (par périodicité)     | energy_tracking.py              |
-
 | DATA_SCORE_CACHE                   | Cache des scores qualité pour chaque capteur       | sensor_quality_scorer.py        |
-
 | DATA_ANALYTICS_RESULTS             | Stockage analyses avancées et diagnostics          | energy_analytics.py             |
-
 | DATA_BACKUP                        | Données backup/export énergétique                  | energy_export.py                |
-
 | DATA_PANEL_SELECTION               | État et historique sélection côté panel UI         | panel_selection.py              |
-
 | DATA_SYNC_MANAGER                  | Statut synchronisation sensors/entities            | sensor_sync_manager.py          |
-
 | DATA_MIGRATION_STATUS              | Statut et logs de migration/cleanup                | migration_cleanup.py            |
-
 | DATA_JSON_SETS_DEBUG               | Sets JSON en debug, logs parsing                   | debug_json_sets.py              |
-
 | DATA_FIX_NAMES_LOGS                | Logs et corrections noms capteurs                  | sensor_name_fixer.py            |
-
 | DATA_CONST                         | Constantes globales partagées                      | const.py                        |
-
 | DATA_OPTIONS                       | Options utilisateur/config avancée                 | config_flow.py, options_flow.py |
-
 | DATA_POWER_MONITOR                 | Statut monitoring power temps réel                 | power_monitoring.py             |
-
 | DATA_PROXY_API_STATUS              | Statut proxy backend, endpoints externes           | proxy_api.py                    |
 
 ![Schéma global Backend](Service_API_Module_hass_data.svg)
@@ -2229,6 +2125,7 @@ flowchart TD
     Proxy --> DProxy
     Views --> DPanel
 
+
 6. API et endpoints
 	•	📡 Liste complète des endpoints REST exposés
 	•	⚙️ Paramètres, payloads et exemples d’usage
@@ -2259,4 +2156,5 @@ flowchart TD
 10. Ressources associées
 	•	Liens vers chaque fichier source
 	•	Diagrammes techniques et documentation complémentaire
+
 
