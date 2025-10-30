@@ -18,4 +18,4 @@ for state in hass.states.async_all("sensor"):
         if device and device.identifiers:
             integration = str(list(device.identifiers)[0][0]).lower()
         if integration in ENERGY_INTEGRATIONS:
-            print(f"{entity_id} → integration fiable: {integration}")python3 /config/python_scripts/detect_energy.py
+            print (f"{entity_id} → integration fiable: {integration}")

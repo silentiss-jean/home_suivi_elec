@@ -1,5 +1,12 @@
 # -*- coding: utf-8 -*-
-"""Home Suivi Élec — Services + API REST + copie UI simplifiée avec démarrage différé."""
+"""
+Home Suivi Élec — Backend principal de l’intégration Home Assistant.
+
+Orchestrateur global : gère initialisation, cycle de vie, enregistrement des services Home Assistant, endpoints REST, configuration du panel UI, synchronisation et maintenance des capteurs énergétiques.
+Coordonne les modules backend métiers : détection, sélection, scoring, diagnostics, tracking, backup.
+Toutes les clés métier et hass.data transitent par ce module central.
+"""
+
 
 import logging
 import os
@@ -33,10 +40,27 @@ USER_STORE_KEY = f"{DOMAIN}_user_config_v1"
 
 
 async def async_setup(hass: HomeAssistant, config: dict) -> bool:
+    """
+    Setup minimal pour initialisation Home Suivi Élec.
+    Initialise le log et prépare l’environnement Home Assistant pour une future configuration.
+    Retourne True si l’environnement est prêt.
+    """
+
     _LOGGER.info("[SETUP] async_setup appelé")
     return True
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+    """
+    Point d’entrée principal du backend Home Suivi Élec lors de l’ajout ou du reload de l’intégration.
+
+    - Initialise tous les modules critiques backend (dictionnaires hass.data, correcteur de noms, panel UI).
+    - Enregistre tous les services Home Assistant (détection auto, sélection, génération Lovelace, maintenance...).
+    - Déploie toutes les API REST pour accès frontend, selection, diagnostics, et actions personnalisées.
+    - Orchestration complète du setup différé et fallback si certains modules ou states ne sont pas encore disponibles.
+    - Débute la synchronisation et l’enregistrement des sensors (énergie + power live).
+    Retourne True si tout le setup est réussi.
+    """
+
     _LOGGER.info("[SETUP_ENTRY] Initialisation Home Suivi Élec")
     hass.data.setdefault(DOMAIN, {})
     hass.data[DOMAIN]["config"] = dict(entry.data)
@@ -93,18 +117,40 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     # --- Services ---
     async def handle_generate_local_data(call: ServiceCall):
+        """
+        Service Home Assistant : `generate_local_data`
+        Déclenche une détection automatique complète des capteurs d’énergie/power intégrés dans Home Assistant.
+        Appelle la fonction run_detect_local, met à jour hass.data, et expose les nouveaux capteurs en backend.
+        Journalise les erreurs et exceptions durant la détection.
+        """
+        # ... code ...
+
         try:
             await run_detect_local(hass=hass, entry=entry)
         except Exception as e:
             _LOGGER.exception("Erreur generate_local_data: %s", e)
 
     async def handle_generate_lovelace_auto(call: ServiceCall):
+        """
+        Service Home Assistant : `generate_lovelace_auto`
+        Génère et expose automatiquement le dashboard Lovelace en utilisant la configuration backend (options métier).
+        Appelle run_all pour créer la config Lovelace/YAML adaptée à la sélection de capteurs.
+        """
+        # ... code ...
+
         try:
             await run_all(hass, hass.data[DOMAIN]["options"])
         except Exception as e:
             _LOGGER.exception("Erreur generate_lovelace_auto: %s", e)
 
     async def handle_generate_selection(call: ServiceCall):
+        """
+        Service Home Assistant : `generate_selection`
+        Génère le mapping des capteurs sélectionnés pour synchronisation Utility Meter (YAML).
+        Appelle manage_selection, extrait IDs actifs, journalise le résultat et toute exception.
+        """
+        # ... code ...
+
         try:
             from .manage_selection import CAPTEURS_SELECTION_PATH, load_json
             loop = asyncio.get_running_loop()
@@ -122,11 +168,25 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             _LOGGER.exception("Erreur handle_generate_selection: %s", e)
 
     async def handle_copy_ui(call: ServiceCall):
+        """
+        Service Home Assistant : `copy_ui_files`
+        Copie manuellement tous les fichiers UI statiques dans le répertoire Home Assistant pour assurer l’accès panel.
+        Journalise les actions et erreurs d’IO.
+        """
+        # ... code ...
+
         _LOGGER.info("[SERVICE] copy_ui_files appelé manuellement")
         await copy_ui_files(hass)
         _LOGGER.info("[SERVICE] ✅ UI copiée avec succès")
 
     async def handle_reset_integration_sensor(call: ServiceCall):
+        """
+        Service Home Assistant : `reset_integration_sensor`
+        Réinitialise un capteur d’intégration selon son entity_id, supprime les valeurs aberrantes ou historiques trop élevées.
+        Utilise migration_cleanup, recharge la config si besoin, journalise tout le cycle.
+        """
+        # ... code ...
+
         """Service pour réinitialiser un sensor d'intégration spécifique."""
         entity_id = call.data.get("entity_id")
         threshold = call.data.get("threshold_kwh", 1000.0)
@@ -156,6 +216,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             _LOGGER.exception("[RESET] Erreur lors du reset: %s", e)
 
     async def handle_migrate_cleanup(call: ServiceCall):
+        """
+        Service Home Assistant : `migrate_cleanup`
+        Nettoie tous les capteurs aberrants en une action globale, typiquement lors de migrations ou maintenance automatisée.
+        Appelle migration_cleanup sur la base d’un seuil kWh configurable, recharge la configuration, journalise les résultats.
+        """
+        # ... code ...
+
         """Service pour nettoyer tous les sensors aberrants en une fois."""
         threshold = call.data.get("threshold_kwh", 1000.0)
         
