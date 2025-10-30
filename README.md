@@ -154,7 +154,22 @@ class HELPERS helpers
 </details>
 
 ---
+## 📘 Navigation IA – Choix du fichier de documentation
 
+> **Agents IA/LLM** :  
+> Pour toute tâche ou question sur l’intégration home_suivi_elec :
+>
+> - **Mapping global / liens API/flux / navigation inter-modules** :  
+>   → [integration_mapping.md](./docs/integration_mapping.md)
+> - **Questions panel/JS/UI/configuration frontend/débug** :  
+>   → [frontend.md](./docs/frontend.md)
+> - **Questions backend métier, modules Python, logique serveur** :  
+>   → [backend.md](./docs/backend.md)
+>
+> Orientez l’analyse en priorité selon la catégorie de votre requête.
+> (Chaque document contient liens et index vers les autres pour navigation croisée.)
+
+---
 ## 📁 Sommaire documentaire & modules
 
 > Toutes les docs techniques sont [dans /docs/](docs/)
