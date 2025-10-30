@@ -2238,113 +2238,184 @@ flowchart TD
 ## API et endpoints REST : Vue / Fichier exposant / Authentification
 
 ### /api/home_suivi_elec/set_ignored_entity
+
 - **Vue :** SetIgnoredEntityView (définie dans __init__.py)
+
 - **Exposée dans :** __init__.py (ligne 481)
+
 - **Authentification :** Non
+
 - **Docstring de la vue :** 
 
 ### /api/home_suivi_elec/choose_best_for_device
+
 - **Vue :** ChooseBestForDeviceView (définie dans __init__.py)
+
 - **Exposée dans :** __init__.py (ligne 482)
+
 - **Authentification :** Non
+
 - **Docstring de la vue :** 
 
 ### /api/home_suivi_elec/get_diagnostics
+
 - **Vue :** DiagnosticsView (définie dans __init__.py)
+
 - **Exposée dans :** __init__.py (ligne 483)
+
 - **Authentification :** Non
+
 - **Docstring de la vue :** 
 
 ### /api/home_suivi_elec/proxy
+
 - **Vue :** SuiviElecProxyView (définie dans proxy_api.py)
+
 - **Exposée dans :** __init__.py (ligne 484)
+
 - **Authentification :** Non
+
 - **Docstring de la vue :** Proxy les requêtes frontend vers les API backend.
 
 ### /api/home_suivi_elec/auto_select_best_sensors
+
 - **Vue :** AutoSelectBestSensorsView (définie dans manage_selection_views.py)
+
 - **Exposée dans :** __init__.py (ligne 485)
+
 - **Authentification :** Non
+
 - **Docstring de la vue :** API pour sélectionner automatiquement les meilleurs capteurs.
 
 ### /api/home_suivi_elec/get_sensor_quality_scores
+
 - **Vue :** GetSensorQualityScoresView (définie dans manage_selection_views.py)
+
 - **Exposée dans :** __init__.py (ligne 486)
+
 - **Authentification :** Non
+
 - **Docstring de la vue :** API pour obtenir les scores de qualité de tous les capteurs.
 
 ### /api/home_suivi_elec/lovelace_sensors
+
 - **Vue :** HSESensorsPublicView (définie dans manage_selection_views.py)
+
 - **Exposée dans :** __init__.py (ligne 487)
+
 - **Authentification :** Non
+
 - **Docstring de la vue :** GET /api/home_suivi_elec/lovelace_sensors - Liste tous les sensors HSE exposés, NON AUTH (usage local !).
 
 ### /api/home_suivi_elec/get_sensors
+
 - **Vue :** GetSensorsView (définie dans manage_selection_views.py)
+
 - **Exposée dans :** manage_selection.py (ligne 146)
+
 - **Authentification :** Non
+
 - **Docstring de la vue :** 
 
 ### /api/home_suivi_elec/save_selection
+
 - **Vue :** SaveSelectionView (définie dans manage_selection_views.py)
+
 - **Exposée dans :** manage_selection.py (ligne 147)
+
 - **Authentification :** Non
+
 - **Docstring de la vue :** 
 
 ### /api/home_suivi_elec/get_selection
+
 - **Vue :** GetSelectionView (définie dans manage_selection_views.py)
+
 - **Exposée dans :** manage_selection.py (ligne 148)
+
 - **Authentification :** Non
+
 - **Docstring de la vue :** 
 
 ### /api/home_suivi_elec/get_consumptions
+
 - **Vue :** GetConsumptionsView (définie dans manage_selection_views.py)
+
 - **Exposée dans :** manage_selection.py (ligne 149)
+
 - **Authentification :** Non
+
 - **Docstring de la vue :** ✅ CORRIGÉ : Utilise les sensors HSE energy natifs.
 
 ### /api/home_suivi_elec/get_instant_puissance
+
 - **Vue :** GetInstantPowerView (définie dans manage_selection_views.py)
+
 - **Exposée dans :** manage_selection.py (ligne 150)
+
 - **Authentification :** Non
+
 - **Docstring de la vue :** 
 
 ### /api/home_suivi_elec/get_user_config
+
 - **Vue :** GetUserConfigView (définie dans manage_selection_views.py)
+
 - **Exposée dans :** manage_selection.py (ligne 151)
+
 - **Authentification :** Non
+
 - **Docstring de la vue :** 
 
 ### /api/home_suivi_elec/save_user_options
+
 - **Vue :** SaveUserOptionsView (définie dans manage_selection_views.py)
+
 - **Exposée dans :** manage_selection.py (ligne 152)
+
 - **Authentification :** Non
+
 - **Docstring de la vue :** 
 
 ### /api/home_suivi_elec/get_user_options
+
 - **Vue :** GetUserOptionsView (définie dans manage_selection_views.py)
+
 - **Exposée dans :** manage_selection.py (ligne 153)
+
 - **Authentification :** Non
+
 - **Docstring de la vue :** 
 
 ### /api/home_suivi_elec/get_summary
+
 - **Vue :** GetSummaryView (définie dans manage_selection_views.py)
+
 - **Exposée dans :** manage_selection.py (ligne 154)
+
 - **Authentification :** Non
+
 - **Docstring de la vue :** 
 
 ### /api/home_suivi_elec/sync/status
+
 - **Vue :** GetSyncStatusView (définie dans manage_selection_views.py)
+
 - **Exposée dans :** manage_selection.py (ligne 159)
+
 - **Authentification :** Non
+
 - **Docstring de la vue :** GET /api/home_suivi_elec/sync/status - Statut de la synchronisation.
 
 ### /api/home_suivi_elec/sync/force
-- **Vue :** ForceSyncView (définie dans manage_selection_views.py)
-- **Exposée dans :** manage_selection.py (ligne 160)
-- **Authentification :** Non
-- **Docstring de la vue :** POST /api/home_suivi_elec/sync/force - Force une synchronisation.
 
+- **Vue :** ForceSyncView (définie dans manage_selection_views.py)
+
+- **Exposée dans :** manage_selection.py (ligne 160)
+
+- **Authentification :** Non
+
+- **Docstring de la vue :** POST /api/home_suivi_elec/sync/force - Force une synchronisation.
 
 ---
 
