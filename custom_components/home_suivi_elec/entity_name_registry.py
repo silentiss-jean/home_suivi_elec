@@ -18,7 +18,6 @@ from homeassistant.helpers.restore_state import RestoreEntity
 from homeassistant.components.sensor import SensorEntity, SensorStateClass, SensorDeviceClass
 from homeassistant.const import UnitOfEnergy
 
-from .entity_name_registry import EntityNameRegistry
 
 _LOGGER = logging.getLogger(__name__)
 
