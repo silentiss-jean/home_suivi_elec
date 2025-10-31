@@ -17,29 +17,10 @@ _LOGGER = logging.getLogger(__name__)
 MAX_ENTITY_ID_LENGTH = 50
 
 def _shorten_entity_name(entity_name: str, max_length: int = 999) -> str:
-    """
-    ✅ NO-SHORTENING VERSION COMPLÈTE
-    Plus de transformation du tout ! Préserve entity_id complet.
-    """
-    name = entity_name
-    
-    # ✅ Nettoyer SEULEMENT patterns _today_energy legacy
-    name = name.replace("_today_energy_hourly", "")
-    name = name.replace("_today_energy_daily", "")
-    name = name.replace("_today_energy_weekly", "")
-    name = name.replace("_today_energy_monthly", "")
-    name = name.replace("_today_energy_yearly", "")
-    name = name.replace("_today_energy", "")
-    
-    # ❌ SUPPRIMER TOUTES ces transformations qui cassent le mapping !
-    # name = name.replace("_puissance", "_pwr")              # ❌ SUPPRIMÉ
-    # name = name.replace("_consommation_actuelle", "_cur")  # ❌ SUPPRIMÉ
-    # name = name.replace("_prise_connectee", "_plug")       # ❌ SUPPRIMÉ
-    # name = name.replace("_prise_intelligente", "_smart")   # ❌ SUPPRIMÉ
-    
-    _LOGGER.debug(f"[NO-TRANSFORM] {entity_name} → {name} (len: {len(name)})")
-    
-    return name  # ✅ PRÉSERVÉ INTÉGRALEMENT
+    """NO-TRANSFORM ABSOLU - Retour tel quel sauf _today_energy."""
+    name = entity_name.replace("_today_energy", "")
+    return name  # ✅ TEL QUEL !
+
     
 def _compute_short_entity_id(long_entity_id: str) -> Optional[str]:
     if not long_entity_id.startswith("sensor.hse_"):
