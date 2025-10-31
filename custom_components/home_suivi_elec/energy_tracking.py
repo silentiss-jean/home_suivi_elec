@@ -483,10 +483,10 @@ async def create_energy_sensors(
             if source_type == "energy":
                 entity_id = f"sensor.hse_{base_name}_{cycle}"  
                 unique_id = f"hse_{source_hash}_{cycle_short}"
-                name = f"HSE {entity_base} {cycle.capitalize()}"  # Friendly name
+                name = f"HSE {entity_base} {cycle.capitalize()}"
                 
-                # ✅ CRÉER le sensor energy
-                sensor = CumulativeEnergyCycleSensor(
+                # ✅ CRÉER l'objet sensor 
+                created_sensor = CumulativeEnergyCycleSensor(
                     hass=hass,
                     source_entity=source_id,
                     cycle=cycle,
@@ -498,10 +498,10 @@ async def create_energy_sensors(
             else:
                 entity_id = f"sensor.hse_live_{base_name}_{cycle}"  
                 unique_id = f"hse_live_{source_hash}_{cycle_short}"
-                name = f"HSE {entity_base} {cycle.capitalize()}"  # Friendly name
+                name = f"HSE {entity_base} {cycle.capitalize()}"
                 
-                # ✅ CRÉER le sensor power
-                sensor = PowerEnergyCycleSensor(
+                # ✅ CRÉER l'objet sensor
+                created_sensor = PowerEnergyCycleSensor(
                     hass=hass,
                     source_entity=source_id,
                     cycle=cycle,
@@ -510,6 +510,11 @@ async def create_energy_sensors(
                     metadata=metadata,
                 )
 
-            sensors.append(sensor)  # ✅ Maintenant 'sensor' est défini !
+            # ✅ Enregistrer dans registry pour friendly names
+            registry.register(entity_id, entity_base)
+            
+            sensors.append(created_sensor)  # ✅ Variable définie !
             _LOGGER.debug(f"✅ [CREATE-SENSOR] {unique_id} → {name}")
-
+    
+    _LOGGER.info(f"✅ [ENERGY-TRACKING] {len(sensors)} sensors créés")
+    return sensors  # ✅ Retourner la liste (pas None!)
