@@ -492,8 +492,8 @@ async def create_energy_sensors(
                     unique_id = f"hse_energy_{source_hash}_{cycle_short}"
             else:
                 # Source power → préfixe LIVE (comme avant!)
-                entity_id = f"sensor.hse_live_{base_name}_{cycle}"
-                unique_id = f"hse_live_{source_hash}_{cycle_short}"
+                entity_id = f"sensor.hse_live_{base_name}_{cycle_short}"  # ✅ COHÉRENT avec API !
+                unique_id = f"hse_live_{source_hash}_{cycle_short}"      # ✅ Cohérent
             
             name = f"HSE {entity_base} {cycle.capitalize()}"
             
