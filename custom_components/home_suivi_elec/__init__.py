@@ -839,7 +839,13 @@ async def async_setup_energy_tracking(hass: HomeAssistant, entry: ConfigEntry):
         return
 
     _LOGGER.info(f"📊 {len(capteurs_selection)} capteurs à tracker")
-    _LOGGER.info(f"✅ {len(energy_sensors or [])} sensors d'énergie créés")
+
+    # ✅ Protection contre None + diagnostique l'erreur
+    if energy_sensors is None:
+        _LOGGER.error("❌ [ENERGY-TRACKING] create_energy_sensors a retourné None")
+        energy_sensors = []
+    else:
+        _LOGGER.info(f"✅ {len(energy_sensors)} sensors d'énergie créés")
 
     # Créer sensors (5 cycles × N capteurs)
     energy_sensors = await create_energy_sensors(hass, capteurs_selection)
