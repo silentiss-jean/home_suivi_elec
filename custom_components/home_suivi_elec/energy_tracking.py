@@ -483,13 +483,33 @@ async def create_energy_sensors(
             if source_type == "energy":
                 entity_id = f"sensor.hse_{base_name}_{cycle}"  
                 unique_id = f"hse_{source_hash}_{cycle_short}"
+                name = f"HSE {entity_base} {cycle.capitalize()}"  # Friendly name
+                
+                # ✅ CRÉER le sensor energy
+                sensor = CumulativeEnergyCycleSensor(
+                    hass=hass,
+                    source_entity=source_id,
+                    cycle=cycle,
+                    unique_id=unique_id,
+                    name=name,
+                    metadata=metadata,
+                )
+                
             else:
                 entity_id = f"sensor.hse_live_{base_name}_{cycle}"  
                 unique_id = f"hse_live_{source_hash}_{cycle_short}"
+                name = f"HSE {entity_base} {cycle.capitalize()}"  # Friendly name
+                
+                # ✅ CRÉER le sensor power
+                sensor = PowerEnergyCycleSensor(
+                    hass=hass,
+                    source_entity=source_id,
+                    cycle=cycle,
+                    unique_id=unique_id,
+                    name=name,
+                    metadata=metadata,
+                )
 
-
-            sensors.append(sensor)
+            sensors.append(sensor)  # ✅ Maintenant 'sensor' est défini !
             _LOGGER.debug(f"✅ [CREATE-SENSOR] {unique_id} → {name}")
-    
-    _LOGGER.info(f"✅ [ENERGY-TRACKING] {len(sensors)} sensors créés avec unique_id collision-proof")
-    return sensors
+
