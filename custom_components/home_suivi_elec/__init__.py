@@ -511,39 +511,21 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                     return not (eid.endswith("_h") or eid.endswith("_d") or eid.endswith("_w") or eid.endswith("_m") or eid.endswith("_y"))
 
                 def parent_key_from_child(eid: str) -> str | None:
-                    # Enfant : sensor.hse_live_<shortname>_(h|d|w|m|y)
-                    if not eid.startswith("sensor.hse_live_"):
+                    # ✅ SIMPLIFIÉ: Plus de shortening = correspondance directe
+                    if not eid.startswith("sensor.hse"):
                         return None
                     if not (eid.endswith("_h") or eid.endswith("_d") or eid.endswith("_w") or eid.endswith("_m") or eid.endswith("_y")):
                         return None
                     
-                    # ✅ ÉTAPE 1: base expected (shortname)
-                    base_expected = eid[:-2]  # sensor.hse_live_frigo_smart_pwr
+                    # Parent = enfant SANS suffixe cycle
+                    parent_expected = eid[:-2]  # Supprimer _h, _d, etc.
                     
-                    # ✅ ÉTAPE 2: chercher parent exact (cas idéal)
-                    if base_expected in children_by_parent:
-                        return base_expected
+                    # Recherche directe (plus besoin de reverse mapping!)
+                    if parent_expected in children_by_parent:
+                        return parent_expected
                     
-                    # ✅ ÉTAPE 3: REVERSE SHORTNAME via sensor_name_fixer
-                    # L'enfant utilise shortname, parent utilise nom complet/tronqué
-                    child_short = base_expected.replace("sensor.hse_live_", "")  # frigo_smart_pwr
-                    
-                    for parent_id in children_by_parent.keys():
-                        parent_base = parent_id.replace("sensor.hse_live_", "")
-                        
-                        # Test si le parent était "shortenable" vers l'enfant
-                        try:
-                            from .sensor_name_fixer import _shorten_entity_name
-                            if _shorten_entity_name(parent_base, 50) == child_short:
-                                return parent_id
-                        except Exception:
-                            pass
-                        
-                        # Fallback: préfixe/suffixe
-                        if base_expected.startswith(parent_id) or parent_id.startswith(base_expected):
-                            return parent_id
-                    
-                    return None
+                    return None  # ✅ Plus de fallback compliqué !
+
 
 
 
