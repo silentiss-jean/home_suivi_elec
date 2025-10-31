@@ -2,6 +2,7 @@
 Module de tracking d'énergie avec cycles automatiques.
 Enregistre aussi les noms complets dans le registry universel.
 ✅ FIX: unique_id collision-proof avec hash source
+✅ BUGFIX CRITIQUE: Ajout du return sensors manquant
 """
 from __future__ import annotations
 
@@ -521,3 +522,7 @@ async def create_energy_sensors(
             
             sensors.append(created_sensor)
             _LOGGER.debug(f"✅ [CREATE-SENSOR] {entity_id} → {name}")
+    
+    # 🚨 BUGFIX CRITIQUE: Ajout du return manquant !
+    _LOGGER.info(f"✅ [CREATE-SENSORS] {len(sensors)} sensors créés au total")
+    return sensors
