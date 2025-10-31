@@ -504,24 +504,21 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 orphans: List[Dict[str, Any]] = []
 
                 def is_parent(eid: str) -> bool:
-                    # parent: sensor.hse_live_* sans suffixe cycle
-                    return eid.startswith("sensor.hse_live_") and eid.count("_") > 2 and eid[-2] != "_"
+                    # Parent : sensor.hse_live_* SANS suffixe cycle (_h, _d, _w, _m, _y)
+                    if not eid.startswith("sensor.hse_live_"):
+                        return False
+                    # Vérifier que ça ne finit PAS par _X où X = h|d|w|m|y
+                    return not (eid.endswith("_h") or eid.endswith("_d") or eid.endswith("_w") or eid.endswith("_m") or eid.endswith("_y"))
 
                 def parent_key_from_child(eid: str) -> str | None:
-                    # enfant: sensor.hse(_live)_<short>_<h|d|w|m|y>
-                    if not eid.startswith("sensor.hse_"):
+                    # Enfant : sensor.hse_live_<base>_(h|d|w|m|y)
+                    if not eid.startswith("sensor.hse_live_"):
                         return None
-                    parts = eid.split("_")
-                    if len(parts) < 4:
+                    if not (eid.endswith("_h") or eid.endswith("_d") or eid.endswith("_w") or eid.endswith("_m") or eid.endswith("_y")):
                         return None
-                    if parts[1] == "live":
-                        # child of live → parent is sensor.hse_live_<short>
-                        base = "_".join(parts[:3])  # sensor.hse.live
-                        short = "_".join(parts[3:-1])
-                        return f"sensor.hse_live_{short}"
-                    else:
-                        short = "_".join(parts[2:-1])
-                        return f"sensor.hse_live_{short}"
+                    # Extraire base en supprimant le suffixe cycle
+                    return eid[:-2]  # sensor.hse_live_chambre_prise_radiateur_h → sensor.hse_live_chambre_prise_radiateur
+
 
                 # Index parents
                 for s in states:
