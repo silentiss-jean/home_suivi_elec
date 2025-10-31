@@ -1,12 +1,16 @@
 """
 Module de tracking d'énergie avec cycles automatiques.
 Enregistre aussi les noms complets dans le registry universel.
+✅ FIX: unique_id collision-proof avec hash source
 """
 from __future__ import annotations
 
 import logging
+import re
+import hashlib
 from datetime import datetime
 from typing import Any, Optional
+from pathlib import Path
 
 from homeassistant.core import HomeAssistant, callback, Event
 from homeassistant.helpers.event import async_track_time_change, async_track_state_change_event
@@ -15,7 +19,6 @@ from homeassistant.components.sensor import SensorEntity, SensorStateClass, Sens
 from homeassistant.const import UnitOfEnergy
 
 from .entity_name_registry import EntityNameRegistry
-from pathlib import Path
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -29,14 +32,8 @@ CYCLES = {
 
 # ... (classes CumulativeEnergyCycleSensor et PowerEnergyCycleSensor inchangées) ...
 
-# ============================================================================
-# API PUBLIQUE - Création des sensors (Phase 2)
-# ============================================================================
-import re
-import hashlib
-
 def _shorten_entity_name(name: str, max_length: int = 63) -> str:
-    available = max_length - 20
+    available = max_length - 25  # Plus de marge pour hash
     name = name.replace("_today_energy", "")
     tech_abbrev = {
         "_puissance": "_pwr",
@@ -88,25 +85,32 @@ async def create_energy_sensors(
         }
         base_name = source_id.replace("sensor.", "")
         base_short = _shorten_entity_name(base_name)
+        
         # 🔗 Enregistrer mapping court → complet
         display_full = registry.register(source_id, base_short)
         sensor_name = display_full
-
+        
+        # ✅ FIX: Hash pour éviter les collisions unique_id
+        source_hash = hashlib.md5(source_id.encode()).hexdigest()[:4]
+        
         for cycle in CYCLES.keys():
             cycle_short = cycle[0]
             if source_type == "energy":
-                unique_id = f"hse_{base_short}_{cycle_short}"
+                unique_id = f"hse_{base_short}_{cycle_short}_{source_hash}"
                 name = f"HSE {sensor_name} {cycle.capitalize()}"
                 sensor = CumulativeEnergyCycleSensor(
                     hass=hass, source_entity=source_id, cycle=cycle,
                     unique_id=unique_id, name=name, metadata=metadata,
                 )
             else:
-                unique_id = f"hse_live_{base_short}_{cycle_short}"
+                unique_id = f"hse_live_{base_short}_{cycle_short}_{source_hash}"
                 name = f"HSE {sensor_name} {cycle.capitalize()}"
                 sensor = PowerEnergyCycleSensor(
                     hass=hass, source_entity=source_id, cycle=cycle,
                     unique_id=unique_id, name=name, metadata=metadata,
                 )
             sensors.append(sensor)
+            _LOGGER.debug(f"✅ [CREATE-SENSOR] {unique_id} → {name}")
+    
+    _LOGGER.info(f"✅ [ENERGY-TRACKING] {len(sensors)} sensors créés avec unique_id collision-proof")
     return sensors
