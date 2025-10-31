@@ -19,6 +19,7 @@ MAX_ENTITY_ID_LENGTH = 50
 def _shorten_entity_name(name: str, max_length: int = 63) -> str:
     """
     Fonction de raccourcissement robuste avec fallback spécial _today_energy_*
+    ✅ NOUVEAU: Protection anti-hashage pour termes critiques
     """
     available = max_length - 25  # Plus de marge pour hash
     
@@ -39,6 +40,14 @@ def _shorten_entity_name(name: str, max_length: int = 63) -> str:
     if len(name) <= available:
         return name
     
+    # ✅ NOUVEAU: Protection anti-hashage pour termes critiques
+    critical_patterns = [
+        'homepod', 'bitaxe', 'nas', 'tv', 'pc', 'frigo', 'four', 'cafe', 
+        'buanderie', 'chambre', 'salon', 'bureau', 'cuisine', 'datac'
+    ]
+    
+    is_critical = any(pattern in name.lower() for pattern in critical_patterns)
+    
     # Abréviations multi-mots
     def abbreviate_chain(match):
         parts = match.group(0).split('_')
@@ -50,20 +59,47 @@ def _shorten_entity_name(name: str, max_length: int = 63) -> str:
     if len(name) <= available:
         return name
     
-    # Réduction mots longs
+    # Réduction mots longs INTELLIGENTE
     parts = name.split('_')
     for i in range(len(parts)):
-        if len(parts[i]) > 6 and len(name) > available:
-            parts[i] = parts[i][:4]
+        part = parts[i]
+        # ✅ NOUVEAU: préserver les termes critiques courts
+        if part.lower() in critical_patterns and len(part) <= 8:
+            continue  # Ne pas abréger les termes critiques courts
+            
+        if len(part) > 6 and len(name) > available:
+            # Abréviations intelligentes pour mots longs
+            abbreviations = {
+                'intelligente': 'smart',
+                'connectee': 'plug',
+                'commutateur': 'switch',
+                'ordinateur': 'pc',
+                'puissance': 'pwr',
+                'consommation': 'cur',
+                'electrique': 'elec',
+            }
+            
+            abbrev = abbreviations.get(part.lower())
+            if abbrev:
+                parts[i] = abbrev
+            else:
+                parts[i] = part[:4]
+                
             name = '_'.join(parts)
     
     if len(name) <= available:
         return name
     
-    # Hash en dernier recours
+    # ✅ NOUVEAU: Hash conditionnel - éviter pour termes critiques
+    if is_critical and len(name) <= available + 15:  # Tolérance +15 chars pour termes critiques
+        # Troncature simple plutôt que hash illisible
+        return name[:available]
+    
+    # Hash en dernier recours (seulement si vraiment nécessaire)
     keep_length = available - 5
     hash_suffix = hashlib.md5(name.encode()).hexdigest()[:4]
     return name[:keep_length] + "_" + hash_suffix
+
 
 def _compute_short_entity_id(long_entity_id: str) -> Optional[str]:
     if not long_entity_id.startswith("sensor.hse_"):
