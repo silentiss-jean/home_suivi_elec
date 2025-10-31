@@ -821,7 +821,7 @@ async def async_setup_energy_tracking(hass: HomeAssistant, entry: ConfigEntry):
     Configure le tracking d'énergie (Phase 2).
 
     Détection automatique:
-    - type = "energy" → CumulativeEnergyCycleSensor (delta tracking)
+    - type = "energy" → CumulativeEnergyCycleSensor (delta tracking) 
     - type = "power" → PowerEnergyCycleSensor (intégration trapézoïdale)
 
     Cycles: hourly, daily, weekly, monthly, yearly
@@ -833,6 +833,11 @@ async def async_setup_energy_tracking(hass: HomeAssistant, entry: ConfigEntry):
 
     # Charger capteurs sélectionnés avec métadonnées
     capteurs_selection = await load_capteurs_selection(hass)
+    
+    # ✅ DEBUG CRITIQUE
+    _LOGGER.info(f"🔍 [DEBUG] capteurs_selection: {len(capteurs_selection)} capteurs")
+    if capteurs_selection:
+        _LOGGER.debug(f"🔍 [DEBUG] Premier capteur: {capteurs_selection[0]}")
 
     if not capteurs_selection:
         _LOGGER.info("ℹ️ Aucun capteur sélectionné, skip energy tracking")
@@ -840,14 +845,22 @@ async def async_setup_energy_tracking(hass: HomeAssistant, entry: ConfigEntry):
 
     _LOGGER.info(f"📊 {len(capteurs_selection)} capteurs à tracker")
 
-    # ✅ CRÉER les sensors avec protection d'erreur
+    # ✅ CRÉER les sensors avec protection d'erreur ET debug
     try:
+        _LOGGER.info("🔋 [DEBUG] Appel create_energy_sensors...")
         energy_sensors = await create_energy_sensors(hass, capteurs_selection)
+        _LOGGER.info(f"🔋 [DEBUG] Retour create_energy_sensors: {len(energy_sensors or [])}")
+        
     except Exception as e:
         _LOGGER.exception(f"❌ [ENERGY-TRACKING] Erreur création sensors: {e}")
         energy_sensors = []
 
-    # ✅ VÉRIFIER résultat et logger UNE SEULE FOIS
+    # ✅ PROTECTION None
+    if energy_sensors is None:
+        _LOGGER.error("❌ create_energy_sensors a retourné None")
+        energy_sensors = []
+
+    # ✅ VÉRIFIER résultat
     if not energy_sensors:
         _LOGGER.warning("⚠️ Aucun sensor d'énergie créé")
         return
@@ -859,25 +872,33 @@ async def async_setup_energy_tracking(hass: HomeAssistant, entry: ConfigEntry):
         hass.data[DOMAIN] = {}
 
     hass.data[DOMAIN]["energy_sensors"] = energy_sensors
+    _LOGGER.info(f"💾 [DEBUG] Stocké {len(energy_sensors)} sensors dans hass.data")
 
-    # Stats détaillées
-    energy_count = sum(
-        1 for s in energy_sensors 
-        if s.extra_state_attributes.get('source_type') == 'energy'
-    )
-    power_count = sum(
-        1 for s in energy_sensors 
-        if s.extra_state_attributes.get('source_type') == 'power'
-    )
+    # ✅ PROTECTION pour stats
+    try:
+        # Stats détaillées
+        energy_count = sum(
+            1 for s in energy_sensors 
+            if hasattr(s, 'extra_state_attributes') and s.extra_state_attributes.get('source_type') == 'energy'
+        )
+        power_count = sum(
+            1 for s in energy_sensors 
+            if hasattr(s, 'extra_state_attributes') and s.extra_state_attributes.get('source_type') == 'power'
+        )
 
-    virtual_count = sum(
-        1 for s in energy_sensors 
-        if s.extra_state_attributes.get('is_virtual', False)
-    )
+        virtual_count = sum(
+            1 for s in energy_sensors 
+            if hasattr(s, 'extra_state_attributes') and s.extra_state_attributes.get('is_virtual', False)
+        )
 
-    _LOGGER.info(
-        f"📈 Répartition: "
-        f"{energy_count} energy (delta), "
-        f"{power_count} power (intégration), "
-        f"{virtual_count} virtuels"
-    )
+        _LOGGER.info(
+            f"📈 Répartition: "
+            f"{energy_count} energy (delta), "
+            f"{power_count} power (intégration), "
+            f"{virtual_count} virtuels"
+        )
+        
+    except Exception as e:
+        _LOGGER.exception(f"❌ Erreur calcul stats: {e}")
+    
+    _LOGGER.info("🔋 [PHASE 2] Energy Tracking configuré avec succès")
