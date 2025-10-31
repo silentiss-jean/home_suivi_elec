@@ -16,29 +16,29 @@ _LOGGER = logging.getLogger(__name__)
 
 MAX_ENTITY_ID_LENGTH = 50
 
-def _shorten_entity_name(name: str, max_length: int = 63) -> str:
+def _shorten_entity_name(entity_name: str, max_length: int = 999) -> str:
     """
-    Fonction de raccourcissement robuste avec fallback spécial _today_energy_*
-    ✅ NOUVEAU: Protection anti-hashage pour termes critiques
+    ✅ NO-SHORTENING VERSION 
+    Test validé : HA supporte 143+ chars pour entity_id sans problème !
+    Plus de hash illisible (sprclbcdah), plus d'orphelins, plus de collisions !
+    
+    Garde seulement un nettoyage minimal des patterns _today_energy_* legacy.
     """
-    available = max_length - 25  # Plus de marge pour hash
+    # Nettoyage minimal legacy seulement
+    name = entity_name
     
-    # ✅ FIX: Fallback spécial _today_energy_* -> suppression complète suffixes
-    if "_today_energy_" in name:
-        # Exemple: chambre_ordinateur_prise_connectee_today_energy_hourly
-        # → chambre_ordinateur_prise_connectee
-        name = re.sub(r'_today_energy_(hourly|daily|weekly|monthly|yearly)$', '', name)
-        name = name.replace("_today_energy", "")
-        _LOGGER.debug(f"[HSE-FIXER] Clean today_energy: {name}")
+    # ✅ Nettoyer patterns _today_energy spécifiques
+    name = name.replace("_today_energy_hourly", "")
+    name = name.replace("_today_energy_daily", "")
+    name = name.replace("_today_energy_weekly", "")
+    name = name.replace("_today_energy_monthly", "")
+    name = name.replace("_today_energy_yearly", "")
+    name = name.replace("_today_energy", "")
     
-    # Autres nettoyages classiques
-    name = name.replace("_puissance", "_pwr")
-    name = name.replace("_consommation_actuelle", "_cur")
-    name = name.replace("_prise_connectee", "_plug")
-    name = name.replace("_prise_intelligente", "_smart")
+    _LOGGER.debug(f"[NO-SHORTENING] {entity_name} → {name} (len: {len(name)})")
     
-    if len(name) <= available:
-        return name
+    return name  # ✅ TEL QUEL - HA supporte !
+
     
     # ✅ NOUVEAU: Protection anti-hashage pour termes critiques
     critical_patterns = [
