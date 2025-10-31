@@ -480,12 +480,24 @@ async def create_energy_sensors(
         for cycle in CYCLES.keys():
             cycle_short = cycle[0]  # h, d, w, m, y
             
+            # ✅ PRÉSERVER PRÉFIXES selon source + type
             if source_type == "energy":
-                entity_id = f"sensor.hse_{base_name}_{cycle}"  
-                unique_id = f"hse_{source_hash}_{cycle_short}"
-                name = f"HSE {entity_base} {cycle.capitalize()}"
-                
-                # ✅ CRÉER l'objet sensor 
+                if "today_energy" in source_id:
+                    # Source Tapo energy native → préfixe simple
+                    entity_id = f"sensor.hse_{base_name}_{cycle}"
+                    unique_id = f"hse_{source_hash}_{cycle_short}"
+                else:
+                    # Autres sources energy → préfixe energy
+                    entity_id = f"sensor.hse_energy_{base_name}_{cycle}"
+                    unique_id = f"hse_energy_{source_hash}_{cycle_short}"
+            else:
+                # Source power → préfixe LIVE (comme avant!)
+                entity_id = f"sensor.hse_live_{base_name}_{cycle}"
+                unique_id = f"hse_live_{source_hash}_{cycle_short}"
+            
+            name = f"HSE {entity_base} {cycle.capitalize()}"
+            
+            if source_type == "energy":
                 created_sensor = CumulativeEnergyCycleSensor(
                     hass=hass,
                     source_entity=source_id,
@@ -494,13 +506,7 @@ async def create_energy_sensors(
                     name=name,
                     metadata=metadata,
                 )
-                
             else:
-                entity_id = f"sensor.hse_live_{base_name}_{cycle}"  
-                unique_id = f"hse_live_{source_hash}_{cycle_short}"
-                name = f"HSE {entity_base} {cycle.capitalize()}"
-                
-                # ✅ CRÉER l'objet sensor
                 created_sensor = PowerEnergyCycleSensor(
                     hass=hass,
                     source_entity=source_id,
@@ -513,8 +519,5 @@ async def create_energy_sensors(
             # ✅ Enregistrer dans registry pour friendly names
             registry.register(entity_id, entity_base)
             
-            sensors.append(created_sensor)  # ✅ Variable définie !
-            _LOGGER.debug(f"✅ [CREATE-SENSOR] {unique_id} → {name}")
-    
-    _LOGGER.info(f"✅ [ENERGY-TRACKING] {len(sensors)} sensors créés")
-    return sensors  # ✅ Retourner la liste (pas None!)
+            sensors.append(created_sensor)
+            _LOGGER.debug(f"✅ [CREATE-SENSOR] {entity_id} → {name}")
