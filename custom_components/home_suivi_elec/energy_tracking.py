@@ -466,45 +466,27 @@ async def create_energy_sensors(
             "tags": capteur.get("tags", []),
         }
 
-        # 1) Extraire la base sans le prefix sensor.
+
+        # ✅ NOUVEAU: Nom complet préservé (plus de shortening)
         entity_base = source_id.replace("sensor.", "")
-
-        # 2) Shorten avec le même algo que le fixer (cohérence totale)
-        #    50 garde de la marge pour suffixes (_h/_d/...) et hash éventuel
-        base_short = _shorten_entity_name(entity_base, 50)
-
-        # 3) Enregistrer mapping court → complet (si vous souhaitez garder le registry)
-        # display_full = registry.register(source_id, base_short)  # optionnel
-        # sensor_name = display_full
-        sensor_name = entity_base  # ou display_full si registry actif
-
-        # 4) Hash pour collision-proof (sur source_id d’origine)
+        
+        # Plus de shortening du tout ! HA supporte noms longs
+        # _shorten_entity_name maintenant retourne tel quel
+        base_name = _shorten_entity_name(entity_base)  # = entity_base maintenant
+        
+        # Hash pour unique_id collision-proof
         source_hash = hashlib.md5(source_id.encode()).hexdigest()[:4]
-
+        
         for cycle in CYCLES.keys():
-            cycle_short = cycle[0]
+            cycle_short = cycle[0]  # h, d, w, m, y
+            
             if source_type == "energy":
-                unique_id = f"hse_{base_short}_{cycle_short}_{source_hash}"
-                name = f"HSE {sensor_name} {cycle.capitalize()}"
-                sensor = CumulativeEnergyCycleSensor(
-                    hass=hass,
-                    source_entity=source_id,
-                    cycle=cycle,
-                    unique_id=unique_id,
-                    name=name,
-                    metadata=metadata,
-                )
+                entity_id = f"sensor.hse_{base_name}_{cycle}"  
+                unique_id = f"hse_{source_hash}_{cycle_short}"
             else:
-                unique_id = f"hse_live_{base_short}_{cycle_short}_{source_hash}"
-                name = f"HSE {sensor_name} {cycle.capitalize()}"
-                sensor = PowerEnergyCycleSensor(
-                    hass=hass,
-                    source_entity=source_id,
-                    cycle=cycle,
-                    unique_id=unique_id,
-                    name=name,
-                    metadata=metadata,
-                )
+                entity_id = f"sensor.hse_live_{base_name}_{cycle}"  
+                unique_id = f"hse_live_{source_hash}_{cycle_short}"
+
 
             sensors.append(sensor)
             _LOGGER.debug(f"✅ [CREATE-SENSOR] {unique_id} → {name}")
