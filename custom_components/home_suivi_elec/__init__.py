@@ -840,23 +840,25 @@ async def async_setup_energy_tracking(hass: HomeAssistant, entry: ConfigEntry):
 
     _LOGGER.info(f"📊 {len(capteurs_selection)} capteurs à tracker")
 
-    # ✅ Protection contre None + diagnostique l'erreur
-    if energy_sensors is None:
-        _LOGGER.error("❌ [ENERGY-TRACKING] create_energy_sensors a retourné None")
+    # ✅ CRÉER les sensors avec protection d'erreur
+    try:
+        energy_sensors = await create_energy_sensors(hass, capteurs_selection)
+    except Exception as e:
+        _LOGGER.exception(f"❌ [ENERGY-TRACKING] Erreur création sensors: {e}")
         energy_sensors = []
-    else:
-        _LOGGER.info(f"✅ {len(energy_sensors)} sensors d'énergie créés")
 
-    # Créer sensors (5 cycles × N capteurs)
-    energy_sensors = await create_energy_sensors(hass, capteurs_selection)
+    # ✅ VÉRIFIER résultat et logger UNE SEULE FOIS
+    if not energy_sensors:
+        _LOGGER.warning("⚠️ Aucun sensor d'énergie créé")
+        return
+
+    _LOGGER.info(f"✅ {len(energy_sensors)} sensors d'énergie créés")
 
     # Stocker dans hass.data
     if DOMAIN not in hass.data:
         hass.data[DOMAIN] = {}
 
     hass.data[DOMAIN]["energy_sensors"] = energy_sensors
-
-    _LOGGER.info(f"✅ {len(energy_sensors)} sensors d'énergie créés")
 
     # Stats détaillées
     energy_count = sum(
