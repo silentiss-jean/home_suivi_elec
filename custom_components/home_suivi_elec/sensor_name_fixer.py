@@ -18,16 +18,12 @@ MAX_ENTITY_ID_LENGTH = 50
 
 def _shorten_entity_name(entity_name: str, max_length: int = 999) -> str:
     """
-    ✅ NO-SHORTENING VERSION 
-    Test validé : HA supporte 143+ chars pour entity_id sans problème !
-    Plus de hash illisible (sprclbcdah), plus d'orphelins, plus de collisions !
-    
-    Garde seulement un nettoyage minimal des patterns _today_energy_* legacy.
+    ✅ NO-SHORTENING VERSION COMPLÈTE
+    Plus de transformation du tout ! Préserve entity_id complet.
     """
-    # Nettoyage minimal legacy seulement
     name = entity_name
     
-    # ✅ Nettoyer patterns _today_energy spécifiques
+    # ✅ Nettoyer SEULEMENT patterns _today_energy legacy
     name = name.replace("_today_energy_hourly", "")
     name = name.replace("_today_energy_daily", "")
     name = name.replace("_today_energy_weekly", "")
@@ -35,72 +31,16 @@ def _shorten_entity_name(entity_name: str, max_length: int = 999) -> str:
     name = name.replace("_today_energy_yearly", "")
     name = name.replace("_today_energy", "")
     
-    _LOGGER.debug(f"[NO-SHORTENING] {entity_name} → {name} (len: {len(name)})")
+    # ❌ SUPPRIMER TOUTES ces transformations qui cassent le mapping !
+    # name = name.replace("_puissance", "_pwr")              # ❌ SUPPRIMÉ
+    # name = name.replace("_consommation_actuelle", "_cur")  # ❌ SUPPRIMÉ
+    # name = name.replace("_prise_connectee", "_plug")       # ❌ SUPPRIMÉ
+    # name = name.replace("_prise_intelligente", "_smart")   # ❌ SUPPRIMÉ
     
-    return name  # ✅ TEL QUEL - HA supporte !
-
+    _LOGGER.debug(f"[NO-TRANSFORM] {entity_name} → {name} (len: {len(name)})")
     
-    # ✅ NOUVEAU: Protection anti-hashage pour termes critiques
-    critical_patterns = [
-        'homepod', 'bitaxe', 'nas', 'tv', 'pc', 'frigo', 'four', 'cafe', 
-        'buanderie', 'chambre', 'salon', 'bureau', 'cuisine', 'datac'
-    ]
+    return name  # ✅ PRÉSERVÉ INTÉGRALEMENT
     
-    is_critical = any(pattern in name.lower() for pattern in critical_patterns)
-    
-    # Abréviations multi-mots
-    def abbreviate_chain(match):
-        parts = match.group(0).split('_')
-        if len(parts) >= 4:
-            return ''.join(p[0] for p in parts)
-        return match.group(0)
-    name = re.sub(r'\b\w+(?:_\w+){3,}', abbreviate_chain, name)
-    
-    if len(name) <= available:
-        return name
-    
-    # Réduction mots longs INTELLIGENTE
-    parts = name.split('_')
-    for i in range(len(parts)):
-        part = parts[i]
-        # ✅ NOUVEAU: préserver les termes critiques courts
-        if part.lower() in critical_patterns and len(part) <= 8:
-            continue  # Ne pas abréger les termes critiques courts
-            
-        if len(part) > 6 and len(name) > available:
-            # Abréviations intelligentes pour mots longs
-            abbreviations = {
-                'intelligente': 'smart',
-                'connectee': 'plug',
-                'commutateur': 'switch',
-                'ordinateur': 'pc',
-                'puissance': 'pwr',
-                'consommation': 'cur',
-                'electrique': 'elec',
-            }
-            
-            abbrev = abbreviations.get(part.lower())
-            if abbrev:
-                parts[i] = abbrev
-            else:
-                parts[i] = part[:4]
-                
-            name = '_'.join(parts)
-    
-    if len(name) <= available:
-        return name
-    
-    # ✅ NOUVEAU: Hash conditionnel - éviter pour termes critiques
-    if is_critical and len(name) <= available + 15:  # Tolérance +15 chars pour termes critiques
-        # Troncature simple plutôt que hash illisible
-        return name[:available]
-    
-    # Hash en dernier recours (seulement si vraiment nécessaire)
-    keep_length = available - 5
-    hash_suffix = hashlib.md5(name.encode()).hexdigest()[:4]
-    return name[:keep_length] + "_" + hash_suffix
-
-
 def _compute_short_entity_id(long_entity_id: str) -> Optional[str]:
     if not long_entity_id.startswith("sensor.hse_"):
         return None
