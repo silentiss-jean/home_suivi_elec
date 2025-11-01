@@ -149,28 +149,61 @@ class LivePowerSensor(SensorEntity):
 
 def load_power_sensors(hass: HomeAssistant) -> List[Dict[str, Any]]:
     """
-    Charge les sensors power depuis capteurs_power.json.
+    Charge les sensors power sélectionnés par l'utilisateur.
 
-    Filtre uniquement les sensors avec:
-      - type = "power"
-      - usage = "monitoring"
+    Utilise la même logique que energy_tracking:
+      1. Charge capteurs_selection.json (sélection utilisateur)  
+      2. Fusionne avec capteurs_power.json (métadonnées complètes)
+      3. Filtre uniquement type = "power"
 
-    Returns: Liste de sensors power pour monitoring temps réel
+    Returns: Liste de sensors power sélectionnés pour monitoring temps réel
     """
+    from pathlib import Path
+    
+    # 1. Charger capteurs_selection.json
+    selection_file = Path(__file__).parent / "data" / "capteurs_selection.json"
+    if not selection_file.exists():
+        _LOGGER.warning(f"⚠️ Fichier sélection introuvable: {selection_file}")
+        return []
+
+    with open(selection_file, "r", encoding="utf-8") as f:
+        selection_data = json.load(f)
+
+    # 2. Charger capteurs_power.json
     if not os.path.exists(CAPTEURS_FILE):
-        _LOGGER.warning(f"⚠️  Fichier non trouvé: {CAPTEURS_FILE}")
+        _LOGGER.warning(f"⚠️ Fichier power introuvable: {CAPTEURS_FILE}")
         return []
 
     with open(CAPTEURS_FILE, "r", encoding="utf-8") as f:
-        data = json.load(f)
+        power_data = json.load(f)
 
-    # Filtrer uniquement les sensors power pour monitoring
-    power_sensors = [
-        s for s in data 
-        if s.get("type") == "power" and s.get("usage") == "monitoring"
-    ]
+    # 3. Créer index power_data par entity_id
+    power_index = {s["entity_id"]: s for s in power_data}
 
-    _LOGGER.debug(f"📂 Chargé {len(power_sensors)} sensors power pour monitoring")
+    # 4. Fusionner et filtrer
+    power_sensors = []
+    for items in selection_data.values():
+        if not isinstance(items, list):
+            continue
+            
+        for sensor in items:
+            if not sensor.get("enabled", False):
+                continue
+                
+            entity_id = sensor.get("entity_id")
+            if not entity_id or entity_id not in power_index:
+                continue
+                
+            # Fusion des métadonnées
+            merged_sensor = power_index[entity_id].copy()
+            merged_sensor["enabled"] = sensor["enabled"]
+            
+            # ✅ FILTRER SEULEMENT LES SENSORS POWER
+            if merged_sensor.get("type") == "power":
+                power_sensors.append(merged_sensor)
+                _LOGGER.debug(f"🔴 [POWER] {entity_id} sélectionné pour monitoring")
+
+    _LOGGER.info(f"🔴 {len(power_sensors)} sensors power sélectionnés pour monitoring")
     return power_sensors
 
 

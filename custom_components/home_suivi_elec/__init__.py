@@ -759,13 +759,25 @@ async def load_capteurs_selection(hass: HomeAssistant) -> list[dict]:
                 _LOGGER.warning(f"⚠️ Fichier introuvable: {selection_file}")
                 return []
 
+            # 1. Charger capteurs_selection.json (sélection utilisateur)
             with open(selection_file, "r", encoding="utf-8") as f:
-                data = json.load(f)
+                selection_data = json.load(f)
+
+            # 2. Charger capteurs_power.json (métadonnées complètes)
+            power_file = Path(__file__).parent / "data" / "capteurs_power.json"
+            if not power_file.exists():
+                _LOGGER.warning(f"⚠️ Fichier power introuvable: {power_file}")
+                return []
+                
+            with open(power_file, "r", encoding="utf-8") as f:
+                power_data = json.load(f)
+
+            # 3. Créer index power_data par entity_id pour fusion rapide
+            power_index = {s["entity_id"]: s for s in power_data}
 
             capteurs = []
-
-            # Parcourir toutes les catégories
-            for category, items in data.items():
+            # 4. Parcourir toutes les catégories
+            for category, items in selection_data.items():
                 if not isinstance(items, list):
                     continue
 
@@ -778,34 +790,22 @@ async def load_capteurs_selection(hass: HomeAssistant) -> list[dict]:
                     if not entity_id:
                         continue
 
-                    # Déterminer le type (energy ou power)
-                    sensor_type = sensor.get("type")
-                    if not sensor_type:
-                        # Fallback: détecter via unit
-                        unit = sensor.get("unit", "").lower()
-                        if unit in ("kwh", "wh"):
-                            sensor_type = "energy"
-                        elif unit in ("w", "watt", "watts"):
-                            sensor_type = "power"
-                        else:
-                            # Default: power (plus sûr pour intégration)
-                            sensor_type = "power"
-                            _LOGGER.debug(
-                                f"Type non détecté pour {entity_id}, "
-                                f"défini par défaut: power"
-                            )
-
-                    # Extraire métadonnées Phase 2
-                    capteurs.append({
-                        "entity_id": entity_id,
-                        "type": sensor_type,
-                        "is_virtual": sensor.get("is_virtual", False),
-                        "reliability_score": sensor.get("reliability_score", 1.0),
-                        "reference_type": sensor.get("reference_type", "unknown"),
-                        "tags": sensor.get("tags", []),
-                    })
+                    # ✅ FUSION: Récupérer métadonnées complètes depuis capteurs_power.json
+                    if entity_id in power_index:
+                        # Fusion complète des métadonnées
+                        merged_sensor = power_index[entity_id].copy()
+                        merged_sensor["enabled"] = sensor["enabled"]
+                        capteurs.append(merged_sensor)
+                        _LOGGER.debug(f"✅ [FUSION] {entity_id} → type: {merged_sensor.get('type', 'unknown')}")
+                    else:
+                        _LOGGER.warning(f"⚠️ [SKIP] {entity_id} absent de capteurs_power.json")
 
             return capteurs
+
+        except Exception as e:
+            _LOGGER.error(f"❌ Erreur chargement capteurs_selection.json: {e}")
+            return []
+
 
         except Exception as e:
             _LOGGER.error(f"❌ Erreur chargement capteurs_selection.json: {e}")
