@@ -22,6 +22,7 @@ USAGE :
 import logging
 import os
 import json
+from datetime import datetime
 from typing import Any, Dict, List
 
 from homeassistant.core import HomeAssistant
@@ -236,6 +237,17 @@ async def async_setup_power_monitoring(hass: HomeAssistant, entry) -> None:
     hass.data[DOMAIN]["live_power_sensors"] = live_sensors
 
     _LOGGER.info(f"✅ POWER MONITORING: {len(live_sensors)} sensors temps réel créés")
+    
+    # 🚀 EVENT-DRIVEN: Émettre event pour notifier sensor.py
+    _LOGGER.info(f"📡 [EVENT] Émission 'hse_power_sensors_ready' avec {len(live_sensors)} sensors")
+    hass.bus.async_fire('hse_power_sensors_ready', {
+        'sensors': live_sensors,
+        'count': len(live_sensors),
+        'type': 'power',
+        'timestamp': datetime.now().isoformat()
+    })
+    
     _LOGGER.debug(
         f"🔴 Sensors créés: {[s.entity_id for s in live_sensors[:5]]}{'...' if len(live_sensors) > 5 else ''}"
     )
+
