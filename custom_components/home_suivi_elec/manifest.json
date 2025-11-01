@@ -1,7 +1,7 @@
 {
   "domain": "home_suivi_elec",
   "name": "Home Suivi Élec",
-  "version": "1.0.43",
+  "version": "1.0.44",
   "documentation": "https://github.com/silentiss-jean/home_suivi_elec",
   "dependencies": [],
   "codeowners": ["@silentiss-jean"],
