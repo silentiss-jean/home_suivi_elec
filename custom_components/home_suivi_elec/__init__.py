@@ -903,11 +903,3 @@ async def async_setup_energy_tracking(hass: HomeAssistant, entry: ConfigEntry):
     
     _LOGGER.info("🔋 [PHASE 2] Energy Tracking configuré avec succès")
     
-    # 🚨 FIX TIMING: Recharger l'intégration MAINTENANT que hass.data est prêt
-    _LOGGER.info("🔄 [TIMING-FIX] Rechargement intégration avec les 320 sensors")
-    try:
-        # Force reload de l'intégration maintenant que hass.data["energy_sensors"] est populé
-        await hass.config_entries.async_reload(entry.entry_id)
-        _LOGGER.info("✅ [TIMING-FIX] Intégration rechargée avec succès")
-    except Exception as e:
-        _LOGGER.error(f"❌ [TIMING-FIX] Erreur rechargement intégration: {e}")

@@ -16,32 +16,52 @@ async def async_setup_entry(
     entry: ConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
-    """Set up sensors from a config entry — Phase 2 + Phase 2.5.
+    """Set up sensors from a config entry — Phase 3: EVENT-DRIVEN.
 
-    Phase 2: Energy tracking (cycles kWh)
-      - sensor.hse_{slug}_hourly
-      - sensor.hse_{slug}_daily
-      - sensor.hse_{slug}_weekly
-      - sensor.hse_{slug}_monthly
-      - sensor.hse_{slug}_yearly
-
-    Phase 2.5: Power monitoring (temps réel W)
-      - sensor.hse_live_{slug}
+    🚀 NOUVELLE ARCHITECTURE: Les sensors sont ajoutés via events au lieu du setup timing.
+    
+    Events écoutés:
+      - 'hse_energy_sensors_ready' : sensors energy cycles (energy_tracking.py)  
+      - 'hse_power_sensors_ready'  : sensors power temps réel (power_monitoring.py)
     """
-    # Phase 2: Energy tracking (cycles)
+    from homeassistant.core import callback
+    
+    LOGGER.info("🎯 [EVENT-DRIVEN] Setup sensor platform - Attente events...")
+    
+    @callback
+    def on_hse_sensors_ready(event):
+        """Callback unifié pour tous les events HSE sensors."""
+        try:
+            sensors = event.data.get('sensors', [])
+            sensor_type = event.data.get('type', 'unknown')
+            count = event.data.get('count', len(sensors))
+            timestamp = event.data.get('timestamp', 'unknown')
+            
+            LOGGER.info(f"📡 [EVENT REÇU] {sensor_type.upper()}: {count} sensors à ajouter")
+            LOGGER.debug(f"🕒 [EVENT] Timestamp: {timestamp}")
+            
+            if sensors:
+                # Ajouter immédiatement les sensors reçus
+                async_add_entities(sensors, True)
+                LOGGER.info(f"✅ [EVENT-PROCESSED] {len(sensors)} sensors {sensor_type} enregistrés")
+            else:
+                LOGGER.warning(f"⚠️ [EVENT] Aucun sensor dans l'event {sensor_type}")
+                
+        except Exception as e:
+            LOGGER.exception(f"❌ [EVENT-ERROR] Erreur traitement event: {e}")
+    
+    # Setup listeners pour tous les events HSE
+    hass.bus.async_listen('hse_energy_sensors_ready', on_hse_sensors_ready)
+    hass.bus.async_listen('hse_power_sensors_ready', on_hse_sensors_ready)
+    
+    LOGGER.info("🎧 [EVENT-DRIVEN] Listeners activés - En attente des events sensors...")
+    
+    # 🎯 BACKUP: Vérifier si sensors déjà présents (cas de redémarrage)
     energy_sensors = hass.data.get(DOMAIN, {}).get("energy_sensors", [])
-
-    # Phase 2.5: Power monitoring (temps réel)
     live_power_sensors = hass.data.get(DOMAIN, {}).get("live_power_sensors", [])
-
-    # Fusionner tous les sensors
-    all_sensors = energy_sensors + live_power_sensors
-
-    if all_sensors:
-        LOGGER.info(
-            f"📊 SENSOR.PY: Enregistrement de {len(energy_sensors)} sensors energy "
-            f"+ {len(live_power_sensors)} sensors power live"
-        )
-        async_add_entities(all_sensors, True)
-    else:
-        LOGGER.warning("⚠️  SENSOR.PY: Aucun sensor d'énergie à enregistrer")
+    
+    if energy_sensors or live_power_sensors:
+        total = len(energy_sensors) + len(live_power_sensors)
+        LOGGER.info(f"🔄 [BACKUP] Sensors déjà présents: {len(energy_sensors)} energy + {len(live_power_sensors)} power")
+        async_add_entities(energy_sensors + live_power_sensors, True)
+        LOGGER.info(f"✅ [BACKUP] {total} sensors pré-existants enregistrés")

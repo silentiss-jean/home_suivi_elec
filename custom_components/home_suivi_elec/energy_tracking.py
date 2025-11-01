@@ -458,8 +458,20 @@ async def create_energy_sensors(
         source_id = capteur.get("entity_id")
         if not source_id:
             continue
-
+        
+        # ✅ FIX COLLISION: Détection intelligente energy vs power
         source_type = capteur.get("type", "power")
+
+        if "today_energy" in source_id and source_type != "energy":
+            _LOGGER.warning(f"🔧 [AUTO-FIX] {source_id} mal typé '{source_type}' → 'energy'")
+            source_type = "energy"
+
+        if source_type != "energy":
+            _LOGGER.debug(f"⏭️ [SKIP-ENERGY] {source_id} n'est pas energy (type: {source_type})")
+            continue
+
+        _LOGGER.debug(f"✅ [PROCESS-ENERGY] {source_id} (type: {source_type})")
+        
         metadata = {
             "is_virtual": capteur.get("is_virtual"),
             "reliability_score": capteur.get("reliability_score"),
@@ -481,48 +493,44 @@ async def create_energy_sensors(
         for cycle in CYCLES.keys():
             cycle_short = cycle[0]  # h, d, w, m, y
             
-            # ✅ PRÉSERVER PRÉFIXES selon source + type
-            if source_type == "energy":
-                if "today_energy" in source_id:
-                    # Source Tapo energy native → préfixe simple
-                    entity_id = f"sensor.hse_{base_name}_{cycle}"
-                    unique_id = f"hse_{source_hash}_{cycle_short}"
-                else:
-                    # Autres sources energy → préfixe energy
-                    entity_id = f"sensor.hse_energy_{base_name}_{cycle}"
-                    unique_id = f"hse_energy_{source_hash}_{cycle_short}"
+            # ✅ SIMPLE : tous les sensors ici sont energy (grâce au filtre)
+            if "today_energy" in source_id:
+                # Source Tapo energy native → préfixe simple
+                entity_id = f"sensor.hse_{base_name}_{cycle}"
+                unique_id = f"hse_{source_hash}_{cycle_short}"
             else:
-                # Source power → préfixe LIVE (comme avant!)
-                entity_id = f"sensor.hse_live_{base_name}_{cycle_short}"  # ✅ COHÉRENT avec API !
-                unique_id = f"hse_live_{source_hash}_{cycle_short}"      # ✅ Cohérent
-            
+                # Autres sources energy → préfixe energy
+                entity_id = f"sensor.hse_energy_{base_name}_{cycle}"
+                unique_id = f"hse_energy_{source_hash}_{cycle_short}"
+
             name = f"HSE {entity_base} {cycle.capitalize()}"
             
-            if source_type == "energy":
-                created_sensor = CumulativeEnergyCycleSensor(
-                    hass=hass,
-                    source_entity=source_id,
-                    cycle=cycle,
-                    unique_id=unique_id,
-                    name=name,
-                    metadata=metadata,
-                )
-            else:
-                created_sensor = PowerEnergyCycleSensor(
-                    hass=hass,
-                    source_entity=source_id,
-                    cycle=cycle,
-                    unique_id=unique_id,
-                    name=name,
-                    metadata=metadata,
-                )
+            # ✅ TOUJOURS CumulativeEnergyCycleSensor (sensors energy seulement)
+            created_sensor = CumulativeEnergyCycleSensor(
+                hass=hass,
+                source_entity=source_id,
+                cycle=cycle,
+                unique_id=unique_id,
+                name=name,
+                metadata=metadata,
+            )
 
             # ✅ Enregistrer dans registry pour friendly names
             registry.register(entity_id, entity_base)
             
             sensors.append(created_sensor)
             _LOGGER.debug(f"✅ [CREATE-SENSOR] {entity_id} → {name}")
-    
+
     # 🚨 BUGFIX CRITIQUE: Ajout du return manquant !
     _LOGGER.info(f"✅ [CREATE-SENSORS] {len(sensors)} sensors créés au total")
+ 
+    # 🚀 EVENT-DRIVEN: Émettre event pour notifier sensor.py
+    _LOGGER.info(f"📡 [EVENT] Émission 'hse_energy_sensors_ready' avec {len(sensors)} sensors")
+    hass.bus.async_fire('hse_energy_sensors_ready', {
+        'sensors': sensors,
+        'count': len(sensors),
+        'type': 'energy',
+        'timestamp': datetime.now().isoformat()
+    })
+
     return sensors
