@@ -4,25 +4,41 @@
  * Garantit l'initialisation et l'isolation de l'onglet Configuration
  */
 
-// Imports des modules configuration existants
-import { initConfiguration, loadConfiguration, refreshConfiguration } from './configuration.js';
-import { initSelectionPanel } from './selectionPanel.js';
-import { initReferencePanel } from './referencePanel.js';
-import { initSavePanel } from './savePanel.js';
+// Imports des modules configuration existants (avec fallback)
+let configModules = {};
+try {
+  const configModule = await import('./configuration.js');
+  configModules.configuration = configModule;
+} catch (e) { console.warn('⚠️ configuration.js non disponible'); }
+
+try {
+  const selectionModule = await import('./selectionPanel.js');
+  configModules.selection = selectionModule;
+} catch (e) { console.warn('⚠️ selectionPanel.js non disponible'); }
+
+try {
+  const referenceModule = await import('./referencePanel.js');
+  configModules.reference = referenceModule;
+} catch (e) { console.warn('⚠️ referencePanel.js non disponible'); }
+
+try {
+  const saveModule = await import('./savePanel.js');
+  configModules.save = saveModule;
+} catch (e) { console.warn('⚠️ savePanel.js non disponible'); }
 
 // ⚙️ COORDINATEUR PRINCIPAL CONFIGURATION
 export async function initConfigTab() {
   console.log('⚙️ Initialisation onglet Configuration...');
   
   try {
-    // Initialise tous les modules configuration dans l'ordre
-    if (typeof initConfiguration === 'function') {
-      await initConfiguration();
+    // Initialise configuration principal
+    if (configModules.configuration?.initConfiguration) {
+      await configModules.configuration.initConfiguration();
       console.log('✅ Configuration principal initialisé');
     }
     
-    if (typeof loadConfiguration === 'function') {
-      await loadConfiguration();
+    if (configModules.configuration?.loadConfiguration) {
+      await configModules.configuration.loadConfiguration();
       console.log('✅ Configuration chargée');
     }
     
@@ -46,20 +62,20 @@ async function initConfigPanels() {
   
   try {
     // Panel sélection capteurs
-    if (typeof initSelectionPanel === 'function') {
-      await initSelectionPanel();
+    if (configModules.selection?.initSelectionPanel) {
+      await configModules.selection.initSelectionPanel();
       console.log('✅ SelectionPanel initialisé');
     }
     
     // Panel capteur de référence
-    if (typeof initReferencePanel === 'function') {
-      await initReferencePanel();
+    if (configModules.reference?.initReferencePanel) {
+      await configModules.reference.initReferencePanel();
       console.log('✅ ReferencePanel initialisé');
     }
     
     // Panel sauvegarde
-    if (typeof initSavePanel === 'function') {
-      await initSavePanel();
+    if (configModules.save?.initSavePanel) {
+      await configModules.save.initSavePanel();
       console.log('✅ SavePanel initialisé');
     }
     
@@ -74,15 +90,34 @@ export async function refreshConfigTab() {
   console.log('🔄 Actualisation onglet Configuration...');
   
   try {
-    if (typeof refreshConfiguration === 'function') {
-      await refreshConfiguration();
-    } else if (typeof loadConfiguration === 'function') {
-      await loadConfiguration();
+    if (configModules.configuration?.refreshConfiguration) {
+      await configModules.configuration.refreshConfiguration();
+    } else if (configModules.configuration?.loadConfiguration) {
+      await configModules.configuration.loadConfiguration();
     } else {
       console.warn('⚠️ Pas de fonction refresh disponible pour Configuration');
+      await loadConfigFallback();
     }
   } catch (error) {
     console.error('❌ Erreur actualisation Configuration:', error);
+  }
+}
+
+// 🔧 FALLBACK CONFIGURATION
+async function loadConfigFallback() {
+  console.log('🔧 Chargement fallback configuration...');
+  
+  const container = document.getElementById('content-configuration');
+  if (container) {
+    container.innerHTML = `
+      <div class="card">
+        <h3>📋 Sélection des Capteurs</h3>
+        <div style="text-align: center; padding: 40px; color: #666;">
+          🔄 Module de configuration en cours de migration...<br>
+          <small>Fonctionnalité temporairement en cours de restauration</small>
+        </div>
+      </div>
+    `;
   }
 }
 
@@ -97,15 +132,17 @@ window.autoSelectBestSensors = async function() {
   if (button) button.disabled = true;
   
   try {
-    // Appel de la fonction existante si disponible
-    if (window.autoSelectBestSensorsOriginal) {
+    // Appel de la fonction existante si disponible dans les modules
+    if (configModules.configuration?.autoSelectBestSensors) {
+      await configModules.configuration.autoSelectBestSensors();
+    } else if (window.autoSelectBestSensorsOriginal) {
       await window.autoSelectBestSensorsOriginal();
     } else {
-      // Fallback : message temporaire
+      // Fallback temporaire
       if (statusElement) {
         statusElement.textContent = '⚠️ Fonction auto-select en cours de migration...';
       }
-      console.warn('⚠️ autoSelectBestSensorsOriginal non disponible');
+      console.warn('⚠️ autoSelectBestSensors non disponible');
     }
   } catch (error) {
     console.error('❌ Erreur sélection automatique:', error);
@@ -129,7 +166,9 @@ function initConfigEventListeners() {
       
       try {
         // Appel fonction sauvegarde existante
-        if (window.saveCurrentSelection) {
+        if (configModules.save?.saveCurrentSelection) {
+          await configModules.save.saveCurrentSelection();
+        } else if (window.saveCurrentSelection) {
           await window.saveCurrentSelection();
         } else {
           console.warn('⚠️ Fonction saveCurrentSelection non disponible');
@@ -156,7 +195,9 @@ function initConfigEventListeners() {
       
       try {
         // Appel fonction sauvegarde config existante
-        if (window.saveUserConfiguration) {
+        if (configModules.configuration?.saveUserConfiguration) {
+          await configModules.configuration.saveUserConfiguration();
+        } else if (window.saveUserConfiguration) {
           await window.saveUserConfiguration();
         } else {
           console.warn('⚠️ Fonction saveUserConfiguration non disponible');
