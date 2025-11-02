@@ -549,10 +549,49 @@ table thead th { background: #f2f2f2; }
 </div>
 
 <script>
+// ✅ FONCTION SHOWLAB ENRICHIE - Appel coordinateurs
 function showTab(tab) {
   document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
   const selected = document.getElementById(tab);
   if (selected) selected.classList.add('active');
+  
+  // ✅ APPEL COORDINATEURS POUR CHAQUE ONGLET
+  switch(tab) {
+    case 'home':
+      console.log('🏠 Activation onglet Accueil...');
+      if (window.initHomeTab) {
+        setTimeout(() => window.initHomeTab(), 100);
+      }
+      break;
+    case 'diagnostics':
+      console.log('🔧 Activation onglet Diagnostic...');
+      if (window.loadDiagnostics) {
+        setTimeout(() => window.loadDiagnostics(), 100);
+      }
+      break;
+    case 'detection':
+      console.log('🔍 Activation onglet Détection...');
+      if (window.initDetectionTab) {
+        setTimeout(() => window.initDetectionTab(), 100);
+      }
+      break;
+    case 'configuration':
+      console.log('⚙️ Activation onglet Configuration...');
+      if (window.initConfigTab) {
+        setTimeout(() => window.initConfigTab(), 100);
+      }
+      break;
+    case 'customisation':
+      console.log('🎨 Activation onglet Customisation...');
+      // TODO: coordinateur customisation à créer
+      break;
+    case 'generation':
+      console.log('🧩 Activation onglet Génération...');
+      // TODO: coordinateur génération à créer
+      break;
+    default:
+      console.warn(`Onglet inconnu: ${tab}`);
+  }
 }
 
 // ✅ NOUVELLE FONCTION - Navigation sous-onglets Diagnostic
@@ -612,14 +651,18 @@ document.addEventListener("DOMContentLoaded", () => {
     toggleTarifsConfig(); // Appel initial
   }
 
-  // ✅ Charger automatiquement l'onglet Capteurs au démarrage
-  if (window.loadDiagnosticSensorsGrouped) {
-    setTimeout(() => window.loadDiagnosticSensorsGrouped(), 500);
+  // ✅ Charger automatiquement l'onglet Accueil au démarrage
+  console.log('🏠 Auto-chargement Accueil au démarrage...');
+  if (window.initHomeTab) {
+    setTimeout(() => window.initHomeTab(), 300);
   }
 });
 </script>
 
 <script type="module" src="js/app.js"></script>
+<script type="module" src="js/home-main.js"></script>
+<script type="module" src="js/config-main.js"></script>
+<script type="module" src="js/detection-main.js"></script>
 <script type="module" src="js/diagnostics.js"></script>
 <script type="module" src="js/diagnostics-sensors-grouped.js"></script>
 <script type="module" src="js/diagnostics-integrations.js"></script>
