@@ -643,6 +643,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STARTED, start_detection_selection)
     
+    # ✅ FIX TIMING: Charger plateforme sensor AVANT les tasks
+    await hass.config_entries.async_forward_entry_setups(entry, ["sensor"])
+    _LOGGER.info("[SETUP_ENTRY] 🚀 Plateforme sensor chargée - Listeners EVENT-DRIVEN actifs")
+    
     # ✅ NOUVEAU : Fonction de setup différé
     async def setup_sensors_after_detection():
         """Setup sensors après que la détection soit terminée."""
@@ -701,7 +705,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         except Exception as e:
             _LOGGER.exception("Erreur sensor sync manager: %s", e)
 
-    # Lancer la tâche en arrière-plan
+    # Lancer la tâche en arrière-plan APRÈS le setup de la plateforme
     asyncio.create_task(setup_sensors_after_detection())
     
     asyncio.create_task(_delayed_start(hass, entry))
@@ -712,10 +716,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     await loop.run_in_executor(None, lambda: _copy_ui_blocking(src, dst))
 
     _LOGGER.info("[SETUP_ENTRY] ✅ Home Suivi Élec setup terminé (sensors seront chargés après détection)")
-    
-    # ✅ Charger la plateforme sensor pour enregistrer les sensors HSE
-    await hass.config_entries.async_forward_entry_setups(entry, ["sensor"])
-    _LOGGER.info("[SETUP_ENTRY] 🚀 Plateforme sensor chargée")
     
     return True
 
@@ -918,4 +918,3 @@ async def async_setup_energy_tracking(hass: HomeAssistant, entry: ConfigEntry):
         _LOGGER.exception(f"❌ Erreur calcul stats: {e}")
     
     _LOGGER.info("🔋 [PHASE 2] Energy Tracking configuré avec succès")
-    
