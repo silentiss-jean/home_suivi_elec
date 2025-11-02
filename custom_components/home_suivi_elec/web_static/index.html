@@ -503,6 +503,7 @@ table thead th { background: #f2f2f2; }
       ℹ️ Les modifications seront appliquées après sauvegarde. Les calculs seront mis à jour automatiquement.
     </p>
   </div>
+  
   <!-- ✅✅✅ NOUVEAU BLOC - SÉLECTION AUTO ✅✅✅ -->
   <div class="card" style="background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%); border-left: 4px solid #2196f3; margin-top: 20px;">
     <h3>🤖 Sélection automatique intelligente</h3>
@@ -549,121 +550,13 @@ table thead th { background: #f2f2f2; }
 </div>
 
 <script>
-// ✅ FIX 4: FONCTION SHOWAB UNIQUE SOURCE DE VÉRITÉ
-// Version fixée avec appel coordinateurs prioritaires
-if (!window.showTabInitialized) {
-  window.showTab = function(tab) {
-    console.log(`📑 showTab appelé: ${tab} (depuis index.html - source de vérité)`);
-    
-    // Gestion affichage onglets
-    document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
-    const selected = document.getElementById(tab);
-    if (selected) selected.classList.add('active');
-    
-    // ✅ FIX: APPEL COORDINATEURS POUR CHAQUE ONGLET (avec délai)
-    switch(tab) {
-      case 'home':
-        console.log('🏠 Activation onglet Accueil via coordinateur...');
-        if (window.initHomeTab) {
-          setTimeout(() => window.initHomeTab(), 100);
-        } else {
-          console.warn('⚠️ Coordinateur home non disponible, fallback...');
-          if (window.loadSummary) window.loadSummary();
-        }
-        break;
-        
-      case 'diagnostics':
-        console.log('🔧 Activation onglet Diagnostic...');
-        if (window.loadDiagnostics) {
-          setTimeout(() => {
-            window.loadDiagnostics();
-            showDiagTab('diag-sensors');
-          }, 100);
-        }
-        break;
-        
-      case 'detection':
-        console.log('🔍 Activation onglet Détection...');
-        if (window.initDetectionTab) {
-          setTimeout(() => window.initDetectionTab(), 100);
-        } else if (window.loadDetection) {
-          setTimeout(() => window.loadDetection(), 100);
-        }
-        break;
-        
-      case 'configuration':
-        console.log('⚙️ Activation onglet Configuration via coordinateur...');
-        if (window.initConfigTab) {
-          setTimeout(() => window.initConfigTab(), 100);
-        } else {
-          console.warn('⚠️ Coordinateur config non disponible, fallback...');
-          if (window.loadConfiguration) window.loadConfiguration();
-        }
-        break;
-        
-      case 'customisation':
-        console.log('🎨 Activation onglet Customisation...');
-        // TODO: coordinateur customisation à créer
-        break;
-        
-      case 'generation':
-        console.log('🧩 Activation onglet Génération...');
-        // TODO: coordinateur génération à créer
-        break;
-        
-      default:
-        console.warn(`Onglet inconnu: ${tab}`);
-    }
-  };
-  
-  window.showTabInitialized = true;
-  console.log('✅ showTab initialisé (index.html - source de vérité)');
-}
+// ✅ NAVIGATION SIMPLIFIÉE - DÉLÉGATION TOTALE À APP.JS
+// showTab et showDiagTab sont définies dans app.js
+// Pas de redéfinition ici pour éviter les conflits
 
-// ✅ FONCTION NAVIGATION SOUS-ONGLETS DIAGNOSTIC - VERSION FIXÉE
-if (!window.showDiagTabInitialized) {
-  window.showDiagTab = function(diagTab) {
-    console.log(`🔧 showDiagTab appelé: ${diagTab} (depuis index.html)`);
-    
-    // Désactive tous les sous-onglets
-    document.querySelectorAll('.diag-tab-content').forEach(el => el.classList.remove('active'));
-    document.querySelectorAll('.diag-tabs button').forEach(btn => btn.classList.remove('active'));
-    
-    // Active le bon sous-onglet
-    const selectedTab = document.getElementById(diagTab);
-    if (selectedTab) selectedTab.classList.add('active');
-    
-    // Active le bon bouton (recherche par onclick contenant le nom du tab)
-    const targetBtn = document.querySelector(`button[onclick*="${diagTab}"]`);
-    if (targetBtn) targetBtn.classList.add('active');
-    
-    // ✅ FIX: APPEL SPÉCIFIQUE DE CHARGEMENT SELON L'ONGLET
-    switch(diagTab) {
-      case 'diag-sensors':
-        if (window.loadDiagnosticSensorsGrouped) window.loadDiagnosticSensorsGrouped();
-        break;
-      case 'diag-integrations':
-        if (window.loadDiagnosticIntegrations) window.loadDiagnosticIntegrations();
-        break;
-      case 'diag-logs':
-        if (window.loadDiagnosticLogs) window.loadDiagnosticLogs();
-        break;
-      case 'diag-apis':
-        if (window.loadDiagnosticAPIs) window.loadDiagnosticAPIs();
-        break;
-      case 'diag-flow':
-        if (window.loadDiagnosticFlow) window.loadDiagnosticFlow();
-        break;
-    }
-  };
-  
-  window.showDiagTabInitialized = true;
-  console.log('✅ showDiagTab initialisé (index.html)');
-}
-
-// ✅ Gestion affichage dynamique type contrat
+// ✅ GESTION AFFICHAGE DYNAMIQUE TYPE CONTRAT SEULEMENT
 document.addEventListener("DOMContentLoaded", () => {
-  console.log('🚀 index.html DOMContentLoaded (Version Fixée)');
+  console.log('🚀 index.html DOMContentLoaded (Navigation simplifiée)');
   
   const typeContratSelect = document.getElementById("typeContrat");
   const blocFixeConfig = document.getElementById("blocFixeConfig");
@@ -686,29 +579,12 @@ document.addEventListener("DOMContentLoaded", () => {
     typeContratSelect.addEventListener('change', toggleTarifsConfig);
     toggleTarifsConfig(); // Appel initial
   }
-
-  // ✅ FIX: AUTO-CHARGEMENT ACCUEIL CONTRÔLÉ
-  console.log('🏠 Auto-chargement Accueil au démarrage contrôlé...');
-  setTimeout(() => {
-    if (window.initHomeTab) {
-      console.log('📞 Appel coordinateur home au démarrage');
-      window.initHomeTab();
-    } else {
-      console.warn('⚠️ Coordinateur home non prêt, attente 300ms supplémentaire...');
-      setTimeout(() => {
-        if (window.initHomeTab) {
-          window.initHomeTab();
-        } else {
-          console.warn('⚠️ Coordinateur home toujours non disponible');
-        }
-      }, 300);
-    }
-  }, 200);
   
-  console.log('✅ index.html initialisé (version fixée)');
+  console.log('✅ index.html initialisé (délégation à app.js)');
 });
 </script>
 
+<!-- ✅ CHARGEMENT MODULES DANS LE BON ORDRE -->
 <script type="module" src="js/app.js"></script>
 <script type="module" src="js/home-main.js"></script>
 <script type="module" src="js/config-main.js"></script>
