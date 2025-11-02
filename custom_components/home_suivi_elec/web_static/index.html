@@ -34,7 +34,7 @@ table thead th { background: #f2f2f2; }
 .config-section h4 { margin-top: 0; color: #0078d4; }
 .config-section.hphc h4 { color: #ff9800; }
 
-/* ✅ NOUVEAUX STYLES DIAGNOSTIC ENRICHI */
+/* ✅ STYLES DIAGNOSTIC ENRICHI */
 .diag-tabs { 
   display: flex; 
   gap: 8px; 
@@ -255,7 +255,7 @@ table thead th { background: #f2f2f2; }
     <button type="button" onclick="showDiagTab('diag-flow')">📈 Flux Système</button>
   </div>
 
-  <!-- 📊 CAPTEURS HSE (Enrichi avec groupement) -->
+  <!-- 📊 CAPTEURS HSE -->
   <div id="diag-sensors" class="diag-tab-content active">
     <div class="card">
       <h3>Capteurs HSE Energy - Vue Groupée</h3>
@@ -281,107 +281,14 @@ table thead th { background: #f2f2f2; }
     </div>
   </div>
 
-  <!-- 🔌 INTÉGRATIONS HA -->
-  <div id="diag-integrations" class="diag-tab-content">
-    <div class="card">
-      <h3>État des Intégrations Home Assistant</h3>
-      <p style="color: #666; margin-bottom: 15px;">
-        Surveillance des intégrations qui fournissent des capteurs énergie/puissance
-      </p>
-      <button id="refreshIntegrations" class="primary" type="button" style="margin-bottom: 15px;">🔄 Actualiser Intégrations</button>
-      
-      <!-- Container pour intégrations -->
-      <div id="integrationsContainer">
-        <div style="text-align: center; padding: 40px; color: #999;">
-          🔄 Chargement des intégrations...
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- 📜 LOGS BACKEND -->
-  <div id="diag-logs" class="diag-tab-content">
-    <div class="card">
-      <h3>Logs Backend Home Suivi Élec</h3>
-      <div style="margin-bottom: 15px; display: flex; gap: 10px; align-items: center;">
-        <select id="logLevel" style="padding: 6px;">
-          <option value="all">Tous les niveaux</option>
-          <option value="error">❌ Erreurs</option>
-          <option value="warning">⚠️ Warnings</option>
-          <option value="info">ℹ️ Infos</option>
-          <option value="debug">🔧 Debug</option>
-        </select>
-        <input type="text" id="logSearch" placeholder="Rechercher dans logs..." style="flex: 1; padding: 6px; border: 1px solid #ddd; border-radius: 4px;">
-        <button id="refreshLogs" class="primary" type="button">🔄 Actualiser</button>
-        <button id="exportLogs" class="primary" type="button">📊 Export CSV</button>
-      </div>
-      
-      <!-- Container logs -->
-      <div id="logsContainer" style="background: #1e1e1e; color: #f0f0f0; padding: 15px; border-radius: 6px; max-height: 400px; overflow-y: auto; font-family: 'Courier New', monospace; font-size: 13px;">
-        <div style="text-align: center; color: #888;">
-          📜 Logs backend à venir (API /logs en développement)
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- 🌐 APIs & SERVICES -->  
-  <div id="diag-apis" class="diag-tab-content">
-    <div class="card">
-      <h3>Santé APIs & Services Backend</h3>
-      
-      <!-- Métriques temps réel -->
-      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 20px;">
-        <div style="background: #e8f5e8; padding: 12px; border-radius: 6px; text-align: center;">
-          <div style="font-size: 24px; font-weight: bold; color: #28a745;" id="apiUptime">-</div>
-          <div style="font-size: 12px; color: #666;">Uptime Backend</div>
-        </div>
-        <div style="background: #e3f2fd; padding: 12px; border-radius: 6px; text-align: center;">
-          <div style="font-size: 24px; font-weight: bold; color: #0078d4;" id="apiCalls">-</div>
-          <div style="font-size: 12px; color: #666;">Appels API/min</div>
-        </div>
-        <div style="background: #fff3e0; padding: 12px; border-radius: 6px; text-align: center;">
-          <div style="font-size: 24px; font-weight: bold; color: #ff9800;" id="apiErrors">-</div>
-          <div style="font-size: 12px; color: #666;">Erreurs/h</div>
-        </div>
-      </div>
-
-      <button id="refreshAPIs" class="primary" type="button" style="margin-bottom: 15px;">🔄 Test APIs</button>
-
-      <!-- État des APIs -->
-      <div id="apisContainer">
-        <div style="text-align: center; padding: 40px; color: #999;">
-          🌐 Tests APIs à venir...
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- 📈 FLUX SYSTÈME -->
-  <div id="diag-flow" class="diag-tab-content">
-    <div class="card">
-      <h3>Architecture & Flux de Données</h3>
-      <p style="color: #666; margin-bottom: 15px;">
-        Visualisation du flux backend : Détection → Sélection → Scoring → Tracking → APIs
-      </p>
-      
-      <!-- Container pour diagramme Mermaid -->
-      <div id="flowDiagram" style="background: #fafafa; border: 1px solid #e5e5e5; border-radius: 6px; padding: 20px; min-height: 300px;">
-        <div style="text-align: center; padding: 40px; color: #999;">
-          📈 Diagramme interactif à venir<br>
-          <small>Flux: detect_local.py → manage_selection.py → sensor_quality_scorer.py → energy_tracking.py → sensor.py</small>
-        </div>
-      </div>
-
-      <div style="margin-top: 20px;">
-        <button id="refreshFlow" class="primary" type="button">🔄 Actualiser Flux</button>
-        <button id="exportFlow" class="primary" type="button">📊 Export Mermaid</button>
-      </div>
-    </div>
-  </div>
+  <!-- Autres sous-onglets diagnostic -->
+  <div id="diag-integrations" class="diag-tab-content">Chargement intégrations...</div>
+  <div id="diag-logs" class="diag-tab-content">Chargement logs...</div>
+  <div id="diag-apis" class="diag-tab-content">Chargement APIs...</div>
+  <div id="diag-flow" class="diag-tab-content">Chargement flux...</div>
 </div>
 
-<!-- 🔍 DÉTECTION (Recenté) -->
+<!-- 🔍 DÉTECTION -->
 <div id="detection" class="tab-content">
   <h2>🔍 Détection & Découverte Capteurs</h2>
   <div class="card">
@@ -401,7 +308,7 @@ table thead th { background: #f2f2f2; }
 <div id="configuration" class="tab-content">
   <h2>Configuration des capteurs et options utilisateur</h2>
 
-  <!-- ✅ BLOC CONFIGURATION TARIFAIRE COMPLET -->
+  <!-- Configuration tarifaire -->
   <div id="userConfig" class="card">
     <h3>📊 Configuration tarifaire</h3>
     
@@ -426,7 +333,7 @@ table thead th { background: #f2f2f2; }
       </select>
     </label>
 
-    <!-- ✅ Bloc FIXE -->
+    <!-- Bloc FIXE -->
     <div id="blocFixeConfig" class="config-section" style="display:none;">
       <h4>⚡ Tarif Prix Fixe</h4>
       <div class="config-grid">
@@ -441,7 +348,7 @@ table thead th { background: #f2f2f2; }
       </div>
     </div>
 
-    <!-- ✅ Bloc HP/HC -->
+    <!-- Bloc HP/HC -->
     <div id="hpHCFieldsConfig" class="config-section hphc" style="display:none;">
       <h4>🌙 Tarif Heures Pleines / Heures Creuses</h4>
       
@@ -494,34 +401,23 @@ table thead th { background: #f2f2f2; }
       </div>
     </div>
 
-    <!-- Bouton sauvegarder -->
     <button id="saveUserConfig" class="primary" type="button" style="margin-top: 15px;">
       💾 Sauvegarder la configuration
     </button>
-    
-    <p style="font-size: 0.85em; color: #666; margin-top: 10px;">
-      ℹ️ Les modifications seront appliquées après sauvegarde. Les calculs seront mis à jour automatiquement.
-    </p>
   </div>
   
-  <!-- ✅✅✅ NOUVEAU BLOC - SÉLECTION AUTO ✅✅✅ -->
+  <!-- Sélection automatique -->
   <div class="card" style="background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%); border-left: 4px solid #2196f3; margin-top: 20px;">
     <h3>🤖 Sélection automatique intelligente</h3>
     <p style="margin-bottom: 15px; line-height: 1.5;">
-      <strong>Le système analyse tous vos capteurs</strong> et sélectionne automatiquement les meilleurs selon ces critères :
+      <strong>Le système analyse tous vos capteurs</strong> et sélectionne automatiquement les meilleurs.
     </p>
-    <ul style="margin-bottom: 15px; line-height: 1.6;">
-      <li>✅ <strong>Energy (kWh)</strong> prioritaire sur Power (W)</li>
-      <li>⭐ Score de qualité optimal (intégration, fiabilité)</li>
-      <li>🎯 Un seul capteur par appareil (évite les doublons)</li>
-      <li>🔌 Capteurs physiques prioritaires sur virtuels</li>
-    </ul>
     <button 
       id="autoSelectBtn" 
       class="primary" 
       type="button" 
       onclick="autoSelectBestSensors()"
-      style="background: linear-gradient(135deg, #2196f3 0%, #1976d2 100%); font-size: 16px; padding: 12px 24px; box-shadow: 0 4px 12px rgba(33, 150, 243, 0.3);"
+      style="background: linear-gradient(135deg, #2196f3 0%, #1976d2 100%); font-size: 16px; padding: 12px 24px;"
     >
       ✨ Lancer la sélection automatique
     </button>
@@ -550,14 +446,11 @@ table thead th { background: #f2f2f2; }
 </div>
 
 <script>
-// ✅ NAVIGATION SIMPLIFIÉE - DÉLÉGATION TOTALE À APP.JS
-// showTab et showDiagTab sont définies dans app.js
-// Pas de redéfinition ici pour éviter les conflits
+// ✅ PAS DE LOGIQUE ICI - TOUT GÉRÉ PAR APP.JS
+// Les fonctions showTab et showDiagTab sont définies dans app.js
 
-// ✅ GESTION AFFICHAGE DYNAMIQUE TYPE CONTRAT SEULEMENT
+// Gestion affichage dynamique type contrat
 document.addEventListener("DOMContentLoaded", () => {
-  console.log('🚀 index.html DOMContentLoaded (Navigation simplifiée)');
-  
   const typeContratSelect = document.getElementById("typeContrat");
   const blocFixeConfig = document.getElementById("blocFixeConfig");
   const blocHpHcConfig = document.getElementById("hpHCFieldsConfig");
@@ -577,18 +470,13 @@ document.addEventListener("DOMContentLoaded", () => {
   
   if (typeContratSelect) {
     typeContratSelect.addEventListener('change', toggleTarifsConfig);
-    toggleTarifsConfig(); // Appel initial
+    toggleTarifsConfig();
   }
-  
-  console.log('✅ index.html initialisé (délégation à app.js)');
 });
 </script>
 
-<!-- ✅ CHARGEMENT MODULES DANS LE BON ORDRE -->
+<!-- Chargement dans le bon ordre : app.js en premier -->
 <script type="module" src="js/app.js"></script>
-<script type="module" src="js/home-main.js"></script>
-<script type="module" src="js/config-main.js"></script>
-<script type="module" src="js/detection-main.js"></script>
 <script type="module" src="js/diagnostics.js"></script>
 <script type="module" src="js/diagnostics-sensors-grouped.js"></script>
 <script type="module" src="js/diagnostics-integrations.js"></script>
