@@ -1,49 +1,32 @@
 /**
- * config-main.js - Coordinateur Onglet Configuration
- * Wrapper/coordinateur pour les modules configuration.js existants
- * Garantit l'initialisation et l'isolation de l'onglet Configuration
+ * config-main.js - Coordinateur Onglet Configuration  
+ * Fix urgent: appel direct loadConfiguration avec gardes de sécurité
  */
 
-// Imports des modules configuration existants (avec fallback)
-let configModules = {};
-try {
-  const configModule = await import('./configuration.js');
-  configModules.configuration = configModule;
-} catch (e) { console.warn('⚠️ configuration.js non disponible'); }
-
-try {
-  const selectionModule = await import('./selectionPanel.js');
-  configModules.selection = selectionModule;
-} catch (e) { console.warn('⚠️ selectionPanel.js non disponible'); }
-
-try {
-  const referenceModule = await import('./referencePanel.js');
-  configModules.reference = referenceModule;
-} catch (e) { console.warn('⚠️ referencePanel.js non disponible'); }
-
-try {
-  const saveModule = await import('./savePanel.js');
-  configModules.save = saveModule;
-} catch (e) { console.warn('⚠️ savePanel.js non disponible'); }
-
-// ⚙️ COORDINATEUR PRINCIPAL CONFIGURATION
+// ⚙️ COORDINATEUR PRINCIPAL CONFIGURATION - VERSION FIXÉE
 export async function initConfigTab() {
-  console.log('⚙️ Initialisation onglet Configuration...');
+  console.log('⚙️ Initialisation onglet Configuration... (Version Fix)');
   
   try {
-    // Initialise configuration principal
-    if (configModules.configuration?.initConfiguration) {
-      await configModules.configuration.initConfiguration();
-      console.log('✅ Configuration principal initialisé');
+    // ✅ FIX 1: Délai pour DOM ready + garde de sécurité
+    await new Promise(resolve => setTimeout(resolve, 250));
+    
+    // ✅ FIX 2: Appel direct des fonctions globales (pas imports ES6)
+    if (typeof window.loadConfiguration === 'function') {
+      console.log('📞 Appel direct window.loadConfiguration...');
+      await window.loadConfiguration();
+      console.log('✅ Configuration chargée via appel direct');
+    } else {
+      console.warn('⚠️ window.loadConfiguration non disponible, fallback...');
+      await loadConfigFallback();
     }
     
-    if (configModules.configuration?.loadConfiguration) {
-      await configModules.configuration.loadConfiguration();
-      console.log('✅ Configuration chargée');
+    // Initialisation des fonctions auxiliaires
+    if (typeof window.initConfiguration === 'function') {
+      console.log('📞 Appel window.initConfiguration...');
+      await window.initConfiguration();
+      console.log('✅ initConfiguration exécuté');
     }
-    
-    // Initialise les panels
-    await initConfigPanels();
     
     // Event listeners spécifiques
     initConfigEventListeners();
@@ -56,54 +39,27 @@ export async function initConfigTab() {
   }
 }
 
-// 🎛️ INITIALISATION PANELS CONFIGURATION
-async function initConfigPanels() {
-  console.log('🎛️ Initialisation panels Configuration...');
-  
-  try {
-    // Panel sélection capteurs
-    if (configModules.selection?.initSelectionPanel) {
-      await configModules.selection.initSelectionPanel();
-      console.log('✅ SelectionPanel initialisé');
-    }
-    
-    // Panel capteur de référence
-    if (configModules.reference?.initReferencePanel) {
-      await configModules.reference.initReferencePanel();
-      console.log('✅ ReferencePanel initialisé');
-    }
-    
-    // Panel sauvegarde
-    if (configModules.save?.initSavePanel) {
-      await configModules.save.initSavePanel();
-      console.log('✅ SavePanel initialisé');
-    }
-    
-  } catch (error) {
-    console.warn('⚠️ Erreur initialisation panels:', error);
-    // Continue même si certains panels échouent
-  }
-}
-
-// 🔄 ACTUALISATION CONFIGURATION
+// 🔄 ACTUALISATION CONFIGURATION - VERSION FIXÉE
 export async function refreshConfigTab() {
-  console.log('🔄 Actualisation onglet Configuration...');
+  console.log('🔄 Actualisation onglet Configuration... (Fix)');
   
   try {
-    if (configModules.configuration?.refreshConfiguration) {
-      await configModules.configuration.refreshConfiguration();
-    } else if (configModules.configuration?.loadConfiguration) {
-      await configModules.configuration.loadConfiguration();
+    // ✅ FIX 3: Appels directs pour refresh
+    if (typeof window.refreshConfiguration === 'function') {
+      await window.refreshConfiguration();
+    } else if (typeof window.loadConfiguration === 'function') {
+      await window.loadConfiguration();
     } else {
       console.warn('⚠️ Pas de fonction refresh disponible pour Configuration');
       await loadConfigFallback();
     }
+    console.log('✅ Actualisation Configuration terminée');
   } catch (error) {
     console.error('❌ Erreur actualisation Configuration:', error);
   }
 }
 
-// 🔧 FALLBACK CONFIGURATION
+// 🔧 FALLBACK CONFIGURATION - AMÉLIORÉ
 async function loadConfigFallback() {
   console.log('🔧 Chargement fallback configuration...');
   
@@ -113,17 +69,18 @@ async function loadConfigFallback() {
       <div class="card">
         <h3>📋 Sélection des Capteurs</h3>
         <div style="text-align: center; padding: 40px; color: #666;">
-          🔄 Module de configuration en cours de migration...<br>
-          <small>Fonctionnalité temporairement en cours de restauration</small>
+          🔄 Module de configuration en cours de restauration...<br>
+          <small>Coordinateur en cours d'harmonisation avec les modules existants</small><br><br>
+          <button onclick="initConfigTab()" class="primary">🔄 Réessayer</button>
         </div>
       </div>
     `;
   }
 }
 
-// 🎯 AUTO-SÉLECTION CAPTEURS (Fonction exposée)
+// 🎯 AUTO-SÉLECTION CAPTEURS - FIXÉE POUR COMPATIBILITÉ GLOBALE
 window.autoSelectBestSensors = async function() {
-  console.log('🎯 Lancement sélection automatique...');
+  console.log('🎯 Lancement sélection automatique... (Version Fix)');
   
   const statusElement = document.getElementById('autoSelectStatus');
   const button = document.getElementById('autoSelectBtn');
@@ -132,17 +89,22 @@ window.autoSelectBestSensors = async function() {
   if (button) button.disabled = true;
   
   try {
-    // Appel de la fonction existante si disponible dans les modules
-    if (configModules.configuration?.autoSelectBestSensors) {
-      await configModules.configuration.autoSelectBestSensors();
-    } else if (window.autoSelectBestSensorsOriginal) {
+    // ✅ FIX 4: Recherche de la fonction dans plusieurs contextes
+    if (typeof window.autoSelectBestSensorsOriginal === 'function') {
+      console.log('📞 Appel window.autoSelectBestSensorsOriginal...');
       await window.autoSelectBestSensorsOriginal();
+    } else if (typeof autoSelectBestSensorsOriginal === 'function') {
+      console.log('📞 Appel autoSelectBestSensorsOriginal global...');
+      await autoSelectBestSensorsOriginal();
     } else {
-      // Fallback temporaire
+      // Fallback temporaire - message utilisateur informatif
       if (statusElement) {
-        statusElement.textContent = '⚠️ Fonction auto-select en cours de migration...';
+        statusElement.innerHTML = `
+          ⚠️ Fonction auto-select en cours de migration vers nouvelle architecture.<br>
+          <small>Utilisez temporairement la sélection manuelle dans les panels ci-dessous.</small>
+        `;
       }
-      console.warn('⚠️ autoSelectBestSensors non disponible');
+      console.warn('⚠️ autoSelectBestSensors non disponible - migration en cours');
     }
   } catch (error) {
     console.error('❌ Erreur sélection automatique:', error);
@@ -152,9 +114,11 @@ window.autoSelectBestSensors = async function() {
   }
 };
 
-// 🎮 EVENT LISTENERS CONFIGURATION
+// 🎮 EVENT LISTENERS CONFIGURATION - AMÉLIORÉS
 function initConfigEventListeners() {
-  // Bouton sauvegarde sélection
+  console.log('🎮 Configuration des event listeners...');
+  
+  // Bouton sauvegarde sélection - avec garde
   const saveBtn = document.getElementById('saveSelection');
   if (saveBtn) {
     saveBtn.replaceWith(saveBtn.cloneNode(true));
@@ -165,11 +129,11 @@ function initConfigEventListeners() {
       newSaveBtn.textContent = '💾 Sauvegarde...';
       
       try {
-        // Appel fonction sauvegarde existante
-        if (configModules.save?.saveCurrentSelection) {
-          await configModules.save.saveCurrentSelection();
-        } else if (window.saveCurrentSelection) {
+        // Appel fonction sauvegarde existante - recherche dans plusieurs contextes
+        if (typeof window.saveCurrentSelection === 'function') {
           await window.saveCurrentSelection();
+        } else if (typeof saveCurrentSelection === 'function') {
+          await saveCurrentSelection();
         } else {
           console.warn('⚠️ Fonction saveCurrentSelection non disponible');
         }
@@ -183,7 +147,7 @@ function initConfigEventListeners() {
     });
   }
   
-  // Bouton sauvegarde config utilisateur
+  // Bouton sauvegarde config utilisateur - avec garde
   const saveUserConfigBtn = document.getElementById('saveUserConfig');
   if (saveUserConfigBtn) {
     saveUserConfigBtn.replaceWith(saveUserConfigBtn.cloneNode(true));
@@ -195,10 +159,10 @@ function initConfigEventListeners() {
       
       try {
         // Appel fonction sauvegarde config existante
-        if (configModules.configuration?.saveUserConfiguration) {
-          await configModules.configuration.saveUserConfiguration();
-        } else if (window.saveUserConfiguration) {
+        if (typeof window.saveUserConfiguration === 'function') {
           await window.saveUserConfiguration();
+        } else if (typeof saveUserConfiguration === 'function') {
+          await saveUserConfiguration();
         } else {
           console.warn('⚠️ Fonction saveUserConfiguration non disponible');
         }
@@ -211,6 +175,8 @@ function initConfigEventListeners() {
       }
     });
   }
+  
+  console.log('✅ Event listeners Configuration configurés');
 }
 
 // 🚨 AFFICHAGE ERREUR CONFIGURATION
@@ -227,7 +193,7 @@ function showConfigError(message) {
   }
 }
 
-// Expose globalement
+// ✅ FIX 5: Exposition globale immédiate
 window.initConfigTab = initConfigTab;
 window.refreshConfigTab = refreshConfigTab;
 
