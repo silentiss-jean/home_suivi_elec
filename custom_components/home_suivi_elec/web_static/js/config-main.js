@@ -1,32 +1,29 @@
 /**
  * config-main.js - Coordinateur Onglet Configuration  
- * Fix urgent: appel direct loadConfiguration avec gardes de sécurité
+ * ✅ ARCHITECTURE ES6 MODULES CORRECTE - Version réparée
  */
 
-// ⚙️ COORDINATEUR PRINCIPAL CONFIGURATION - VERSION FIXÉE
+// ✅ IMPORTS ES6 CORRECTS - Comme dans app.js original
+import { loadConfiguration, initConfiguration } from './configuration.js';
+
+// ⚙️ COORDINATEUR PRINCIPAL CONFIGURATION - VERSION RÉPARÉE
 export async function initConfigTab() {
-  console.log('⚙️ Initialisation onglet Configuration... (Version Fix)');
+  console.log('⚙️ Initialisation onglet Configuration... (Architecture ES6 correcte)');
   
   try {
-    // ✅ FIX 1: Délai pour DOM ready + garde de sécurité
-    await new Promise(resolve => setTimeout(resolve, 250));
+    // ✅ APPELS DIRECTS DES FONCTIONS IMPORTÉES (pas de window.*)
     
-    // ✅ FIX 2: Appel direct des fonctions globales (pas imports ES6)
-    if (typeof window.loadConfiguration === 'function') {
-      console.log('📞 Appel direct window.loadConfiguration...');
-      await window.loadConfiguration();
-      console.log('✅ Configuration chargée via appel direct');
-    } else {
-      console.warn('⚠️ window.loadConfiguration non disponible, fallback...');
-      await loadConfigFallback();
-    }
-    
-    // Initialisation des fonctions auxiliaires
-    if (typeof window.initConfiguration === 'function') {
-      console.log('📞 Appel window.initConfiguration...');
-      await window.initConfiguration();
+    // Initialiser d'abord si la fonction existe
+    if (typeof initConfiguration === 'function') {
+      console.log('📞 Appel initConfiguration...');
+      await initConfiguration();
       console.log('✅ initConfiguration exécuté');
     }
+    
+    // Puis charger la configuration
+    console.log('📞 Appel loadConfiguration...');
+    await loadConfiguration();
+    console.log('✅ Configuration chargée via import ES6 direct');
     
     // Event listeners spécifiques
     initConfigEventListeners();
@@ -39,163 +36,66 @@ export async function initConfigTab() {
   }
 }
 
-// 🔄 ACTUALISATION CONFIGURATION - VERSION FIXÉE
+// 🔄 ACTUALISATION CONFIGURATION - VERSION RÉPARÉE
 export async function refreshConfigTab() {
-  console.log('🔄 Actualisation onglet Configuration... (Fix)');
+  console.log('🔄 Actualisation onglet Configuration... (ES6 direct)');
   
   try {
-    // ✅ FIX 3: Appels directs pour refresh
-    if (typeof window.refreshConfiguration === 'function') {
-      await window.refreshConfiguration();
-    } else if (typeof window.loadConfiguration === 'function') {
-      await window.loadConfiguration();
-    } else {
-      console.warn('⚠️ Pas de fonction refresh disponible pour Configuration');
-      await loadConfigFallback();
-    }
+    // ✅ APPEL DIRECT - PAS DE DÉLAI ARTIFICIEL
+    await loadConfiguration();
     console.log('✅ Actualisation Configuration terminée');
   } catch (error) {
     console.error('❌ Erreur actualisation Configuration:', error);
   }
 }
 
-// 🔧 FALLBACK CONFIGURATION - AMÉLIORÉ
-async function loadConfigFallback() {
-  console.log('🔧 Chargement fallback configuration...');
-  
+// 🔧 FALLBACK CONFIGURATION si échec
+async function showConfigError(message) {
   const container = document.getElementById('content-configuration');
   if (container) {
     container.innerHTML = `
       <div class="card">
         <h3>📋 Sélection des Capteurs</h3>
-        <div style="text-align: center; padding: 40px; color: #666;">
-          🔄 Module de configuration en cours de restauration...<br>
-          <small>Coordinateur en cours d'harmonisation avec les modules existants</small><br><br>
-          <button onclick="initConfigTab()" class="primary">🔄 Réessayer</button>
+        <div style="text-align: center; padding: 40px; color: #dc3545;">
+          ❌ ${message}<br><br>
+          <button onclick="window.initConfigTab()" class="primary">🔄 Réessayer</button>
         </div>
       </div>
     `;
   }
 }
 
-// 🎯 AUTO-SÉLECTION CAPTEURS - FIXÉE POUR COMPATIBILITÉ GLOBALE
-window.autoSelectBestSensors = async function() {
-  console.log('🎯 Lancement sélection automatique... (Version Fix)');
-  
-  const statusElement = document.getElementById('autoSelectStatus');
-  const button = document.getElementById('autoSelectBtn');
-  
-  if (statusElement) statusElement.textContent = '🔄 Analyse en cours...';
-  if (button) button.disabled = true;
-  
-  try {
-    // ✅ FIX 4: Recherche de la fonction dans plusieurs contextes
-    if (typeof window.autoSelectBestSensorsOriginal === 'function') {
-      console.log('📞 Appel window.autoSelectBestSensorsOriginal...');
-      await window.autoSelectBestSensorsOriginal();
-    } else if (typeof autoSelectBestSensorsOriginal === 'function') {
-      console.log('📞 Appel autoSelectBestSensorsOriginal global...');
-      await autoSelectBestSensorsOriginal();
-    } else {
-      // Fallback temporaire - message utilisateur informatif
-      if (statusElement) {
-        statusElement.innerHTML = `
-          ⚠️ Fonction auto-select en cours de migration vers nouvelle architecture.<br>
-          <small>Utilisez temporairement la sélection manuelle dans les panels ci-dessous.</small>
-        `;
-      }
-      console.warn('⚠️ autoSelectBestSensors non disponible - migration en cours');
-    }
-  } catch (error) {
-    console.error('❌ Erreur sélection automatique:', error);
-    if (statusElement) statusElement.textContent = `❌ Erreur: ${error.message}`;
-  } finally {
-    if (button) button.disabled = false;
-  }
-};
-
-// 🎮 EVENT LISTENERS CONFIGURATION - AMÉLIORÉS
+// 🎮 EVENT LISTENERS CONFIGURATION
 function initConfigEventListeners() {
   console.log('🎮 Configuration des event listeners...');
   
-  // Bouton sauvegarde sélection - avec garde
-  const saveBtn = document.getElementById('saveSelection');
-  if (saveBtn) {
-    saveBtn.replaceWith(saveBtn.cloneNode(true));
-    const newSaveBtn = document.getElementById('saveSelection');
-    
-    newSaveBtn.addEventListener('click', async () => {
-      newSaveBtn.disabled = true;
-      newSaveBtn.textContent = '💾 Sauvegarde...';
-      
-      try {
-        // Appel fonction sauvegarde existante - recherche dans plusieurs contextes
-        if (typeof window.saveCurrentSelection === 'function') {
-          await window.saveCurrentSelection();
-        } else if (typeof saveCurrentSelection === 'function') {
-          await saveCurrentSelection();
-        } else {
-          console.warn('⚠️ Fonction saveCurrentSelection non disponible');
-        }
-        newSaveBtn.textContent = '💾 Sauvegarder la sélection des capteurs';
-      } catch (error) {
-        console.error('❌ Erreur sauvegarde:', error);
-        newSaveBtn.textContent = '❌ Erreur sauvegarde';
-      } finally {
-        newSaveBtn.disabled = false;
-      }
-    });
-  }
+  // Les event listeners pour les boutons de sauvegarde sont gérés
+  // par les modules originaux (savePanel.js, configuration.state.js)
+  // donc on ne les redéfinit pas ici pour éviter les conflits
   
-  // Bouton sauvegarde config utilisateur - avec garde
-  const saveUserConfigBtn = document.getElementById('saveUserConfig');
-  if (saveUserConfigBtn) {
-    saveUserConfigBtn.replaceWith(saveUserConfigBtn.cloneNode(true));
-    const newSaveUserConfigBtn = document.getElementById('saveUserConfig');
-    
-    newSaveUserConfigBtn.addEventListener('click', async () => {
-      newSaveUserConfigBtn.disabled = true;
-      newSaveUserConfigBtn.textContent = '💾 Sauvegarde...';
-      
-      try {
-        // Appel fonction sauvegarde config existante
-        if (typeof window.saveUserConfiguration === 'function') {
-          await window.saveUserConfiguration();
-        } else if (typeof saveUserConfiguration === 'function') {
-          await saveUserConfiguration();
-        } else {
-          console.warn('⚠️ Fonction saveUserConfiguration non disponible');
-        }
-        newSaveUserConfigBtn.textContent = '💾 Sauvegarder la configuration';
-      } catch (error) {
-        console.error('❌ Erreur sauvegarde config:', error);
-        newSaveUserConfigBtn.textContent = '❌ Erreur sauvegarde';
-      } finally {
-        newSaveUserConfigBtn.disabled = false;
-      }
-    });
-  }
-  
-  console.log('✅ Event listeners Configuration configurés');
+  console.log('✅ Event listeners Configuration délégués aux modules originaux');
 }
 
-// 🚨 AFFICHAGE ERREUR CONFIGURATION
-function showConfigError(message) {
-  const container = document.getElementById('content-configuration');
-  if (container) {
-    container.innerHTML = `
-      <div style="text-align: center; padding: 40px; color: #dc3545;">
-        ❌ ${message}
-        <br><br>
-        <button onclick="initConfigTab()" class="primary">🔄 Réessayer</button>
-      </div>
-    `;
-  }
-}
-
-// ✅ FIX 5: Exposition globale immédiate
+// ✅ EXPOSITION GLOBALE POUR COMPATIBILITÉ AVEC INDEX.HTML
 window.initConfigTab = initConfigTab;
 window.refreshConfigTab = refreshConfigTab;
+
+// ✅ GESTION AUTO-SÉLECTION - Import de la fonction depuis selectionPanel
+// Cette fonction sera disponible dès que selectionPanel.js sera chargé
+window.autoSelectBestSensors = async function() {
+  console.log('🎯 Délégation auto-select à selectionPanel.js...');
+  
+  // La vraie fonction autoSelectBestSensors est définie dans selectionPanel.js
+  // et expose window.autoSelectBestSensors
+  // Si elle n'est pas encore chargée, on affiche un message informatif
+  const statusElement = document.getElementById('autoSelectStatus');
+  if (statusElement) {
+    statusElement.innerHTML = `
+      ⚠️ Module de sélection automatique en cours de chargement...<br>
+      <small>La fonction sera disponible dès que tous les modules seront initialisés.</small>
+    `;
+  }
+};
 
 export default {
   initConfigTab,
