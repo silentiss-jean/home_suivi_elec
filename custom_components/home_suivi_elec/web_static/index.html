@@ -381,7 +381,7 @@ table thead th { background: #f2f2f2; }
   </div>
 </div>
 
-<!-- 🔍 DÉTECTION (Recentré) -->
+<!-- 🔍 DÉTECTION (Recenté) -->
 <div id="detection" class="tab-content">
   <h2>🔍 Détection & Découverte Capteurs</h2>
   <div class="card">
@@ -539,7 +539,7 @@ table thead th { background: #f2f2f2; }
 <!-- 🎨 Customisation -->
 <div id="customisation" class="tab-content">
   <h2>Personnalisation</h2>
-  <p>Options d'apparence et de thème à venir…</p>
+  <p>Options d’apparence et de thème à venir…</p>
 </div>
 
 <!-- 🧩 Génération -->
@@ -549,86 +549,122 @@ table thead th { background: #f2f2f2; }
 </div>
 
 <script>
-// ✅ FONCTION SHOWLAB ENRICHIE - Appel coordinateurs
-function showTab(tab) {
-  document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
-  const selected = document.getElementById(tab);
-  if (selected) selected.classList.add('active');
+// ✅ FIX 4: FONCTION SHOWAB UNIQUE SOURCE DE VÉRITÉ
+// Version fixée avec appel coordinateurs prioritaires
+if (!window.showTabInitialized) {
+  window.showTab = function(tab) {
+    console.log(`📑 showTab appelé: ${tab} (depuis index.html - source de vérité)`);
+    
+    // Gestion affichage onglets
+    document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+    const selected = document.getElementById(tab);
+    if (selected) selected.classList.add('active');
+    
+    // ✅ FIX: APPEL COORDINATEURS POUR CHAQUE ONGLET (avec délai)
+    switch(tab) {
+      case 'home':
+        console.log('🏠 Activation onglet Accueil via coordinateur...');
+        if (window.initHomeTab) {
+          setTimeout(() => window.initHomeTab(), 100);
+        } else {
+          console.warn('⚠️ Coordinateur home non disponible, fallback...');
+          if (window.loadSummary) window.loadSummary();
+        }
+        break;
+        
+      case 'diagnostics':
+        console.log('🔧 Activation onglet Diagnostic...');
+        if (window.loadDiagnostics) {
+          setTimeout(() => {
+            window.loadDiagnostics();
+            showDiagTab('diag-sensors');
+          }, 100);
+        }
+        break;
+        
+      case 'detection':
+        console.log('🔍 Activation onglet Détection...');
+        if (window.initDetectionTab) {
+          setTimeout(() => window.initDetectionTab(), 100);
+        } else if (window.loadDetection) {
+          setTimeout(() => window.loadDetection(), 100);
+        }
+        break;
+        
+      case 'configuration':
+        console.log('⚙️ Activation onglet Configuration via coordinateur...');
+        if (window.initConfigTab) {
+          setTimeout(() => window.initConfigTab(), 100);
+        } else {
+          console.warn('⚠️ Coordinateur config non disponible, fallback...');
+          if (window.loadConfiguration) window.loadConfiguration();
+        }
+        break;
+        
+      case 'customisation':
+        console.log('🎨 Activation onglet Customisation...');
+        // TODO: coordinateur customisation à créer
+        break;
+        
+      case 'generation':
+        console.log('🧩 Activation onglet Génération...');
+        // TODO: coordinateur génération à créer
+        break;
+        
+      default:
+        console.warn(`Onglet inconnu: ${tab}`);
+    }
+  };
   
-  // ✅ APPEL COORDINATEURS POUR CHAQUE ONGLET
-  switch(tab) {
-    case 'home':
-      console.log('🏠 Activation onglet Accueil...');
-      if (window.initHomeTab) {
-        setTimeout(() => window.initHomeTab(), 100);
-      }
-      break;
-    case 'diagnostics':
-      console.log('🔧 Activation onglet Diagnostic...');
-      if (window.loadDiagnostics) {
-        setTimeout(() => window.loadDiagnostics(), 100);
-      }
-      break;
-    case 'detection':
-      console.log('🔍 Activation onglet Détection...');
-      if (window.initDetectionTab) {
-        setTimeout(() => window.initDetectionTab(), 100);
-      }
-      break;
-    case 'configuration':
-      console.log('⚙️ Activation onglet Configuration...');
-      if (window.initConfigTab) {
-        setTimeout(() => window.initConfigTab(), 100);
-      }
-      break;
-    case 'customisation':
-      console.log('🎨 Activation onglet Customisation...');
-      // TODO: coordinateur customisation à créer
-      break;
-    case 'generation':
-      console.log('🧩 Activation onglet Génération...');
-      // TODO: coordinateur génération à créer
-      break;
-    default:
-      console.warn(`Onglet inconnu: ${tab}`);
-  }
+  window.showTabInitialized = true;
+  console.log('✅ showTab initialisé (index.html - source de vérité)');
 }
 
-// ✅ NOUVELLE FONCTION - Navigation sous-onglets Diagnostic
-function showDiagTab(diagTab) {
-  // Désactive tous les sous-onglets
-  document.querySelectorAll('.diag-tab-content').forEach(el => el.classList.remove('active'));
-  document.querySelectorAll('.diag-tabs button').forEach(btn => btn.classList.remove('active'));
+// ✅ FONCTION NAVIGATION SOUS-ONGLETS DIAGNOSTIC - VERSION FIXÉE
+if (!window.showDiagTabInitialized) {
+  window.showDiagTab = function(diagTab) {
+    console.log(`🔧 showDiagTab appelé: ${diagTab} (depuis index.html)`);
+    
+    // Désactive tous les sous-onglets
+    document.querySelectorAll('.diag-tab-content').forEach(el => el.classList.remove('active'));
+    document.querySelectorAll('.diag-tabs button').forEach(btn => btn.classList.remove('active'));
+    
+    // Active le bon sous-onglet
+    const selectedTab = document.getElementById(diagTab);
+    if (selectedTab) selectedTab.classList.add('active');
+    
+    // Active le bon bouton (recherche par onclick contenant le nom du tab)
+    const targetBtn = document.querySelector(`button[onclick*="${diagTab}"]`);
+    if (targetBtn) targetBtn.classList.add('active');
+    
+    // ✅ FIX: APPEL SPÉCIFIQUE DE CHARGEMENT SELON L'ONGLET
+    switch(diagTab) {
+      case 'diag-sensors':
+        if (window.loadDiagnosticSensorsGrouped) window.loadDiagnosticSensorsGrouped();
+        break;
+      case 'diag-integrations':
+        if (window.loadDiagnosticIntegrations) window.loadDiagnosticIntegrations();
+        break;
+      case 'diag-logs':
+        if (window.loadDiagnosticLogs) window.loadDiagnosticLogs();
+        break;
+      case 'diag-apis':
+        if (window.loadDiagnosticAPIs) window.loadDiagnosticAPIs();
+        break;
+      case 'diag-flow':
+        if (window.loadDiagnosticFlow) window.loadDiagnosticFlow();
+        break;
+    }
+  };
   
-  // Active le bon sous-onglet
-  const selectedTab = document.getElementById(diagTab);
-  if (selectedTab) selectedTab.classList.add('active');
-  
-  // Active le bon bouton
-  event.target.classList.add('active');
-  
-  // Appel spécifique de chargement selon l'onglet
-  switch(diagTab) {
-    case 'diag-sensors':
-      if (window.loadDiagnosticSensorsGrouped) window.loadDiagnosticSensorsGrouped();
-      break;
-    case 'diag-integrations':
-      if (window.loadDiagnosticIntegrations) window.loadDiagnosticIntegrations();
-      break;
-    case 'diag-logs':
-      if (window.loadDiagnosticLogs) window.loadDiagnosticLogs();
-      break;
-    case 'diag-apis':
-      if (window.loadDiagnosticAPIs) window.loadDiagnosticAPIs();
-      break;
-    case 'diag-flow':
-      if (window.loadDiagnosticFlow) window.loadDiagnosticFlow();
-      break;
-  }
+  window.showDiagTabInitialized = true;
+  console.log('✅ showDiagTab initialisé (index.html)');
 }
 
 // ✅ Gestion affichage dynamique type contrat
 document.addEventListener("DOMContentLoaded", () => {
+  console.log('🚀 index.html DOMContentLoaded (Version Fixée)');
+  
   const typeContratSelect = document.getElementById("typeContrat");
   const blocFixeConfig = document.getElementById("blocFixeConfig");
   const blocHpHcConfig = document.getElementById("hpHCFieldsConfig");
@@ -651,11 +687,25 @@ document.addEventListener("DOMContentLoaded", () => {
     toggleTarifsConfig(); // Appel initial
   }
 
-  // ✅ Charger automatiquement l'onglet Accueil au démarrage
-  console.log('🏠 Auto-chargement Accueil au démarrage...');
-  if (window.initHomeTab) {
-    setTimeout(() => window.initHomeTab(), 300);
-  }
+  // ✅ FIX: AUTO-CHARGEMENT ACCUEIL CONTRÔLÉ
+  console.log('🏠 Auto-chargement Accueil au démarrage contrôlé...');
+  setTimeout(() => {
+    if (window.initHomeTab) {
+      console.log('📞 Appel coordinateur home au démarrage');
+      window.initHomeTab();
+    } else {
+      console.warn('⚠️ Coordinateur home non prêt, attente 300ms supplémentaire...');
+      setTimeout(() => {
+        if (window.initHomeTab) {
+          window.initHomeTab();
+        } else {
+          console.warn('⚠️ Coordinateur home toujours non disponible');
+        }
+      }, 300);
+    }
+  }, 200);
+  
+  console.log('✅ index.html initialisé (version fixée)');
 });
 </script>
 
