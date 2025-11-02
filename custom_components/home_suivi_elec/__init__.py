@@ -261,6 +261,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     except Exception as e:
         _LOGGER.error("❌ [API] Erreur API Unifiée: %s", e)
 
+    # ✅ API CONFIGURATION ÉTENDUE (méthodes POST)
+    try:
+        from .api.unified_api_extensions import HomeElecUnifiedConfigAPIView
+        hass.http.register_view(HomeElecUnifiedConfigAPIView(hass))
+        _LOGGER.info("✅ [API] API Configuration enregistrée: /api/home_suivi_elec/config/{action}")
+    except Exception as e:
+        _LOGGER.error("❌ [API] Erreur API Configuration: %s", e)
+
     class SetIgnoredEntityView(HomeAssistantView):
         url = "/api/home_suivi_elec/set_ignored_entity"
         name = "api:home_suivi_elec:set_ignored_entity"
