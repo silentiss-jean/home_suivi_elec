@@ -53,18 +53,37 @@ class HomeElecUnifiedAPIView(HomeAssistantView):
             return self._error(500, str(e))
     
     async def _handle_sensors(self):
-        """Endpoint /sensors - Liste des capteurs détectés"""
+        """Endpoint /sensors - Liste des capteurs détectés avec fusion sélection"""
         try:
-            # Charger capteurs_power.json (données détectées)
+            # ✅ 1. Charger capteurs détectés (capteurs_power.json)
             sensors_data = await self._load_sensors_data()
             
-            # Enrichir avec état Home Assistant
+            # ✅ 2. Charger sélection utilisateur (capteurs_selection.json) 
+            selection_data = await self._load_selection_data()
+            
+            # ✅ 3. Créer index de sélection pour fusion rapide
+            selection_index = {}
+            for category, items in selection_data.items():
+                if isinstance(items, list):
+                    for item in items:
+                        entity_id = item.get("entity_id")
+                        if entity_id:
+                            selection_index[entity_id] = item.get("enabled", False)
+            
+            _LOGGER.info(f"🔀 Fusion: {len(sensors_data)} capteurs détectés + {len(selection_index)} sélections")
+            
+            # ✅ 4. Enrichir capteurs avec état HA + sélection
             enriched_sensors = []
             for sensor in sensors_data:
                 entity_id = sensor.get("entity_id")
                 if entity_id:
                     state_obj = self.hass.states.get(entity_id)
                     sensor_info = sensor.copy()
+                    
+                    # Fusion avec sélection utilisateur
+                    sensor_info["enabled"] = selection_index.get(entity_id, False)
+                    
+                    # Fusion avec état Home Assistant
                     sensor_info.update({
                         "current_state": state_obj.state if state_obj else "unavailable",
                         "last_changed": state_obj.last_changed.isoformat() if state_obj else None,
@@ -72,11 +91,16 @@ class HomeElecUnifiedAPIView(HomeAssistantView):
                     })
                     enriched_sensors.append(sensor_info)
             
+            # ✅ 5. Statistiques
+            enabled_count = len([s for s in enriched_sensors if s.get("enabled", False)])
+            _LOGGER.info(f"📊 Fusion résultat: {enabled_count}/{len(enriched_sensors)} capteurs activés")
+            
             return self._success({
                 "sensors": enriched_sensors,
                 "count": len(enriched_sensors),
+                "enabled_count": enabled_count,
                 "type": "sensors",
-                "source": "capteurs_power.json + live_states"
+                "source": "capteurs_power.json + capteurs_selection.json + live_states"
             })
             
         except Exception as e:
