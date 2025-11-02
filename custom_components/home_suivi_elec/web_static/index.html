@@ -33,108 +33,6 @@ table thead th { background: #f2f2f2; }
 .config-section.hphc { background: #fff4e6; border-left-color: #ff9800; }
 .config-section h4 { margin-top: 0; color: #0078d4; }
 .config-section.hphc h4 { color: #ff9800; }
-
-/* ✅ STYLES DIAGNOSTIC ENRICHI */
-.diag-tabs { 
-  display: flex; 
-  gap: 8px; 
-  margin-bottom: 20px; 
-  border-bottom: 2px solid #e5e5e5; 
-  padding-bottom: 10px; 
-}
-.diag-tabs button { 
-  background: #f8f9fa; 
-  border: 1px solid #ddd; 
-  padding: 8px 16px; 
-  border-radius: 5px; 
-  cursor: pointer; 
-  transition: all 0.2s; 
-  color: #666; 
-}
-.diag-tabs button.active { 
-  background: #0078d4; 
-  color: white; 
-  border-color: #0078d4; 
-}
-.diag-tabs button:hover { 
-  background: #e9ecef; 
-}
-.diag-tabs button.active:hover { 
-  background: #005fa3; 
-}
-
-.diag-tab-content { 
-  display: none; 
-}
-.diag-tab-content.active { 
-  display: block; 
-}
-
-/* Styles pour groupement capteurs */
-.sensor-group { 
-  background: white; 
-  border: 1px solid #e5e5e5; 
-  border-radius: 8px; 
-  margin-bottom: 12px; 
-  overflow: hidden; 
-}
-.sensor-group-header { 
-  background: #f8f9fa; 
-  padding: 12px 15px; 
-  cursor: pointer; 
-  display: flex; 
-  align-items: center; 
-  gap: 10px; 
-  transition: background 0.2s; 
-}
-.sensor-group-header:hover { 
-  background: #e9ecef; 
-}
-.sensor-group-toggle { 
-  font-size: 12px; 
-  color: #666; 
-  transition: transform 0.2s; 
-}
-.sensor-group.collapsed .sensor-group-toggle { 
-  transform: rotate(-90deg); 
-}
-.sensor-group-body { 
-  display: block; 
-}
-.sensor-group.collapsed .sensor-group-body { 
-  display: none; 
-}
-
-/* États capteurs visuels */
-.sensor-status { 
-  display: inline-flex; 
-  align-items: center; 
-  gap: 5px; 
-  padding: 2px 8px; 
-  border-radius: 12px; 
-  font-size: 11px; 
-  font-weight: 500; 
-}
-.sensor-status.ok { 
-  background: #d4edda; 
-  color: #155724; 
-}
-.sensor-status.ko { 
-  background: #f8d7da; 
-  color: #721c24; 
-}
-.sensor-status.absent { 
-  background: #fff3cd; 
-  color: #856404; 
-}
-.sensor-status.removed { 
-  background: #e2e3e5; 
-  color: #383d41; 
-}
-.sensor-status.quarantine { 
-  background: #d1ecf1; 
-  color: #0c5460; 
-}
 </style>
 </head>
 <body>
@@ -242,64 +140,43 @@ table thead th { background: #f2f2f2; }
   </div>
 </div>
 
-<!-- 🔧 DIAGNOSTIC ENRICHI -->
+<!-- Onglet principal Diagnostic -->
 <div id="diagnostics" class="tab-content">
-  <h2>🔧 Supervision & Diagnostic Système</h2>
 
-  <!-- ✅ SOUS-NAVIGATION DIAGNOSTIC -->
-  <div class="diag-tabs">
-    <button type="button" class="active" onclick="showDiagTab('diag-sensors')">📊 Capteurs HSE</button>
-    <button type="button" onclick="showDiagTab('diag-integrations')">🔌 Intégrations</button>
-    <button type="button" onclick="showDiagTab('diag-logs')">📜 Logs Backend</button>
-    <button type="button" onclick="showDiagTab('diag-apis')">🌐 APIs & Services</button>
-    <button type="button" onclick="showDiagTab('diag-flow')">📈 Flux Système</button>
+  <!-- Barre de sous-onglets -->
+  <div class="diag-tabs" style="margin-bottom:16px;">
+    <button type="button" onclick="showDiagTab('diag-sensors')">Capteurs</button>
+    <!-- Future extension : <button>Coûts</button>, etc. -->
   </div>
 
-  <!-- 📊 CAPTEURS HSE -->
-  <div id="diag-sensors" class="diag-tab-content active">
-    <div class="card">
-      <h3>Capteurs HSE Energy - Vue Groupée</h3>
-      <div style="margin-bottom: 15px; display: flex; gap: 10px; align-items: center;">
-        <input type="text" id="searchSensors" placeholder="Rechercher capteur..." style="flex: 1; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
-        <button id="expandAll" class="primary" type="button">📂 Tout déplier</button>
-        <button id="collapseAll" class="primary" type="button">📁 Tout replier</button>
-        <button id="refreshSensors" class="primary" type="button">🔄 Actualiser</button>
-      </div>
-      
-      <!-- Statistiques rapides -->
-      <div style="display: flex; gap: 15px; margin-bottom: 20px; padding: 12px; background: #f8f9fa; border-radius: 6px;">
-        <span><strong>Total:</strong> <span id="sensorsTotal">-</span></span>
-        <span><strong>✅ OK:</strong> <span id="sensorsOK">-</span></span>
-        <span><strong>❌ KO:</strong> <span id="sensorsKO">-</span></span>
-        <span><strong>⚠️ Absents:</strong> <span id="sensorsAbsent">-</span></span>
-      </div>
+  <!-- Container du tab detailed capteurs -->
+  <div id="diag-sensors" class="diag-tab-content"></div>
 
-      <!-- Container pour capteurs groupés -->
-      <div id="sensorsGroupedContainer">
-        <!-- Généré dynamiquement par diagnostics-sensors-grouped.js -->
-      </div>
-    </div>
+  <!-- Ancienne partie Diagnostic technique globale -->
+  <!-- Tu peux soit la laisser pour garder le diagnostic “classique”, soit la migrer/séparer vers des sous-onglets comme fait ici pour les capteurs -->
+  <h2>🔧 Diagnostic technique</h2>
+  <div id="diagnosticsPanel">
+    <div id="diagnosticsGlobal"></div>
+    <h3>Capteurs sources sélectionnés (W)</h3>
+    <div id="diagnosticsSources"></div>
+    <h3>Sensors d'intégration (kWh)</h3>
+    <div id="diagnosticsIntegrationSensors"></div>
+    <h3>Utility Meters</h3>
+    <div id="diagnosticsUtilityMeters"></div>
+    <h3>Alertes et recommandations</h3>
+    <div id="diagnosticsAlerts"></div>
+    <button id="refreshDiagnostics" class="primary" type="button">🔄 Rafraîchir Diagnostic</button>
   </div>
-
-  <!-- Autres sous-onglets diagnostic -->
-  <div id="diag-integrations" class="diag-tab-content">Chargement intégrations...</div>
-  <div id="diag-logs" class="diag-tab-content">Chargement logs...</div>
-  <div id="diag-apis" class="diag-tab-content">Chargement APIs...</div>
-  <div id="diag-flow" class="diag-tab-content">Chargement flux...</div>
 </div>
 
-<!-- 🔍 DÉTECTION -->
+
+<!-- 🔍 Détection -->
 <div id="detection" class="tab-content">
-  <h2>🔍 Détection & Découverte Capteurs</h2>
+  <h2>Détection des capteurs</h2>
   <div class="card">
-    <h3>Scan Automatique des Intégrations</h3>
-    <p style="color: #666; margin-bottom: 15px;">
-      Découverte automatique des nouveaux capteurs énergie/puissance dans Home Assistant
-    </p>
     <p><strong>Total capteurs détectés :</strong> <span id="total">-</span></p>
     <p><strong>Dernière mise à jour :</strong> <span id="lastRefresh">-</span></p>
-    <button id="refreshDetection" class="primary" type="button">🔄 Lancer Détection</button>
-    <button id="forceRescan" class="primary" type="button">🔍 Scan Complet</button>
+    <button id="refreshDetection" class="primary" type="button">🔄 Rafraîchir</button>
   </div>
   <div id="content-detection"></div>
 </div>
@@ -308,7 +185,7 @@ table thead th { background: #f2f2f2; }
 <div id="configuration" class="tab-content">
   <h2>Configuration des capteurs et options utilisateur</h2>
 
-  <!-- Configuration tarifaire -->
+  <!-- ✅ BLOC CONFIGURATION TARIFAIRE COMPLET -->
   <div id="userConfig" class="card">
     <h3>📊 Configuration tarifaire</h3>
     
@@ -333,7 +210,7 @@ table thead th { background: #f2f2f2; }
       </select>
     </label>
 
-    <!-- Bloc FIXE -->
+    <!-- ✅ Bloc FIXE -->
     <div id="blocFixeConfig" class="config-section" style="display:none;">
       <h4>⚡ Tarif Prix Fixe</h4>
       <div class="config-grid">
@@ -348,7 +225,7 @@ table thead th { background: #f2f2f2; }
       </div>
     </div>
 
-    <!-- Bloc HP/HC -->
+    <!-- ✅ Bloc HP/HC -->
     <div id="hpHCFieldsConfig" class="config-section hphc" style="display:none;">
       <h4>🌙 Tarif Heures Pleines / Heures Creuses</h4>
       
@@ -401,23 +278,33 @@ table thead th { background: #f2f2f2; }
       </div>
     </div>
 
+    <!-- Bouton sauvegarder -->
     <button id="saveUserConfig" class="primary" type="button" style="margin-top: 15px;">
       💾 Sauvegarder la configuration
     </button>
+    
+    <p style="font-size: 0.85em; color: #666; margin-top: 10px;">
+      ℹ️ Les modifications seront appliquées après sauvegarde. Les calculs seront mis à jour automatiquement.
+    </p>
   </div>
-  
-  <!-- Sélection automatique -->
+  <!-- ✅✅✅ NOUVEAU BLOC - SÉLECTION AUTO ✅✅✅ -->
   <div class="card" style="background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%); border-left: 4px solid #2196f3; margin-top: 20px;">
     <h3>🤖 Sélection automatique intelligente</h3>
     <p style="margin-bottom: 15px; line-height: 1.5;">
-      <strong>Le système analyse tous vos capteurs</strong> et sélectionne automatiquement les meilleurs.
+      <strong>Le système analyse tous vos capteurs</strong> et sélectionne automatiquement les meilleurs selon ces critères :
     </p>
+    <ul style="margin-bottom: 15px; line-height: 1.6;">
+      <li>✅ <strong>Energy (kWh)</strong> prioritaire sur Power (W)</li>
+      <li>⭐ Score de qualité optimal (intégration, fiabilité)</li>
+      <li>🎯 Un seul capteur par appareil (évite les doublons)</li>
+      <li>🔌 Capteurs physiques prioritaires sur virtuels</li>
+    </ul>
     <button 
       id="autoSelectBtn" 
       class="primary" 
       type="button" 
       onclick="autoSelectBestSensors()"
-      style="background: linear-gradient(135deg, #2196f3 0%, #1976d2 100%); font-size: 16px; padding: 12px 24px;"
+      style="background: linear-gradient(135deg, #2196f3 0%, #1976d2 100%); font-size: 16px; padding: 12px 24px; box-shadow: 0 4px 12px rgba(33, 150, 243, 0.3);"
     >
       ✨ Lancer la sélection automatique
     </button>
@@ -436,7 +323,7 @@ table thead th { background: #f2f2f2; }
 <!-- 🎨 Customisation -->
 <div id="customisation" class="tab-content">
   <h2>Personnalisation</h2>
-  <p>Options d’apparence et de thème à venir…</p>
+  <p>Options d'apparence et de thème à venir…</p>
 </div>
 
 <!-- 🧩 Génération -->
@@ -446,10 +333,13 @@ table thead th { background: #f2f2f2; }
 </div>
 
 <script>
-// ✅ PAS DE LOGIQUE ICI - TOUT GÉRÉ PAR APP.JS
-// Les fonctions showTab et showDiagTab sont définies dans app.js
+function showTab(tab) {
+  document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+  const selected = document.getElementById(tab);
+  if (selected) selected.classList.add('active');
+}
 
-// Gestion affichage dynamique type contrat
+// ✅ Gestion affichage dynamique type contrat
 document.addEventListener("DOMContentLoaded", () => {
   const typeContratSelect = document.getElementById("typeContrat");
   const blocFixeConfig = document.getElementById("blocFixeConfig");
@@ -470,18 +360,12 @@ document.addEventListener("DOMContentLoaded", () => {
   
   if (typeContratSelect) {
     typeContratSelect.addEventListener('change', toggleTarifsConfig);
-    toggleTarifsConfig();
+    toggleTarifsConfig(); // Appel initial
   }
 });
 </script>
 
-<!-- Chargement dans le bon ordre : app.js en premier -->
 <script type="module" src="js/app.js"></script>
 <script type="module" src="js/diagnostics.js"></script>
-<script type="module" src="js/diagnostics-sensors-grouped.js"></script>
-<script type="module" src="js/diagnostics-integrations.js"></script>
-<script type="module" src="js/diagnostics-logs.js"></script>
-<script type="module" src="js/diagnostics-apis.js"></script>
-<script type="module" src="js/diagnostics-flow.js"></script>
 </body>
 </html>
