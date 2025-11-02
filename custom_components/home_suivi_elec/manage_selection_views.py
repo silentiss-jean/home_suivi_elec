@@ -108,90 +108,24 @@ def _enrich_device_info(hass: HomeAssistant, caps: List[Dict[str, Any]]) -> List
                     c["area_name"] = area.name
     return caps
 
-# ✅ Fonction de raccourcissement (copiée depuis energy_tracking.py)
-def _shorten_entity_name(name: str, max_length: int = 63) -> str:
-    """Même fonction que dans energy_tracking.py"""
-    import re
-    
-    available = max_length - 20
-    name = name.replace("_today_energy", "")
-    
-    tech_abbrev = {
-        "_puissance": "_pwr",
-        "_consommation_actuelle": "_cur",
-        "_prise_connectee": "_plug",
-        "_prise_intelligente": "_smart",
-    }
-    for old, new in tech_abbrev.items():
-        name = name.replace(old, new)
-    
-    if len(name) <= available:
-        return name
-    
-    def abbreviate_chain(match):
-        parts = match.group(0).split('_')
-        if len(parts) >= 4:
-            return ''.join(p[0] for p in parts)
-        return match.group(0)
-    
-    name = re.sub(r'\b\w+(?:_\w+){3,}', abbreviate_chain, name)
-    
-    if len(name) <= available:
-        return name
-    
-    parts = name.split('_')
-    for i in range(len(parts)):
-        if len(parts[i]) > 6 and len(name) > available:
-            parts[i] = parts[i][:4]
-            name = '_'.join(parts)
-    
-    if len(name) <= available:
-        return name
-    
-    import hashlib
-    keep_length = available - 5
-    hash_suffix = hashlib.md5(name.encode()).hexdigest()[:4]
-    return name[:keep_length] + "_" + hash_suffix
-
-
-# ✅ Fonction de conversion entity_id → sensor HSE energy
-def _build_hse_energy_sensor_id(source_entity_id: str, cycle: str) -> str:
-    """Construit l'entity_id du sensor HSE energy."""
-    base_name = source_entity_id.replace("sensor.", "")
-    cycle_short = cycle[0]  # h, d, w, m, y
-    
-    # ✅ Raccourcir intelligemment
-    base_short = _shorten_entity_name(base_name)
-    
-    if "_today_energy" in base_name or base_name.endswith("_e"):
-        return f"sensor.hse_{base_short}_{cycle_short}"
-    else:
-        return f"sensor.hse_live_{base_short}_{cycle_short}"
-
-# ✅ Fonction de conversion entity_id → sensor HSE energy
+# ✅ CORRECTION CHIRURGICALE : Alignement parfait avec energy_tracking.py
 def _build_hse_energy_sensor_id(source_entity_id: str, cycle: str) -> str:
     """
-    Construit l'entity_id du sensor HSE energy.
+    ✅ ALIGNEMENT COMPLET avec energy_tracking.py
     
-    ✅ ALIGNÉ avec energy_tracking.py (backend)
-    
-    Supporte 2 types de sources :
-    1. ENERGY : sensor.xxx_today_energy → sensor.hse_xxx_today_energy_{cycle}
-    2. POWER  : sensor.xxx_puissance   → sensor.hse_live_xxx_puissance_today_energy_{cycle}
+    Logique identique à energy_tracking.py lignes 183-189 :
+    - today_energy → sensor.hse_{base_name}_{cycle}
+    - autres → sensor.hse_energy_{base_name}_{cycle}
+    - Noms complets préservés (plus de shortening)
+    - Cycles complets (hourly, daily, etc.)
     """
-    """Construit l'entity_id du sensor HSE energy."""
     base_name = source_entity_id.replace("sensor.", "")
-    cycle_short = cycle[0]  # h, d, w, m, y
     
-    # ✅ Raccourcir intelligemment
-    base_short = _shorten_entity_name(base_name)
-    
-    if "_today_energy" in base_name or base_name.endswith("_e"):
-        return f"sensor.hse_{base_short}_{cycle_short}"
+    # ✅ MÊME logique exacte que energy_tracking.py
+    if "today_energy" in source_entity_id:
+        return f"sensor.hse_{base_name}_{cycle}"
     else:
-        return f"sensor.hse_live_{base_short}_{cycle_short}"
-
-
+        return f"sensor.hse_energy_{base_name}_{cycle}"
 
 
 class GetSensorsView(HomeAssistantView):
@@ -397,7 +331,7 @@ class GetConsumptionsView(HomeAssistantView):
                     result.setdefault(capteur_id, {})
                     
                     for cycle in cycles:
-                        # ✅ Pattern HSE natif
+                        # ✅ Pattern HSE natif avec noms complets
                         hse_sensor_id = _build_hse_energy_sensor_id(capteur_id, cycle)
                         st = self.hass.states.get(hse_sensor_id)
                         
