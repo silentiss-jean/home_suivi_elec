@@ -1,25 +1,19 @@
 /**
  * home-main.js - Coordinateur Onglet Accueil
- * Fix urgent: appel direct loadSummary avec délai garanti DOM ready
+ * ✅ ARCHITECTURE ES6 MODULES CORRECTE - Version réparée
  */
 
-// 🏠 COORDINATEUR PRINCIPAL ACCUEIL - VERSION FIXÉE
+// ✅ IMPORTS ES6 CORRECTS - Comme dans app.js original
+import { loadSummary } from './summary.js';
+
+// 🏠 COORDINATEUR PRINCIPAL ACCUEIL - VERSION RÉPARÉE
 export async function initHomeTab() {
-  console.log('🏠 Initialisation onglet Accueil... (Version Fix)');
+  console.log('🏠 Initialisation onglet Accueil... (Architecture ES6 correcte)');
   
   try {
-    // ✅ FIX 1: Délai pour s'assurer que DOM est prêt
-    await new Promise(resolve => setTimeout(resolve, 200));
-    
-    // ✅ FIX 2: Appel direct de la fonction globale loadSummary (pas import ES6)
-    if (typeof window.loadSummary === 'function') {
-      console.log('📞 Appel direct window.loadSummary...');
-      await window.loadSummary();
-      console.log('✅ Résumé chargé via appel direct');
-    } else {
-      console.warn('⚠️ window.loadSummary non disponible, tentative fallback...');
-      await loadSummaryFallback();
-    }
+    // ✅ APPEL DIRECT DE LA FONCTION IMPORTÉE (pas de window.*)
+    await loadSummary();
+    console.log('✅ Résumé chargé via import ES6 direct');
     
     // Initialise les event listeners
     initHomeEventListeners();
@@ -32,46 +26,20 @@ export async function initHomeTab() {
   }
 }
 
-// 🔄 ACTUALISATION ACCUEIL - VERSION FIXÉE
+// 🔄 ACTUALISATION ACCUEIL - VERSION RÉPARÉE
 export async function refreshHomeTab() {
-  console.log('🔄 Actualisation onglet Accueil... (Fix)');
+  console.log('🔄 Actualisation onglet Accueil... (ES6 direct)');
   
   try {
-    // ✅ FIX 3: Appel direct aussi pour refresh
-    if (typeof window.refreshSummary === 'function') {
-      await window.refreshSummary();
-    } else if (typeof window.loadSummary === 'function') {
-      await window.loadSummary();
-    } else {
-      await loadSummaryFallback();
-    }
+    // ✅ APPEL DIRECT - PAS DE DÉLAI ARTIFICIEL
+    await loadSummary();
     console.log('✅ Actualisation Accueil terminée');
   } catch (error) {
     console.error('❌ Erreur actualisation Accueil:', error);
   }
 }
 
-// 🔧 FALLBACK SI SUMMARY.JS INDISPONIBLE
-async function loadSummaryFallback() {
-  console.log('🔧 Chargement fallback résumé...');
-  
-  const summaryCard = document.getElementById('summaryCard');
-  if (summaryCard) {
-    const fallbackContent = `
-      <div style="text-align: center; padding: 40px; color: #666;">
-        🔄 Résumé en cours de chargement...<br>
-        <small>Module summary.js en cours d'initialisation</small>
-      </div>
-    `;
-    
-    const summaryData = document.getElementById('summaryData');
-    if (summaryData) {
-      summaryData.innerHTML = fallbackContent;
-    }
-  }
-}
-
-// 🎛️ EVENT LISTENERS ACCUEIL - AMÉLIORÉS
+// 🎛️ EVENT LISTENERS ACCUEIL
 function initHomeEventListeners() {
   const refreshBtn = document.getElementById('refreshHome');
   if (refreshBtn) {
@@ -89,6 +57,9 @@ function initHomeEventListeners() {
       } catch (error) {
         console.error('❌ Erreur lors du refresh:', error);
         newRefreshBtn.textContent = '❌ Erreur refresh';
+        setTimeout(() => {
+          newRefreshBtn.textContent = '🔄 Actualiser résumé';
+        }, 2000);
       } finally {
         newRefreshBtn.disabled = false;
       }
@@ -106,13 +77,13 @@ function showHomeError(message) {
       <div style="text-align: center; padding: 40px; color: #dc3545;">
         ❌ ${message}
         <br><br>
-        <button onclick="initHomeTab()" class="primary">🔄 Réessayer</button>
+        <button onclick="window.initHomeTab()" class="primary">🔄 Réessayer</button>
       </div>
     `;
   }
 }
 
-// ✅ FIX 4: Exposition globale immédiate pour compatibilité avec index.html
+// ✅ EXPOSITION GLOBALE POUR COMPATIBILITÉ AVEC INDEX.HTML
 window.initHomeTab = initHomeTab;
 window.refreshHomeTab = refreshHomeTab;
 
