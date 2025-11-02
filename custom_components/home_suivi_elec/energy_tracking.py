@@ -3,6 +3,7 @@ Module de tracking d'énergie avec cycles automatiques.
 Enregistre aussi les noms complets dans le registry universel.
 ✅ FIX: unique_id collision-proof avec hash source
 ✅ BUGFIX CRITIQUE: Ajout du return sensors manquant
+✅ BUGFIX TRACKING: Fix async_track_time_change() API deprecated
 """
 from __future__ import annotations
 
@@ -14,7 +15,7 @@ from typing import Any, Optional, Dict
 from pathlib import Path
 
 from homeassistant.core import HomeAssistant, callback, Event
-from homeassistant.helpers.event import async_track_time_change, async_track_state_change_event
+from homeassistant.helpers.event import async_track_utc_time_change, async_track_state_change_event
 from homeassistant.helpers.restore_state import RestoreEntity
 from homeassistant.components.sensor import SensorEntity, SensorStateClass, SensorDeviceClass
 from homeassistant.const import UnitOfEnergy
@@ -24,12 +25,13 @@ from .sensor_name_fixer import _shorten_entity_name
 
 _LOGGER = logging.getLogger(__name__)
 
+# ✅ FIX: API moderne compatible Home Assistant
 CYCLES = {
-    "hourly": {"hour": None, "minute": 0, "second": 0},
-    "daily": {"hour": 0, "minute": 0, "second": 0},
-    "weekly": {"day": 1, "hour": 0, "minute": 0},
-    "monthly": {"day": 1, "hour": 0, "minute": 0},
-    "yearly": {"month": 1, "day": 1, "hour": 0, "minute": 0},
+    "hourly": {"minute": 0, "second": 5},
+    "daily": {"hour": 0, "minute": 0, "second": 5},
+    "weekly": {"hour": 0, "minute": 1, "second": 0},  # Callback daily + condition
+    "monthly": {"hour": 0, "minute": 2, "second": 0},  # Callback daily + condition
+    "yearly": {"hour": 0, "minute": 3, "second": 0},   # Callback daily + condition
 }
 
 class CumulativeEnergyCycleSensor(RestoreEntity, SensorEntity):
@@ -85,12 +87,21 @@ class CumulativeEnergyCycleSensor(RestoreEntity, SensorEntity):
             self._on_source_changed
         )
         
-        # Programmer reset cyclique
-        async_track_time_change(
-            self.hass,
-            self._on_cycle_reset,
-            **self._cycle_config
-        )
+        # ✅ FIX: API moderne pour reset cyclique
+        if self.cycle in ["hourly", "daily"]:
+            # Reset direct pour hourly/daily
+            async_track_utc_time_change(
+                self.hass,
+                self._on_cycle_reset,
+                **self._cycle_config
+            )
+        else:
+            # Reset conditionnel pour weekly/monthly/yearly
+            async_track_utc_time_change(
+                self.hass,
+                self._on_conditional_reset,
+                **self._cycle_config
+            )
     
     @callback
     async def _on_source_changed(self, event: Event):
@@ -115,11 +126,29 @@ class CumulativeEnergyCycleSensor(RestoreEntity, SensorEntity):
     
     @callback
     async def _on_cycle_reset(self, *args):
-        """Reset du compteur à chaque cycle."""
+        """Reset du compteur à chaque cycle (hourly/daily)."""
         _LOGGER.debug(f"🔄 Reset cycle {self.cycle} pour {self.entity_id}")
         self._state = 0.0
         self._cycle_start_time = datetime.now()
         self.async_write_ha_state()
+    
+    @callback
+    async def _on_conditional_reset(self, now, *args):
+        """Reset conditionnel pour weekly/monthly/yearly."""
+        should_reset = False
+        
+        if self.cycle == "weekly" and now.weekday() == 0:  # Lundi
+            should_reset = True
+        elif self.cycle == "monthly" and now.day == 1:  # 1er du mois
+            should_reset = True
+        elif self.cycle == "yearly" and now.month == 1 and now.day == 1:  # 1er janvier
+            should_reset = True
+        
+        if should_reset:
+            _LOGGER.debug(f"🔄 Reset cycle {self.cycle} pour {self.entity_id}")
+            self._state = 0.0
+            self._cycle_start_time = now
+            self.async_write_ha_state()
     
     @property
     def unique_id(self) -> str:
@@ -217,39 +246,19 @@ class PowerEnergyCycleSensor(RestoreEntity, SensorEntity):
             self._on_source_changed
         )
         
-        # Programmer reset cyclique
-        if self.cycle == "weekly":
-            # Cas spécial: reset lundi à 00:00
-            async_track_time_change(
-                self.hass,
-                self._on_weekly_reset,
-                hour=0,
-                minute=0,
-                second=0
-            )
-        elif self.cycle == "monthly":
-            # Cas spécial: reset 1er du mois à 00:00
-            async_track_time_change(
-                self.hass,
-                self._on_monthly_reset,
-                hour=0,
-                minute=0,
-                second=0
-            )
-        elif self.cycle == "yearly":
-            # Cas spécial: reset 1er janvier à 00:00
-            async_track_time_change(
-                self.hass,
-                self._on_yearly_reset,
-                hour=0,
-                minute=0,
-                second=0
-            )
-        else:
-            # Cas standards: hourly, daily
-            async_track_time_change(
+        # ✅ FIX: API moderne pour reset cyclique  
+        if self.cycle in ["hourly", "daily"]:
+            # Reset direct pour hourly/daily
+            async_track_utc_time_change(
                 self.hass,
                 self._on_cycle_reset,
+                **self._cycle_config
+            )
+        else:
+            # Reset conditionnel pour weekly/monthly/yearly
+            async_track_utc_time_change(
+                self.hass,
+                self._on_conditional_reset,
                 **self._cycle_config
             )
     
@@ -296,21 +305,18 @@ class PowerEnergyCycleSensor(RestoreEntity, SensorEntity):
         self._reset_counter()
     
     @callback
-    async def _on_weekly_reset(self, now):
-        """Reset hebdomadaire (lundi uniquement)."""
-        if now.weekday() == 0:  # Lundi
-            self._reset_counter()
-    
-    @callback
-    async def _on_monthly_reset(self, now):
-        """Reset mensuel (1er du mois uniquement)."""
-        if now.day == 1:
-            self._reset_counter()
-    
-    @callback
-    async def _on_yearly_reset(self, now):
-        """Reset annuel (1er janvier uniquement)."""
-        if now.month == 1 and now.day == 1:
+    async def _on_conditional_reset(self, now, *args):
+        """Reset conditionnel pour weekly/monthly/yearly."""
+        should_reset = False
+        
+        if self.cycle == "weekly" and now.weekday() == 0:  # Lundi
+            should_reset = True
+        elif self.cycle == "monthly" and now.day == 1:  # 1er du mois
+            should_reset = True
+        elif self.cycle == "yearly" and now.month == 1 and now.day == 1:  # 1er janvier
+            should_reset = True
+        
+        if should_reset:
             self._reset_counter()
     
     def _reset_counter(self):
