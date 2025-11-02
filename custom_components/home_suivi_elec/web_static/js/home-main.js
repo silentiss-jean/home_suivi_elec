@@ -1,30 +1,30 @@
 /**
  * home-main.js - Coordinateur Onglet Accueil
- * Wrapper/coordinateur pour le module summary.js existant
- * Garantit l'initialisation et l'isolation de l'onglet Accueil
+ * Fix urgent: appel direct loadSummary avec délai garanti DOM ready
  */
 
-// Import du module summary.js existant (si disponible)
-import { loadSummary, refreshSummary } from './summary.js';
-
-// 🏠 COORDINATEUR PRINCIPAL ACCUEIL
+// 🏠 COORDINATEUR PRINCIPAL ACCUEIL - VERSION FIXÉE
 export async function initHomeTab() {
-  console.log('🏠 Initialisation onglet Accueil...');
+  console.log('🏠 Initialisation onglet Accueil... (Version Fix)');
   
   try {
-    // Charge le résumé via module existant
-    if (typeof loadSummary === 'function') {
-      await loadSummary();
-      console.log('✅ Résumé chargé via summary.js');
+    // ✅ FIX 1: Délai pour s'assurer que DOM est prêt
+    await new Promise(resolve => setTimeout(resolve, 200));
+    
+    // ✅ FIX 2: Appel direct de la fonction globale loadSummary (pas import ES6)
+    if (typeof window.loadSummary === 'function') {
+      console.log('📞 Appel direct window.loadSummary...');
+      await window.loadSummary();
+      console.log('✅ Résumé chargé via appel direct');
     } else {
-      console.warn('⚠️ Module summary.js non disponible, chargement fallback...');
+      console.warn('⚠️ window.loadSummary non disponible, tentative fallback...');
       await loadSummaryFallback();
     }
     
     // Initialise les event listeners
     initHomeEventListeners();
     
-    console.log('✅ Onglet Accueil initialisé');
+    console.log('✅ Onglet Accueil initialisé avec succès');
     
   } catch (error) {
     console.error('❌ Erreur initialisation Accueil:', error);
@@ -32,16 +32,20 @@ export async function initHomeTab() {
   }
 }
 
-// 🔄 ACTUALISATION ACCUEIL
+// 🔄 ACTUALISATION ACCUEIL - VERSION FIXÉE
 export async function refreshHomeTab() {
-  console.log('🔄 Actualisation onglet Accueil...');
+  console.log('🔄 Actualisation onglet Accueil... (Fix)');
   
   try {
-    if (typeof refreshSummary === 'function') {
-      await refreshSummary();
+    // ✅ FIX 3: Appel direct aussi pour refresh
+    if (typeof window.refreshSummary === 'function') {
+      await window.refreshSummary();
+    } else if (typeof window.loadSummary === 'function') {
+      await window.loadSummary();
     } else {
       await loadSummaryFallback();
     }
+    console.log('✅ Actualisation Accueil terminée');
   } catch (error) {
     console.error('❌ Erreur actualisation Accueil:', error);
   }
@@ -51,7 +55,6 @@ export async function refreshHomeTab() {
 async function loadSummaryFallback() {
   console.log('🔧 Chargement fallback résumé...');
   
-  // Affiche message temporaire en attendant
   const summaryCard = document.getElementById('summaryCard');
   if (summaryCard) {
     const fallbackContent = `
@@ -61,7 +64,6 @@ async function loadSummaryFallback() {
       </div>
     `;
     
-    // Ne remplace que le contenu, pas la structure
     const summaryData = document.getElementById('summaryData');
     if (summaryData) {
       summaryData.innerHTML = fallbackContent;
@@ -69,7 +71,7 @@ async function loadSummaryFallback() {
   }
 }
 
-// 🎛️ EVENT LISTENERS ACCUEIL
+// 🎛️ EVENT LISTENERS ACCUEIL - AMÉLIORÉS
 function initHomeEventListeners() {
   const refreshBtn = document.getElementById('refreshHome');
   if (refreshBtn) {
@@ -84,10 +86,15 @@ function initHomeEventListeners() {
       try {
         await refreshHomeTab();
         newRefreshBtn.textContent = '🔄 Actualiser résumé';
+      } catch (error) {
+        console.error('❌ Erreur lors du refresh:', error);
+        newRefreshBtn.textContent = '❌ Erreur refresh';
       } finally {
         newRefreshBtn.disabled = false;
       }
     });
+    
+    console.log('🎛️ Event listener refresh configuré');
   }
 }
 
@@ -105,7 +112,7 @@ function showHomeError(message) {
   }
 }
 
-// Expose globalement pour compatibilité
+// ✅ FIX 4: Exposition globale immédiate pour compatibilité avec index.html
 window.initHomeTab = initHomeTab;
 window.refreshHomeTab = refreshHomeTab;
 
