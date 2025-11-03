@@ -1,0 +1,10 @@
+=== FRONTEND MIGRATION COMPLETED ===
+
+Date: 2025-11-03
+Migration: Legacy flat files → Option B modular structure
+
+All legacy JS files in root js/ removed.
+New structure by functionality active.
+Entry points: js/shared/app.js + js/diagnostics/diagnostics.js
+
+Status: Ready for frontend redesign work.
