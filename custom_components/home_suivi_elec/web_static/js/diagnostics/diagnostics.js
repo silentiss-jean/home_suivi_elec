@@ -4,6 +4,7 @@
 import { fetchViaProxy } from "../shared/proxy.js";
 import { toast } from "../shared/uiToast.js";
 import { loadCapteursSensor } from "./capteursSensor.js";
+import { loadIntegrations } from "./integrations.js";
 
 console.info("[diagnostics] Module diagnostics enrichi chargé - 4 sous-onglets");
 
@@ -297,16 +298,16 @@ async function switchSubTab(tabName) {
     
     switch (tabName) {
       case 'capteurs':
-        await loadCapteursSensor(container); // ✅ Module avancé maintenant
+        await loadCapteursSensor(container); // ✅ Lot A
         break;
       case 'integrations':
-        await loadIntegrationsTab(container);
+        await loadIntegrations(container); // ✅ Lot B
         break;
       case 'logs':
-        await loadLogsTab(container);
+        await loadLogsTab(container);       // 📋 Lot C (placeholder)
         break;
       case 'health':
-        await loadHealthTab(container);
+        await loadHealthTab(container);     // 💚 Lot D (placeholder)
         break;
     }
     
@@ -328,36 +329,7 @@ async function switchSubTab(tabName) {
 }
 
 /**
- * SOUS-ONGLET 2: Intégrations Home Assistant  
- */
-async function loadIntegrationsTab(container) {
-  try {
-    const integrationsData = await fetchViaProxy('/api/home_suivi_elec/get_integrations_status');
-    
-    if (!integrationsData || !integrationsData.success) {
-      throw new Error(integrationsData?.error || 'Données intégrations indisponibles');
-    }
-    
-    const integrations = integrationsData.integrations || [];
-    updateTabCounter('integrations', integrations.length);
-    
-    container.innerHTML = renderIntegrationsView(integrations);
-    
-  } catch (error) {
-    console.error('Erreur chargement intégrations:', error);
-    container.innerHTML = `
-      <div class="error-display">
-        <h4>❌ Impossible de charger les intégrations</h4>
-        <p>${error.message}</p>
-        <p><em>Note: Cette API peut ne pas être encore implémentée dans le backend.</em></p>
-      </div>
-    `;
-    updateTabCounter('integrations', '!');
-  }
-}
-
-/**
- * SOUS-ONGLET 3: Logs système
+ * SOUS-ONGLET 3: Logs système (placeholder - Lot C)
  */
 async function loadLogsTab(container) {
   try {
@@ -387,7 +359,7 @@ async function loadLogsTab(container) {
 }
 
 /**
- * SOUS-ONGLET 4: Santé backend
+ * SOUS-ONGLET 4: Santé backend (placeholder - Lot D)
  */
 async function loadHealthTab(container) {
   try {
@@ -440,15 +412,6 @@ function updateLastRefreshTime() {
     const now = new Date();
     timeElement.textContent = `Mis à jour: ${now.toLocaleTimeString()}`;
   }
-}
-
-function renderIntegrationsView(integrations) {
-  return `
-    <div class="integrations-view">
-      <h3>🔌 État des Intégrations Home Assistant</h3>
-      <p><em>Interface intégrations en cours de développement (Lot B)...</em></p>
-    </div>
-  `;
 }
 
 function renderLogsView(logs) {
@@ -504,4 +467,4 @@ async function refreshAllData() {
 // Export pour usage global
 window.loadDiagnostics = loadDiagnostics;
 
-console.info("[diagnostics] ✅ Module diagnostics enrichi prêt avec capteurs avancés");
+console.info("[diagnostics] ✅ Module diagnostics enrichi prêt avec capteurs + intégrations");
