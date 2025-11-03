@@ -47,15 +47,97 @@ table thead th { background: #f2f2f2; }
   <button type="button" onclick="showTab('generation')">🧩 Génération cartes</button>
 </nav>
 
-<!-- Rest of content unchanged for brevité -->
-<!-- ... (contenu identique à la version précédente) ... -->
+<!-- Conteneurs d'onglets requis par les modules JS -->
+<div id="home" class="tab-content active">
+  <div id="content-home"></div>
+</div>
+
+<div id="diagnostics" class="tab-content">
+  <div id="content-diagnostics"></div>
+</div>
+
+<div id="detection" class="tab-content">
+  <div id="content-detection"></div>
+</div>
+
+<div id="configuration" class="tab-content">
+  <div class="actions-bar" style="margin:12px 0; display:flex; gap:8px;">
+    <button id="globalSave" class="btn btn--primary btn--sm">💾 Sauvegarder</button>
+  </div>
+  <div id="content-configuration"></div>
+</div>
+
+<div id="customisation" class="tab-content">
+  <div id="content-customisation">
+    <div class="card">
+      <h2>🎨 Personnalisation</h2>
+      <p>Options d'apparence et de thème à venir…</p>
+    </div>
+  </div>
+</div>
+
+<div id="generation" class="tab-content">
+  <div id="content-generation">
+    <div class="card">
+      <h2>🧩 Génération des cartes Lovelace</h2>
+      <p>Prochainement : aperçu et génération automatique.</p>
+    </div>
+  </div>
+</div>
 
 <script>
 function showTab(tab) {
+  // Masquer tous les contenus
   document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+  
+  // Activer l'onglet demandé
   const selected = document.getElementById(tab);
-  if (selected) selected.classList.add('active');
+  if (selected) {
+    selected.classList.add('active');
+    
+    // Si diagnostics, initialiser le premier sous-onglet
+    if (tab === 'diagnostics' && typeof window.showDiagTab === 'function') {
+      setTimeout(() => {
+        try { 
+          window.showDiagTab('capteurs'); 
+        } catch(e) { 
+          console.log('[showTab] Diagnostics pas encore prêt:', e.message); 
+        }
+      }, 100);
+    }
+  }
 }
+
+// Fonction showDiagTab sécurisée pour éviter erreurs
+function showDiagTab(tab) {
+  const tabElements = document.querySelectorAll('.diag-tab');
+  const contentElements = document.querySelectorAll('[id^="diag-content-"]');
+  
+  if (tabElements.length === 0) {
+    console.log('[showDiagTab] Onglets diagnostics pas encore générés');
+    return;
+  }
+  
+  // Désactiver tous les sous-onglets
+  tabElements.forEach(el => el.classList.remove('active'));
+  contentElements.forEach(el => el.style.display = 'none');
+  
+  // Activer le sous-onglet demandé
+  const selectedTab = document.querySelector(`[data-tab="${tab}"]`);
+  const selectedContent = document.getElementById(`diag-content-${tab}`);
+  
+  if (selectedTab) selectedTab.classList.add('active');
+  if (selectedContent) selectedContent.style.display = 'block';
+}
+
+// Exposer globalement
+window.showDiagTab = showDiagTab;
+
+// Onglet par défaut
+document.addEventListener('DOMContentLoaded', () => {
+  showTab('home');
+  console.log('[index] Interface initialisée sur onglet Accueil');
+});
 
 // ✅ Gestion affichage dynamique type contrat
 document.addEventListener("DOMContentLoaded", () => {
