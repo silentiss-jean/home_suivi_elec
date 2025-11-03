@@ -258,10 +258,13 @@ function applyIgnoredFilter(selectedMap, alternativesMap, ignoredSet) {
 
 export async function loadConfiguration() {
   const content = document.getElementById("content-configuration");
-  if (!content) {
-    console.error("[config] #content-configuration introuvable");
+  
+  // ✅ CORRECTION : Retour silencieux si onglet pas actif ou conteneur absent
+  if (!content || !document.getElementById("configuration")?.classList.contains("active")) {
+    // Onglet pas monté/actif: ne rien faire (chargera quand l'onglet s'ouvre)
     return;
   }
+  
   content.innerHTML = "Chargement...";
 
   try {
