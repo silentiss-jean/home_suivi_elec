@@ -44,11 +44,11 @@ document.addEventListener("DOMContentLoaded", async () => {
   initReferencePanel();
   initSavePanel();
 
-  // Chargements initiaux
+  // Chargements initiaux - SEULEMENT pour onglets visibles au démarrage
   loadDetection();
   loadSummary();
-  loadConfiguration();
-  loadDiagnostics();
+  // ✅ SUPPRIMÉ: loadConfiguration(); // Se charge à l'ouverture de l'onglet
+  // ✅ SUPPRIMÉ: loadDiagnostics(); // Se charge à l'ouverture de l'onglet
 
   // Listener sur changement reference
   on("reference-changed", () => {
