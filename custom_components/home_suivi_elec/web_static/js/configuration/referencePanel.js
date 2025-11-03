@@ -2,9 +2,26 @@
 import stateModule from "../shared/stateModule.js";
 import { toast } from "../shared/uiToast.js";
 
+let currentRoot = null;
+let currentAllCapteurs = {};
+
 export async function initReferencePanel(root, allCapteurs = {}) {
   if (!root) return;
+  
+  // Stocker pour rerenderReferencePanel
+  currentRoot = root;
+  currentAllCapteurs = allCapteurs;
+  
+  await renderReferencePanel(root, allCapteurs);
+}
 
+export async function rerenderReferencePanel() {
+  if (currentRoot) {
+    await renderReferencePanel(currentRoot, currentAllCapteurs);
+  }
+}
+
+async function renderReferencePanel(root, allCapteurs = {}) {
   root.innerHTML = `
     <div class="card">
       <h3>Capteur de référence</h3>
