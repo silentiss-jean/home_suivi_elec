@@ -5,8 +5,10 @@ import { fetchViaProxy } from "../shared/proxy.js";
 import { toast } from "../shared/uiToast.js";
 import { loadCapteursSensor } from "./capteursSensor.js";
 import { loadIntegrations } from "./integrations.js";
+import { loadSystemLogs } from "./logs.js";
+import { loadBackendHealth } from "./healthBackend.js";
 
-console.info("[diagnostics] Module diagnostics enrichi chargé - 4 sous-onglets");
+console.info("[diagnostics] Module diagnostics enrichi chargé - 4 sous-onglets COMPLETS");
 
 // Variables globales pour la gestion des onglets
 let activeSubTab = 'capteurs';
@@ -42,7 +44,7 @@ export async function loadDiagnostics() {
     // Charger le premier sous-onglet par défaut
     await switchSubTab('capteurs');
     
-    console.log("✅ Interface diagnostics enrichie initialisée");
+    console.log("✅ Interface diagnostics enrichie COMPLÈTE initialisée");
     
   } catch (error) {
     console.error("❌ Erreur initialisation diagnostics:", error);
@@ -296,18 +298,19 @@ async function switchSubTab(tabName) {
     
     container.innerHTML = '<div class="loading-spinner">🔄 Chargement...</div>';
     
+    // 🎯 TOUS LES SOUS-ONGLETS IMPLÉMENTÉS
     switch (tabName) {
       case 'capteurs':
-        await loadCapteursSensor(container); // ✅ Lot A
+        await loadCapteursSensor(container);  // ✅ Lot A - Capteurs groupés
         break;
       case 'integrations':
-        await loadIntegrations(container); // ✅ Lot B
+        await loadIntegrations(container);    // ✅ Lot B - Intégrations HA
         break;
       case 'logs':
-        await loadLogsTab(container);       // 📋 Lot C (placeholder)
+        await loadSystemLogs(container);      // ✅ Lot C - Logs système
         break;
       case 'health':
-        await loadHealthTab(container);     // 💚 Lot D (placeholder)
+        await loadBackendHealth(container);   // ✅ Lot D - Santé backend
         break;
     }
     
@@ -325,73 +328,6 @@ async function switchSubTab(tabName) {
         </div>
       `;
     }
-  }
-}
-
-/**
- * SOUS-ONGLET 3: Logs système (placeholder - Lot C)
- */
-async function loadLogsTab(container) {
-  try {
-    const logsData = await fetchViaProxy('/api/home_suivi_elec/get_logs?limit=100');
-    
-    if (!logsData || !logsData.success) {
-      throw new Error(logsData?.error || 'Logs système indisponibles');
-    }
-    
-    const logs = logsData.logs || [];
-    updateTabCounter('logs', logs.length);
-    
-    container.innerHTML = renderLogsView(logs);
-    initLogsFilters();
-    
-  } catch (error) {
-    console.error('Erreur chargement logs:', error);
-    container.innerHTML = `
-      <div class="error-display">
-        <h4>❌ Impossible de charger les logs</h4>
-        <p>${error.message}</p>
-        <p><em>Note: Cette API peut ne pas être encore implémentée dans le backend.</em></p>
-      </div>
-    `;
-    updateTabCounter('logs', '!');
-  }
-}
-
-/**
- * SOUS-ONGLET 4: Santé backend (placeholder - Lot D)
- */
-async function loadHealthTab(container) {
-  try {
-    const healthData = await fetchViaProxy('/api/home_suivi_elec/get_backend_health');
-    
-    if (!healthData || !healthData.success) {
-      throw new Error(healthData?.error || 'Données de santé indisponibles');
-    }
-    
-    const health = healthData.health || {};
-    const servicesCount = Object.keys(health.services || {}).length;
-    updateTabCounter('health', servicesCount);
-    
-    container.innerHTML = renderHealthView(health);
-    
-    // Auto-refresh pour la santé toutes les 30 secondes
-    if (activeSubTab === 'health') {
-      setTimeout(() => {
-        if (activeSubTab === 'health') loadHealthTab(container);
-      }, 30000);
-    }
-    
-  } catch (error) {
-    console.error('Erreur chargement santé:', error);
-    container.innerHTML = `
-      <div class="error-display">
-        <h4>❌ Impossible de charger l'état de santé</h4>
-        <p>${error.message}</p>
-        <p><em>Note: Cette API peut ne pas être encore implémentée dans le backend.</em></p>
-      </div>
-    `;
-    updateTabCounter('health', '!');
   }
 }
 
@@ -414,47 +350,6 @@ function updateLastRefreshTime() {
   }
 }
 
-function renderLogsView(logs) {
-  return `
-    <div class="logs-view">
-      <h3>📋 Logs Système</h3>
-      <div class="logs-filters">
-        <input type="search" placeholder="Rechercher dans les logs..." id="logs-search">
-        <select id="logs-level">
-          <option value="">Tous niveaux</option>
-          <option value="ERROR">Erreurs</option>
-          <option value="WARNING">Avertissements</option>
-          <option value="INFO">Informations</option>
-        </select>
-      </div>
-      <p><em>Interface logs en cours de développement (Lot C)...</em></p>
-    </div>
-  `;
-}
-
-function renderHealthView(health) {
-  return `
-    <div class="health-view">
-      <h3>💚 Santé du Backend</h3>
-      <div class="health-metrics">
-        <div class="metric-card">
-          <h4>🚀 Uptime</h4>
-          <span class="metric-value">${health.uptime || 'N/A'}</span>
-        </div>
-        <div class="metric-card">
-          <h4>📈 Appels API</h4>
-          <span class="metric-value">${health.api_calls || 0}/min</span>
-        </div>
-      </div>
-      <p><em>Interface santé backend en cours de développement (Lot D)...</em></p>
-    </div>
-  `;
-}
-
-function initLogsFilters() {
-  // Filtres de logs à implémenter (Lot C)
-}
-
 async function refreshAllData() {
   // Vider le cache
   dataCache.sensors = null;
@@ -467,4 +362,4 @@ async function refreshAllData() {
 // Export pour usage global
 window.loadDiagnostics = loadDiagnostics;
 
-console.info("[diagnostics] ✅ Module diagnostics enrichi prêt avec capteurs + intégrations");
+console.info("[diagnostics] 🎆 Module diagnostics COMPLET avec les 4 sous-onglets avancés!");
