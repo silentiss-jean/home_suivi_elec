@@ -1,41 +1,659 @@
 "use strict";
 
-// Importer la fonction proxy
+// Diagnostic enrichi avec 4 sous-onglets spécialisés
 import { fetchViaProxy } from "../shared/proxy.js";
+import { toast } from "../shared/uiToast.js";
 
-async function loadDiagnostics() {
-  // ✅ CORRECTION : Chercher diagnosticsGlobal d'abord, fallback vers diagnostics-container
+console.info("[diagnostics] Module diagnostics enrichi chargé - 4 sous-onglets");
+
+// Variables globales pour la gestion des onglets
+let activeSubTab = 'capteurs';
+let diagnosticsData = {};
+
+// Cache pour les données
+const dataCache = {
+  sensors: null,
+  integrations: null,
+  logs: null,
+  health: null,
+  lastUpdate: null
+};
+
+/**
+ * Point d'entrée principal - charge l'interface diagnostics
+ */
+export async function loadDiagnostics() {
   const container = document.getElementById("diagnosticsGlobal") || document.getElementById("diagnostics-container");
   
   if (!container) {
-    // L'UI "classique" n'est pas montée → on sort proprement
+    console.warn("[diagnostics] Conteneur diagnostics non trouvé - retour silencieux");
     return;
   }
   
   try {
-    // Utiliser le proxy au lieu de fetch direct
-    const data = await fetchViaProxy("/api/home_suivi_elec/get_diagnostics");
+    // Créer la structure de base avec les 4 sous-onglets
+    container.innerHTML = createDiagnosticsLayout();
     
-    if (!data || Object.keys(data).length === 0) {
-      container.innerHTML = "<p>Aucun diagnostic disponible.</p>";
-      return;
-    }
+    // Initialiser les gestionnaires d'événements
+    initSubTabHandlers();
     
-    // Afficher les diagnostics (format JSON pour test)
-    container.innerHTML = `<pre>${JSON.stringify(data, null, 2)}</pre>`;
-    console.log("✅ Diagnostics chargés via proxy:", data);
+    // Charger le premier sous-onglet par défaut
+    await switchSubTab('capteurs');
     
-  } catch (err) {
-    console.error("❌ Erreur chargement diagnostic:", err);
-    container.innerHTML = 
-      `<p style="color:red">❌ Erreur: ${err.message}</p>`;
+    console.log("✅ Interface diagnostics enrichie initialisée");
+    
+  } catch (error) {
+    console.error("❌ Erreur initialisation diagnostics:", error);
+    container.innerHTML = `
+      <div style="color: red; padding: 20px;">
+        <h3>❌ Erreur de chargement des diagnostics</h3>
+        <p>${error.message}</p>
+        <button onclick="location.reload()" class="primary">🔄 Recharger</button>
+      </div>
+    `;
+    toast.error("Erreur chargement diagnostics");
   }
 }
 
-// Exporter pour utilisation dans app.js
-export { loadDiagnostics };
-
-// Auto-chargement si le conteneur existe
-if (document.getElementById("diagnostics-container") || document.getElementById("diagnosticsGlobal")) {
-  loadDiagnostics();
+/**
+ * Crée la structure HTML de base pour les diagnostics enrichis
+ */
+function createDiagnosticsLayout() {
+  return `
+    <div class="diagnostics-enhanced">
+      <!-- En-tête avec refresh et status global -->
+      <div class="diagnostics-header">
+        <h2>🔧 Diagnostics Avancés</h2>
+        <div class="header-controls">
+          <span id="last-update" class="update-time">Chargement...</span>
+          <button id="refresh-diagnostics" class="btn-refresh">🔄 Actualiser</button>
+        </div>
+      </div>
+      
+      <!-- Barre des 4 sous-onglets -->
+      <nav class="diag-sub-tabs">
+        <button class="diag-tab-btn active" data-tab="capteurs">
+          📊 <span class="tab-title">Capteurs</span>
+          <span class="tab-counter" id="capteurs-count">—</span>
+        </button>
+        <button class="diag-tab-btn" data-tab="integrations">
+          🔌 <span class="tab-title">Intégrations</span>
+          <span class="tab-counter" id="integrations-count">—</span>
+        </button>
+        <button class="diag-tab-btn" data-tab="logs">
+          📋 <span class="tab-title">Logs</span>
+          <span class="tab-counter" id="logs-count">—</span>
+        </button>
+        <button class="diag-tab-btn" data-tab="health">
+          💚 <span class="tab-title">Santé</span>
+          <span class="tab-counter" id="health-count">—</span>
+        </button>
+      </nav>
+      
+      <!-- Conteneurs pour chaque sous-onglet -->
+      <div class="diag-content-area">
+        <div id="diag-capteurs" class="diag-sub-content active">Chargement capteurs...</div>
+        <div id="diag-integrations" class="diag-sub-content">Chargement intégrations...</div>
+        <div id="diag-logs" class="diag-sub-content">Chargement logs...</div>
+        <div id="diag-health" class="diag-sub-content">Chargement santé backend...</div>
+      </div>
+    </div>
+    
+    <style>
+    .diagnostics-enhanced {
+      background: white;
+      border-radius: 12px;
+      padding: 0;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      margin-bottom: 20px;
+    }
+    
+    .diagnostics-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 20px;
+      border-bottom: 1px solid #e5e5e5;
+      background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+      border-radius: 12px 12px 0 0;
+    }
+    
+    .diagnostics-header h2 {
+      margin: 0;
+      color: #0078d4;
+      font-size: 1.4em;
+    }
+    
+    .header-controls {
+      display: flex;
+      align-items: center;
+      gap: 15px;
+    }
+    
+    .update-time {
+      font-size: 0.9em;
+      color: #666;
+      font-style: italic;
+    }
+    
+    .btn-refresh {
+      background: #28a745;
+      color: white;
+      border: none;
+      padding: 8px 15px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.9em;
+      transition: background 0.2s;
+    }
+    
+    .btn-refresh:hover { background: #218838; }
+    .btn-refresh:disabled { background: #ccc; cursor: not-allowed; }
+    
+    .diag-sub-tabs {
+      display: flex;
+      border-bottom: 1px solid #e5e5e5;
+      background: #f8f9fa;
+      margin: 0;
+      padding: 0 20px;
+    }
+    
+    .diag-tab-btn {
+      background: none;
+      border: none;
+      padding: 15px 20px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: #666;
+      border-bottom: 3px solid transparent;
+      transition: all 0.2s;
+      font-size: 0.95em;
+      position: relative;
+    }
+    
+    .diag-tab-btn:hover {
+      background: rgba(0,120,212,0.05);
+      color: #0078d4;
+    }
+    
+    .diag-tab-btn.active {
+      color: #0078d4;
+      border-bottom-color: #0078d4;
+      background: rgba(0,120,212,0.05);
+      font-weight: 500;
+    }
+    
+    .tab-counter {
+      background: #666;
+      color: white;
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-size: 0.8em;
+      min-width: 20px;
+      text-align: center;
+    }
+    
+    .diag-tab-btn.active .tab-counter {
+      background: #0078d4;
+    }
+    
+    .diag-content-area {
+      position: relative;
+      min-height: 400px;
+    }
+    
+    .diag-sub-content {
+      display: none;
+      padding: 20px;
+      animation: fadeIn 0.3s ease-in;
+    }
+    
+    .diag-sub-content.active {
+      display: block;
+    }
+    
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    
+    .loading-spinner {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 40px;
+      color: #666;
+    }
+    
+    .error-display {
+      background: #ffe6e6;
+      border: 1px solid #ff9999;
+      border-radius: 8px;
+      padding: 15px;
+      margin: 10px 0;
+      color: #cc0000;
+    }
+    
+    .stats-overview {
+      display: flex;
+      gap: 10px;
+      margin: 15px 0;
+      flex-wrap: wrap;
+    }
+    
+    .stat-badge {
+      background: #f8f9fa;
+      border: 1px solid #dee2e6;
+      padding: 6px 12px;
+      border-radius: 20px;
+      font-size: 0.9em;
+      font-weight: 500;
+    }
+    
+    .stat-badge.ok {
+      background: #d4edda;
+      border-color: #c3e6cb;
+      color: #155724;
+    }
+    
+    .stat-badge.ko {
+      background: #f8d7da;
+      border-color: #f5c6cb;
+      color: #721c24;
+    }
+    
+    .stat-badge.absent {
+      background: #fff3cd;
+      border-color: #ffeaa7;
+      color: #856404;
+    }
+    
+    .stat-badge.quarantine {
+      background: #f4f4f4;
+      border-color: #d1d1d1;
+      color: #6c757d;
+    }
+    
+    .health-metrics {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 15px;
+      margin: 20px 0;
+    }
+    
+    .metric-card {
+      background: #f8f9fa;
+      border: 1px solid #dee2e6;
+      border-radius: 8px;
+      padding: 15px;
+      text-align: center;
+    }
+    
+    .metric-card h4 {
+      margin: 0 0 8px 0;
+      color: #495057;
+      font-size: 0.9em;
+    }
+    
+    .metric-value {
+      font-size: 1.4em;
+      font-weight: bold;
+      color: #28a745;
+    }
+    
+    .logs-filters {
+      display: flex;
+      gap: 10px;
+      margin: 15px 0;
+      flex-wrap: wrap;
+    }
+    
+    .logs-filters input,
+    .logs-filters select {
+      padding: 8px 12px;
+      border: 1px solid #ced4da;
+      border-radius: 6px;
+      font-size: 0.9em;
+    }
+    
+    .logs-filters input {
+      flex: 1;
+      min-width: 200px;
+    }
+    </style>
+  `;
 }
+
+/**
+ * Initialise les gestionnaires d'événements pour les sous-onglets
+ */
+function initSubTabHandlers() {
+  // Gestionnaire pour les boutons des sous-onglets
+  document.querySelectorAll('.diag-tab-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const tabName = btn.dataset.tab;
+      await switchSubTab(tabName);
+    });
+  });
+  
+  // Gestionnaire pour le bouton refresh
+  const refreshBtn = document.getElementById('refresh-diagnostics');
+  if (refreshBtn) {
+    refreshBtn.addEventListener('click', async () => {
+      refreshBtn.disabled = true;
+      refreshBtn.textContent = '🔄 Mise à jour...';
+      
+      try {
+        await refreshAllData();
+        await switchSubTab(activeSubTab); // Recharge l'onglet actif
+        toast.success('Diagnostics mis à jour');
+      } catch (error) {
+        toast.error('Erreur lors de la mise à jour');
+      } finally {
+        refreshBtn.disabled = false;
+        refreshBtn.textContent = '🔄 Actualiser';
+      }
+    });
+  }
+}
+
+/**
+ * Bascule vers un sous-onglet spécifique
+ */
+async function switchSubTab(tabName) {
+  try {
+    // Mise à jour visuelle des onglets
+    document.querySelectorAll('.diag-tab-btn').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.tab === tabName);
+    });
+    
+    document.querySelectorAll('.diag-sub-content').forEach(content => {
+      content.classList.toggle('active', content.id === `diag-${tabName}`);
+    });
+    
+    activeSubTab = tabName;
+    
+    // Charger le contenu spécifique selon l'onglet
+    const container = document.getElementById(`diag-${tabName}`);
+    if (!container) return;
+    
+    container.innerHTML = '<div class="loading-spinner">🔄 Chargement...</div>';
+    
+    switch (tabName) {
+      case 'capteurs':
+        await loadCapteursTab(container);
+        break;
+      case 'integrations':
+        await loadIntegrationsTab(container);
+        break;
+      case 'logs':
+        await loadLogsTab(container);
+        break;
+      case 'health':
+        await loadHealthTab(container);
+        break;
+    }
+    
+    updateLastRefreshTime();
+    
+  } catch (error) {
+    console.error(`❌ Erreur chargement onglet ${tabName}:`, error);
+    const container = document.getElementById(`diag-${tabName}`);
+    if (container) {
+      container.innerHTML = `
+        <div class="error-display">
+          <h4>❌ Erreur de chargement</h4>
+          <p>${error.message}</p>
+        </div>
+      `;
+    }
+  }
+}
+
+/**
+ * SOUS-ONGLET 1: Capteurs groupés
+ */
+async function loadCapteursTab(container) {
+  try {
+    // Récupérer les données des capteurs avec états détaillés
+    const sensorsData = await fetchViaProxy('/api/home_suivi_elec/get_sensors_health');
+    
+    if (!sensorsData || !sensorsData.success) {
+      throw new Error(sensorsData?.error || 'Données capteurs indisponibles');
+    }
+    
+    const { groups, stats } = processSensorsData(sensorsData.sensors || {});
+    
+    // Mettre à jour le compteur dans l'onglet
+    updateTabCounter('capteurs', stats.total);
+    
+    container.innerHTML = renderCapteursView(groups, stats);
+    
+    // Initialiser les fonctionnalités expand/collapse
+    initCapteursInteractions();
+    
+  } catch (error) {
+    console.error('Erreur chargement capteurs:', error);
+    container.innerHTML = `
+      <div class="error-display">
+        <h4>❌ Impossible de charger les capteurs</h4>
+        <p>${error.message}</p>
+        <p><em>Note: Cette API peut ne pas être encore implémentée dans le backend.</em></p>
+      </div>
+    `;
+    updateTabCounter('capteurs', '!');
+  }
+}
+
+/**
+ * SOUS-ONGLET 2: Intégrations Home Assistant  
+ */
+async function loadIntegrationsTab(container) {
+  try {
+    const integrationsData = await fetchViaProxy('/api/home_suivi_elec/get_integrations_status');
+    
+    if (!integrationsData || !integrationsData.success) {
+      throw new Error(integrationsData?.error || 'Données intégrations indisponibles');
+    }
+    
+    const integrations = integrationsData.integrations || [];
+    updateTabCounter('integrations', integrations.length);
+    
+    container.innerHTML = renderIntegrationsView(integrations);
+    
+  } catch (error) {
+    console.error('Erreur chargement intégrations:', error);
+    container.innerHTML = `
+      <div class="error-display">
+        <h4>❌ Impossible de charger les intégrations</h4>
+        <p>${error.message}</p>
+        <p><em>Note: Cette API peut ne pas être encore implémentée dans le backend.</em></p>
+      </div>
+    `;
+    updateTabCounter('integrations', '!');
+  }
+}
+
+/**
+ * SOUS-ONGLET 3: Logs système
+ */
+async function loadLogsTab(container) {
+  try {
+    const logsData = await fetchViaProxy('/api/home_suivi_elec/get_logs?limit=100');
+    
+    if (!logsData || !logsData.success) {
+      throw new Error(logsData?.error || 'Logs système indisponibles');
+    }
+    
+    const logs = logsData.logs || [];
+    updateTabCounter('logs', logs.length);
+    
+    container.innerHTML = renderLogsView(logs);
+    initLogsFilters();
+    
+  } catch (error) {
+    console.error('Erreur chargement logs:', error);
+    container.innerHTML = `
+      <div class="error-display">
+        <h4>❌ Impossible de charger les logs</h4>
+        <p>${error.message}</p>
+        <p><em>Note: Cette API peut ne pas être encore implémentée dans le backend.</em></p>
+      </div>
+    `;
+    updateTabCounter('logs', '!');
+  }
+}
+
+/**
+ * SOUS-ONGLET 4: Santé backend
+ */
+async function loadHealthTab(container) {
+  try {
+    const healthData = await fetchViaProxy('/api/home_suivi_elec/get_backend_health');
+    
+    if (!healthData || !healthData.success) {
+      throw new Error(healthData?.error || 'Données de santé indisponibles');
+    }
+    
+    const health = healthData.health || {};
+    const servicesCount = Object.keys(health.services || {}).length;
+    updateTabCounter('health', servicesCount);
+    
+    container.innerHTML = renderHealthView(health);
+    
+    // Auto-refresh pour la santé toutes les 30 secondes
+    if (activeSubTab === 'health') {
+      setTimeout(() => {
+        if (activeSubTab === 'health') loadHealthTab(container);
+      }, 30000);
+    }
+    
+  } catch (error) {
+    console.error('Erreur chargement santé:', error);
+    container.innerHTML = `
+      <div class="error-display">
+        <h4>❌ Impossible de charger l'état de santé</h4>
+        <p>${error.message}</p>
+        <p><em>Note: Cette API peut ne pas être encore implémentée dans le backend.</em></p>
+      </div>
+    `;
+    updateTabCounter('health', '!');
+  }
+}
+
+/**
+ * Fonctions utilitaires
+ */
+function updateTabCounter(tabName, count) {
+  const counter = document.getElementById(`${tabName}-count`);
+  if (counter) {
+    counter.textContent = count;
+    counter.style.background = count === '!' ? '#dc3545' : '#28a745';
+  }
+}
+
+function updateLastRefreshTime() {
+  const timeElement = document.getElementById('last-update');
+  if (timeElement) {
+    const now = new Date();
+    timeElement.textContent = `Mis à jour: ${now.toLocaleTimeString()}`;
+  }
+}
+
+function processSensorsData(sensors) {
+  // Traitement des données capteurs (groupement, calcul d'états)
+  const groups = {};
+  const stats = { total: 0, ok: 0, ko: 0, absent: 0, quarantine: 0 };
+  
+  Object.values(sensors).forEach(sensor => {
+    stats.total++;
+    // Logique de groupement et calcul d'état à implémenter
+  });
+  
+  return { groups, stats };
+}
+
+function renderCapteursView(groups, stats) {
+  return `
+    <div class="capteurs-view">
+      <h3>📊 Capteurs Groupés par Appareil/Zone</h3>
+      <div class="stats-overview">
+        <span class="stat-badge ok">✅ OK: ${stats.ok}</span>
+        <span class="stat-badge ko">❌ KO: ${stats.ko}</span>
+        <span class="stat-badge absent">⚪ Absent: ${stats.absent}</span>
+        <span class="stat-badge quarantine">🟡 Quarantaine: ${stats.quarantine}</span>
+      </div>
+      <p><em>Interface capteurs en cours de développement...</em></p>
+    </div>
+  `;
+}
+
+function renderIntegrationsView(integrations) {
+  return `
+    <div class="integrations-view">
+      <h3>🔌 État des Intégrations Home Assistant</h3>
+      <p><em>Interface intégrations en cours de développement...</em></p>
+    </div>
+  `;
+}
+
+function renderLogsView(logs) {
+  return `
+    <div class="logs-view">
+      <h3>📋 Logs Système</h3>
+      <div class="logs-filters">
+        <input type="search" placeholder="Rechercher dans les logs..." id="logs-search">
+        <select id="logs-level">
+          <option value="">Tous niveaux</option>
+          <option value="ERROR">Erreurs</option>
+          <option value="WARNING">Avertissements</option>
+          <option value="INFO">Informations</option>
+        </select>
+      </div>
+      <p><em>Interface logs en cours de développement...</em></p>
+    </div>
+  `;
+}
+
+function renderHealthView(health) {
+  return `
+    <div class="health-view">
+      <h3>💚 Santé du Backend</h3>
+      <div class="health-metrics">
+        <div class="metric-card">
+          <h4>🚀 Uptime</h4>
+          <span class="metric-value">${health.uptime || 'N/A'}</span>
+        </div>
+        <div class="metric-card">
+          <h4>📈 Appels API</h4>
+          <span class="metric-value">${health.api_calls || 0}/min</span>
+        </div>
+      </div>
+      <p><em>Interface santé backend en cours de développement...</em></p>
+    </div>
+  `;
+}
+
+function initCapteursInteractions() {
+  // Fonctionnalités expand/collapse à implémenter
+}
+
+function initLogsFilters() {
+  // Filtres de logs à implémenter
+}
+
+async function refreshAllData() {
+  // Vider le cache
+  dataCache.sensors = null;
+  dataCache.integrations = null;
+  dataCache.logs = null;
+  dataCache.health = null;
+  dataCache.lastUpdate = null;
+}
+
+// Export pour usage global
+window.loadDiagnostics = loadDiagnostics;
+
+console.info("[diagnostics] ✅ Module diagnostics enrichi prêt");
