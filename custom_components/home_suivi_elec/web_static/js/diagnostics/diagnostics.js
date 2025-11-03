@@ -3,6 +3,7 @@
 // Diagnostic enrichi avec 4 sous-onglets spécialisés
 import { fetchViaProxy } from "../shared/proxy.js";
 import { toast } from "../shared/uiToast.js";
+import { loadCapteursSensor } from "./capteursSensor.js";
 
 console.info("[diagnostics] Module diagnostics enrichi chargé - 4 sous-onglets");
 
@@ -206,7 +207,7 @@ function createDiagnosticsLayout() {
     
     .diag-sub-content {
       display: none;
-      padding: 20px;
+      padding: 0;
       animation: fadeIn 0.3s ease-in;
     }
     
@@ -232,95 +233,8 @@ function createDiagnosticsLayout() {
       border: 1px solid #ff9999;
       border-radius: 8px;
       padding: 15px;
-      margin: 10px 0;
+      margin: 10px;
       color: #cc0000;
-    }
-    
-    .stats-overview {
-      display: flex;
-      gap: 10px;
-      margin: 15px 0;
-      flex-wrap: wrap;
-    }
-    
-    .stat-badge {
-      background: #f8f9fa;
-      border: 1px solid #dee2e6;
-      padding: 6px 12px;
-      border-radius: 20px;
-      font-size: 0.9em;
-      font-weight: 500;
-    }
-    
-    .stat-badge.ok {
-      background: #d4edda;
-      border-color: #c3e6cb;
-      color: #155724;
-    }
-    
-    .stat-badge.ko {
-      background: #f8d7da;
-      border-color: #f5c6cb;
-      color: #721c24;
-    }
-    
-    .stat-badge.absent {
-      background: #fff3cd;
-      border-color: #ffeaa7;
-      color: #856404;
-    }
-    
-    .stat-badge.quarantine {
-      background: #f4f4f4;
-      border-color: #d1d1d1;
-      color: #6c757d;
-    }
-    
-    .health-metrics {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-      gap: 15px;
-      margin: 20px 0;
-    }
-    
-    .metric-card {
-      background: #f8f9fa;
-      border: 1px solid #dee2e6;
-      border-radius: 8px;
-      padding: 15px;
-      text-align: center;
-    }
-    
-    .metric-card h4 {
-      margin: 0 0 8px 0;
-      color: #495057;
-      font-size: 0.9em;
-    }
-    
-    .metric-value {
-      font-size: 1.4em;
-      font-weight: bold;
-      color: #28a745;
-    }
-    
-    .logs-filters {
-      display: flex;
-      gap: 10px;
-      margin: 15px 0;
-      flex-wrap: wrap;
-    }
-    
-    .logs-filters input,
-    .logs-filters select {
-      padding: 8px 12px;
-      border: 1px solid #ced4da;
-      border-radius: 6px;
-      font-size: 0.9em;
-    }
-    
-    .logs-filters input {
-      flex: 1;
-      min-width: 200px;
     }
     </style>
   `;
@@ -383,7 +297,7 @@ async function switchSubTab(tabName) {
     
     switch (tabName) {
       case 'capteurs':
-        await loadCapteursTab(container);
+        await loadCapteursSensor(container); // ✅ Module avancé maintenant
         break;
       case 'integrations':
         await loadIntegrationsTab(container);
@@ -406,44 +320,10 @@ async function switchSubTab(tabName) {
         <div class="error-display">
           <h4>❌ Erreur de chargement</h4>
           <p>${error.message}</p>
+          <button onclick="window.location.reload()" class="btn-refresh">Recharger</button>
         </div>
       `;
     }
-  }
-}
-
-/**
- * SOUS-ONGLET 1: Capteurs groupés
- */
-async function loadCapteursTab(container) {
-  try {
-    // Récupérer les données des capteurs avec états détaillés
-    const sensorsData = await fetchViaProxy('/api/home_suivi_elec/get_sensors_health');
-    
-    if (!sensorsData || !sensorsData.success) {
-      throw new Error(sensorsData?.error || 'Données capteurs indisponibles');
-    }
-    
-    const { groups, stats } = processSensorsData(sensorsData.sensors || {});
-    
-    // Mettre à jour le compteur dans l'onglet
-    updateTabCounter('capteurs', stats.total);
-    
-    container.innerHTML = renderCapteursView(groups, stats);
-    
-    // Initialiser les fonctionnalités expand/collapse
-    initCapteursInteractions();
-    
-  } catch (error) {
-    console.error('Erreur chargement capteurs:', error);
-    container.innerHTML = `
-      <div class="error-display">
-        <h4>❌ Impossible de charger les capteurs</h4>
-        <p>${error.message}</p>
-        <p><em>Note: Cette API peut ne pas être encore implémentée dans le backend.</em></p>
-      </div>
-    `;
-    updateTabCounter('capteurs', '!');
   }
 }
 
@@ -562,39 +442,11 @@ function updateLastRefreshTime() {
   }
 }
 
-function processSensorsData(sensors) {
-  // Traitement des données capteurs (groupement, calcul d'états)
-  const groups = {};
-  const stats = { total: 0, ok: 0, ko: 0, absent: 0, quarantine: 0 };
-  
-  Object.values(sensors).forEach(sensor => {
-    stats.total++;
-    // Logique de groupement et calcul d'état à implémenter
-  });
-  
-  return { groups, stats };
-}
-
-function renderCapteursView(groups, stats) {
-  return `
-    <div class="capteurs-view">
-      <h3>📊 Capteurs Groupés par Appareil/Zone</h3>
-      <div class="stats-overview">
-        <span class="stat-badge ok">✅ OK: ${stats.ok}</span>
-        <span class="stat-badge ko">❌ KO: ${stats.ko}</span>
-        <span class="stat-badge absent">⚪ Absent: ${stats.absent}</span>
-        <span class="stat-badge quarantine">🟡 Quarantaine: ${stats.quarantine}</span>
-      </div>
-      <p><em>Interface capteurs en cours de développement...</em></p>
-    </div>
-  `;
-}
-
 function renderIntegrationsView(integrations) {
   return `
     <div class="integrations-view">
       <h3>🔌 État des Intégrations Home Assistant</h3>
-      <p><em>Interface intégrations en cours de développement...</em></p>
+      <p><em>Interface intégrations en cours de développement (Lot B)...</em></p>
     </div>
   `;
 }
@@ -612,7 +464,7 @@ function renderLogsView(logs) {
           <option value="INFO">Informations</option>
         </select>
       </div>
-      <p><em>Interface logs en cours de développement...</em></p>
+      <p><em>Interface logs en cours de développement (Lot C)...</em></p>
     </div>
   `;
 }
@@ -631,17 +483,13 @@ function renderHealthView(health) {
           <span class="metric-value">${health.api_calls || 0}/min</span>
         </div>
       </div>
-      <p><em>Interface santé backend en cours de développement...</em></p>
+      <p><em>Interface santé backend en cours de développement (Lot D)...</em></p>
     </div>
   `;
 }
 
-function initCapteursInteractions() {
-  // Fonctionnalités expand/collapse à implémenter
-}
-
 function initLogsFilters() {
-  // Filtres de logs à implémenter
+  // Filtres de logs à implémenter (Lot C)
 }
 
 async function refreshAllData() {
@@ -656,4 +504,4 @@ async function refreshAllData() {
 // Export pour usage global
 window.loadDiagnostics = loadDiagnostics;
 
-console.info("[diagnostics] ✅ Module diagnostics enrichi prêt");
+console.info("[diagnostics] ✅ Module diagnostics enrichi prêt avec capteurs avancés");
