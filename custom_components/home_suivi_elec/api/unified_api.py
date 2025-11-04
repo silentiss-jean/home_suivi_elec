@@ -270,11 +270,13 @@ class HomeElecUnifiedAPIView(HomeAssistantView):
         return await asyncio.get_event_loop().run_in_executor(None, _load_file)
     
     def _get_hse_energy_sensors(self):
-        """Récupère tous les capteurs HSE energy depuis les états HA"""
+        """Récupère tous les capteurs HSE energy depuis les états HA (aligné Phase 2)"""
         all_states = self.hass.states.async_all("sensor")
+        # Inclure sensor.hse_*_{cycle} (today_energy) ET sensor.hse_energy_*_{cycle}
+        cycles = ("_hourly", "_daily", "_weekly", "_monthly", "_yearly")
         return [
-            state for state in all_states 
-            if state.entity_id.startswith("sensor.hse_energy_")
+            s for s in all_states
+            if s.entity_id.startswith("sensor.hse_") and s.entity_id.endswith(cycles)
         ]
     
     def _get_sensors_file_path(self):
@@ -290,19 +292,11 @@ class HomeElecUnifiedAPIView(HomeAssistantView):
         )
     
     def _extract_cycle_from_entity(self, entity_id):
-        """Extrait le cycle depuis l'entity_id (ex: _h, _d, _w, _m, _y)"""
-        if entity_id.endswith("_h"):
-            return "hourly"
-        elif entity_id.endswith("_d"):
-            return "daily"
-        elif entity_id.endswith("_w"):
-            return "weekly"
-        elif entity_id.endswith("_m"):
-            return "monthly"
-        elif entity_id.endswith("_y"):
-            return "yearly"
-        else:
-            return "live"
+        """Extrait le cycle depuis l'entity_id (Phase 2: cycles complets)"""
+        for c in ("hourly", "daily", "weekly", "monthly", "yearly"):
+            if entity_id.endswith("_" + c):
+                return c
+        return "unknown"
     
     def _get_timestamp(self):
         """Timestamp ISO actuel"""

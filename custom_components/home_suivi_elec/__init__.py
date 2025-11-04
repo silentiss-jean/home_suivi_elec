@@ -643,6 +643,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STARTED, start_detection_selection)
     
+    # ✅ FIX TIMING: Charger plateforme sensor AVANT les tasks
+    await hass.config_entries.async_forward_entry_setups(entry, ["sensor"])
+    _LOGGER.info("[SETUP_ENTRY] 🚀 Plateforme sensor chargée - Listeners EVENT-DRIVEN actifs")
+    
     # ✅ NOUVEAU : Fonction de setup différé
     async def setup_sensors_after_detection():
         """Setup sensors après que la détection soit terminée."""
@@ -701,7 +705,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         except Exception as e:
             _LOGGER.exception("Erreur sensor sync manager: %s", e)
 
-    # Lancer la tâche en arrière-plan
+    # Lancer la tâche en arrière-plan APRÈS le setup de la plateforme
     asyncio.create_task(setup_sensors_after_detection())
     
     asyncio.create_task(_delayed_start(hass, entry))
@@ -709,13 +713,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     loop = asyncio.get_running_loop()
     src = hass.config.path("custom_components", "home_suivi_elec", "web_static")
     dst = hass.config.path("www", "community", "home_suivi_elec_ui")
-    await loop.run_in_executor(None, lambda: _copy_ui_blocking(src, dst))
+    await loop.run_in_executor(None, lambda: _copy_ui_fresh_complete(src, dst))
 
     _LOGGER.info("[SETUP_ENTRY] ✅ Home Suivi Élec setup terminé (sensors seront chargés après détection)")
-    
-    # ✅ Charger la plateforme sensor pour enregistrer les sensors HSE
-    await hass.config_entries.async_forward_entry_setups(entry, ["sensor"])
-    _LOGGER.info("[SETUP_ENTRY] 🚀 Plateforme sensor chargée")
     
     return True
 
@@ -727,28 +727,39 @@ async def _delayed_start(hass: HomeAssistant, entry: ConfigEntry, timeout: int =
     except Exception as e:
         _LOGGER.exception("Erreur fallback detection/selection: %s", e)
 
-def _copy_ui_blocking(src, dst):
+def _copy_ui_fresh_complete(src, dst):
+    """
+    Copie UI en mode 'fresh complete': supprime totalement la destination puis 
+    recopie toute la source en une opération atomique. Garantit zéro reliquat 
+    sans avoir à spécifier de noms de fichiers.
+    """
     if not os.path.exists(src):
-        _LOGGER.warning(f"[COPY_UI] Dossier source introuvable: {src}")
+        _LOGGER.warning(f"[COPY_UI] Source introuvable: {src}")
         return
 
-    os.makedirs(dst, exist_ok=True)
+    # 🗑️ NETTOYAGE COMPLET: Supprimer TOUT le dossier destination
+    if os.path.exists(dst):
+        try:
+            shutil.rmtree(dst)
+            _LOGGER.info(f"[COPY_UI] Dossier cible supprimé complètement: {dst}")
+        except Exception as e:
+            _LOGGER.error(f"[COPY_UI] Erreur suppression {dst}: {e}")
+            return
 
-    for root, dirs, files in os.walk(src):
-        rel_path = os.path.relpath(root, src)
-        target_dir = os.path.join(dst, rel_path)
-        os.makedirs(target_dir, exist_ok=True)
-        for file in files:
-            src_file = os.path.join(root, file)
-            dst_file = os.path.join(target_dir, file)
-            shutil.copy2(src_file, dst_file)
-            _LOGGER.debug(f"[COPY_UI] Copié: {src_file} → {dst_file}")
+    # 📁 COPIE FRAÎCHE COMPLÈTE 
+    try:
+        shutil.copytree(src, dst)
+        _LOGGER.info(f"[COPY_UI] ✅ Copie fraîche complète: {src} → {dst}")
+    except Exception as e:
+        _LOGGER.exception(f"[COPY_UI] Erreur copytree: {e}")
+
 
 async def copy_ui_files(hass: HomeAssistant):
     loop = asyncio.get_running_loop()
     src = hass.config.path("custom_components", "home_suivi_elec", "web_static")
     dst = hass.config.path("www", "community", "home_suivi_elec_ui")
-    await loop.run_in_executor(None, lambda: _copy_ui_blocking(src, dst))
+    await loop.run_in_executor(None, lambda: _copy_ui_fresh_complete(src, dst))
+
 
 @callback
 def async_get_options_flow(config_entry: ConfigEntry):
@@ -918,4 +929,3 @@ async def async_setup_energy_tracking(hass: HomeAssistant, entry: ConfigEntry):
         _LOGGER.exception(f"❌ Erreur calcul stats: {e}")
     
     _LOGGER.info("🔋 [PHASE 2] Energy Tracking configuré avec succès")
-    
