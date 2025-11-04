@@ -2,7 +2,7 @@
 "use strict";
 
 import { emit } from "../shared/eventBus.js";
-import { createQualityBadgeHTML } from "./configuration.js";
+import { createQualityBadgeHTML } from "./quality.js"; // 🔧 FIXE: import depuis quality.js au lieu de configuration.js
 
 
 function makeToggleHeader(getFold, setFold, integrationKey, columnKey, titleHTML, panelEl) {
