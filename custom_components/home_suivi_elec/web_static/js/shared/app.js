@@ -1,7 +1,7 @@
 // app.js — Assembleur UI (délègue save globale à savePanel)
 "use strict";
-import { initAuth } from "./auth.js";
 
+import { initAuth } from "./auth.js";
 import { loadSummary } from '../summary/summary.js';
 import { loadDetection } from '../detection/detection.js';
 import { loadConfiguration } from '../configuration/configuration.js';
@@ -12,6 +12,85 @@ import { initReferencePanel, rerenderReferencePanel } from "../configuration/ref
 import { initSavePanel } from "../save/savePanel.js";
 import { loadDiagnosticSensors } from "../diagnostics/diagnosticSensors.js";
 import { loadGeneration } from '../generation/generate.js';
+
+// 🔧 FONCTION showTab PRINCIPALE AMÉLIORÉE
+function showTab(tab) {
+  console.log(`[showTab] Changement vers: ${tab}`);
+  
+  // Masquer tous les onglets principaux
+  document.querySelectorAll('.tab-content').forEach(el => {
+    el.classList.remove('active');
+  });
+  
+  // Afficher l'onglet sélectionné
+  const selected = document.getElementById(tab);
+  if (!selected) {
+    console.error(`[showTab] ❌ Élément ${tab} non trouvé dans le DOM`);
+    return;
+  }
+  
+  selected.classList.add('active');
+  console.log(`[showTab] ✅ Onglet ${tab} activé`);
+
+  // Charger le contenu spécifique selon l'onglet
+  if (tab === 'diagnostics') {
+    loadDiagnostics();
+    // Attendre un court délai pour que le DOM soit mis à jour
+    setTimeout(() => {
+      const diagElement = document.getElementById('diag-sensors');
+      if (diagElement && typeof showDiagTab === 'function') {
+        showDiagTab('diag-sensors');
+      } else {
+        console.warn('[showTab] diag-sensors non trouvé, retry dans 500ms');
+        setTimeout(() => {
+          if (typeof showDiagTab === 'function') {
+            showDiagTab('diag-sensors');
+          }
+        }, 500);
+      }
+    }, 100);
+  } else if (tab === 'detection') {
+    loadDetection();
+  } else if (tab === 'home') {
+    loadSummary();
+  } else if (tab === 'configuration') {
+    console.log('[showTab] Chargement configuration...');
+    loadConfiguration();
+  }
+}
+
+// 🔧 FONCTION showDiagTab UNIQUE ET CORRIGÉE
+function showDiagTab(tab) {
+  console.log(`[showDiagTab] Changement vers: ${tab}`);
+  
+  // Masquer tous les contenus des sous-onglets
+  document.querySelectorAll('.diag-tab-content').forEach(el => {
+    el.style.display = 'none';
+  });
+  
+  // Trouver et afficher le sous-onglet sélectionné
+  const selected = document.getElementById(tab);
+  if (!selected) {
+    console.error(`[showDiagTab] ❌ Élément ${tab} non trouvé dans le DOM`);
+    return;
+  }
+  
+  // Charger le contenu si nécessaire
+  if (!selected.dataset.loaded) {
+    if (tab === 'diag-sensors') {
+      loadDiagnosticSensors().then(() => {
+        selected.dataset.loaded = 'true';
+        console.log(`[showDiagTab] ✅ Contenu ${tab} chargé avec succès`);
+      }).catch(error => {
+        console.error(`[showDiagTab] ❌ Erreur chargement ${tab}:`, error);
+        selected.innerHTML = '<p class="error">❌ Erreur de chargement du contenu</p>';
+      });
+    }
+  }
+  
+  selected.style.display = 'block';
+  console.log(`[showDiagTab] ✅ Onglet ${tab} affiché`);
+}
 
 document.addEventListener("DOMContentLoaded", async () => {
   // Hydrate état utilisateur
@@ -73,101 +152,21 @@ document.addEventListener("DOMContentLoaded", async () => {
       const container = document.getElementById('generation');
       if (container && !container.dataset.loaded) {
         try {
-          const response = await fetch('tabs/generate.html');
-          const html = await response.text();
-          container.innerHTML = html;
-          container.dataset.loaded = 'true';
-          
-          // Initialiser le module
           await loadGeneration();
+          container.dataset.loaded = 'true';
         } catch (error) {
           console.error('❌ Erreur chargement onglet Génération:', error);
         }
       }
     });
   }
+
+  console.log('[APP] ✅ Module app.js chargé - initialisation terminée');
 });
 
-// 🔧 FONCTION showDiagTab UNIQUE ET CORRIGÉE
-window.showDiagTab = async function(tab) {
-  console.log(`[showDiagTab] Changement vers: ${tab}`);
-  
-  // Masquer tous les contenus des sous-onglets
-  document.querySelectorAll('.diag-tab-content').forEach(el => {
-    el.style.display = 'none';
-  });
-  
-  // Trouver et afficher le sous-onglet sélectionné
-  const selected = document.getElementById(tab);
-  if (!selected) {
-    console.error(`[showDiagTab] ❌ Élément ${tab} non trouvé dans le DOM`);
-    return;
-  }
-  
-  // Charger le contenu si nécessaire
-  if (!selected.dataset.loaded) {
-    if (tab === 'diag-sensors') {
-      try {
-        const html = await (await fetch('tabs/diagnostic_sensors.html')).text();
-        selected.innerHTML = html;
-        await loadDiagnosticSensors();
-        selected.dataset.loaded = 'true';
-        console.log(`[showDiagTab] ✅ Contenu ${tab} chargé avec succès`);
-      } catch (error) {
-        console.error(`[showDiagTab] ❌ Erreur chargement ${tab}:`, error);
-        selected.innerHTML = '<p class="error">❌ Erreur de chargement du contenu</p>';
-        return;
-      }
-    }
-  }
-  
-  selected.style.display = 'block';
-  console.log(`[showDiagTab] ✅ Onglet ${tab} affiché`);
-};
-
-// 🔧 FONCTION showTab PRINCIPALE AMÉLIORÉE
-window.showTab = function(tab) {
-  console.log(`[showTab] Changement vers: ${tab}`);
-  
-  // Masquer tous les onglets principaux
-  document.querySelectorAll('.tab-content').forEach(el => {
-    el.classList.remove('active');
-  });
-  
-  // Afficher l'onglet sélectionné
-  const selected = document.getElementById(tab);
-  if (!selected) {
-    console.error(`[showTab] ❌ Élément ${tab} non trouvé dans le DOM`);
-    return;
-  }
-  
-  selected.classList.add('active');
-  console.log(`[showTab] ✅ Onglet ${tab} activé`);
-
-  // Charger le contenu spécifique selon l'onglet
-  if (tab === 'diagnostics') {
-    loadDiagnostics();
-    // Attendre un court délai pour que le DOM soit mis à jour
-    setTimeout(() => {
-      const diagElement = document.getElementById('diag-sensors');
-      if (diagElement) {
-        showDiagTab('diag-sensors');
-      } else {
-        console.warn('[showTab] diag-sensors non trouvé, retry dans 500ms');
-        setTimeout(() => showDiagTab('diag-sensors'), 500);
-      }
-    }, 100);
-  } else if (tab === 'detection') {
-    loadDetection();
-  } else if (tab === 'home') {
-    loadSummary();
-  } else if (tab === 'configuration') {
-    loadConfiguration();
-  }
-};
-
-// --- Expose les fonctions globalement (important pour onclick="showTab(...)")
-window.showTab = window.showTab;
-window.showDiagTab = window.showDiagTab;
+// ✅ EXPOSER LES FONCTIONS GLOBALEMENT (important pour onclick="showTab(...)")
+window.showTab = showTab;
+window.showDiagTab = showDiagTab;
+window.loadConfiguration = loadConfiguration;
 
 console.log('[APP] ✅ Module app.js chargé - fonctions showTab et showDiagTab exposées globalement');
