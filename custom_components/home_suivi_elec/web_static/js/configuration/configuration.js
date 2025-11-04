@@ -5,6 +5,7 @@ import { hydrateUserConfig, bindUserOptions } from "./configuration.state.js";
 import { ensureUserConfigAbove, renderDuplicatesColumn } from "./configuration.view.js";
 import { renderSelectionColumns } from "./selectionPanel.js";
 import { initReferencePanel } from "./referencePanel.js";
+import { createQualityBadgeHTML, categorizeSensors } from "./quality.js"; // 🔧 FIXE: import depuis quality.js
 import { emit } from "../shared/eventBus.js";
 import { toast } from "../shared/uiToast.js";
 
@@ -88,70 +89,6 @@ function getStars(score) {
   if (score >= 70) return '⭐⭐';
   if (score >= 50) return '⭐';
   return '☆';
-}
-
-
-export function createQualityBadgeHTML(sensor) {
-  if (!sensor || !sensor.quality_score) return '';
-  
-  const score = sensor.quality_score;
-  let badgeClass = 'quality-badge';
-  
-  if (score >= 130) badgeClass += ' excellent';
-  else if (score >= 100) badgeClass += ' good';
-  else if (score >= 70) badgeClass += ' acceptable';
-  else if (score >= 50) badgeClass += ' medium';
-  else badgeClass += ' poor';
-  
-  const icon = (sensor.unit || '').toLowerCase().includes('kwh') ? '🔋' : '⚡';
-  
-  return `
-    <span class="${badgeClass}" title="Score de qualité: ${score}/150">
-      <span class="badge-icon">${icon}</span>
-      <span class="badge-label">${sensor.quality_recommendation || ''}</span>
-      <span class="badge-stars">${sensor.quality_stars || ''}</span>
-      <span class="badge-score">${score}/150</span>
-    </span>
-  `;
-}
-
-/**
- * ✅ ÉTAPE 3/4 : Sépare les capteurs physiques des helpers
- * 
- * @param {Object} sensors - Objet {entity_id: capteur}
- * @returns {Object} { physical, helpers }
- */
-export function categorizeSensors(sensors) {
-  const physical = {};
-  const helpers = {};
-  
-  const helperIntegrations = [
-    'min_max', 'statistics', 'average', 'template', 
-    'utility_meter', 'integration', 'history_stats',
-    'derivative', 'filter'
-  ];
-  
-  Object.entries(sensors || {}).forEach(([entityId, sensor]) => {
-    if (!sensor) return;
-    
-    const integration = (sensor.integration || '').toLowerCase();
-    const isHelper = helperIntegrations.includes(integration) || 
-                     sensor.is_helper === true ||
-                     entityId.includes('_helper_') ||
-                     entityId.includes('_average_') ||
-                     entityId.includes('_total_') ||
-                     entityId.includes('_sum_');
-    
-    if (isHelper) {
-      helpers[entityId] = { ...sensor, is_helper: true };
-    } else {
-      physical[entityId] = { ...sensor, is_helper: false };
-    }
-  });
-  
-  console.log(`[config] 📊 Catégorisation : ${Object.keys(physical).length} physiques, ${Object.keys(helpers).length} helpers`);
-  
-  return { physical, helpers };
 }
 
 function deepClone(obj) {
@@ -260,8 +197,14 @@ export async function loadConfiguration() {
   const content = document.getElementById("content-configuration");
   
   // ✅ CORRECTION : Retour silencieux si onglet pas actif ou conteneur absent
-  if (!content || !document.getElementById("configuration")?.classList.contains("active")) {
-    // Onglet pas monté/actif: ne rien faire (chargera quand l'onglet s'ouvre)
+  if (!content) {
+    console.warn("[config] #content-configuration absent, loadConfiguration ignorée");
+    return;
+  }
+  
+  const configTab = document.getElementById("configuration");
+  if (!configTab || !configTab.classList.contains("active")) {
+    console.log("[config] Onglet configuration pas actif, chargement différé");
     return;
   }
   
@@ -306,8 +249,6 @@ export async function loadConfiguration() {
     }
                              
     content.innerHTML = "";
-
-    content.innerHTML = "";
     
     // ✅ NOUVEAU : Bandeau explicatif
     const banner = document.createElement("div");
@@ -337,10 +278,13 @@ export async function loadConfiguration() {
         await saveSelectionToBackend();
         toast.success("Sélection mise à jour");
       },
-      checkbox: async (entityId, checked) => {
+      onChange: async (changeData) => {
+        const { entity_id, enabled } = changeData;
+        console.log("[config] onChange:", changeData);
+        
         // 1. Validation anti-doublons AVANT toute action
-        if (checked) {
-          const sensor = allCapteurs[entityId];
+        if (enabled) {
+          const sensor = allCapteurs[entity_id];
           
           if (sensor && sensor.is_multi_platform) {
             const signature = sensor.physical_signature;
@@ -350,7 +294,7 @@ export async function loadConfiguration() {
             const conflicts = Object.values(allCapteurs).filter(c => 
               c.physical_signature === signature &&
               c.type === sensorType &&
-              c.entity_id !== entityId &&
+              c.entity_id !== entity_id &&
               c.integration !== sensor.integration
             );
             
@@ -369,7 +313,7 @@ export async function loadConfiguration() {
               // ANNULER le cochage
               setTimeout(() => {
                 const checkbox = content.querySelector(
-                  `input.capteur-checkbox[data-entity="${entityId}"]`
+                  `input.capteur-checkbox[data-entity="${entity_id}"]`
                 );
                 if (checkbox) checkbox.checked = false;
               }, 0);
@@ -394,6 +338,7 @@ export async function loadConfiguration() {
       }
     };                       
 
+    console.log("[config] 2. Appel renderSelectionColumns avec handlers");
     renderSelectionColumns(content, {
       selected: outSel,
       alternatives: outAlt, 
@@ -407,6 +352,7 @@ export async function loadConfiguration() {
       }
     });
 
+    console.log("[config] 3. Appel renderDuplicatesColumn");
     renderDuplicatesColumn(content, {
       groupsByDevice,
       ignored: ignored_entities,
@@ -439,7 +385,7 @@ export async function loadConfiguration() {
       instantById            
     });
 
-    console.log("[config] 3. Appel bindUserOptions");
+    console.log("[config] 4. Appel bindUserOptions");
     bindUserOptions(async (payload) => {
       console.log("[config] ✅ Sauvegarde options avec payload:", payload);
       await saveUserOptions(payload);
@@ -493,16 +439,23 @@ export async function loadConfiguration() {
           return;
         }
         emit("selection:saved", selections);
-        await loadConfiguration();
+        console.log("[config] ✅ Sélection sauvegardée avec succès");
       } catch (err) {
         console.error("[config] saveSelection — exception", err);
         alert("❌ Erreur de sauvegarde");
         toast.error("Erreur de sauvegarde");
       }
     }
+    
+    console.log("[config] ✅ loadConfiguration terminée avec succès");
   } catch (err) {
     console.error("[config] loadConfiguration() — erreur", err);
     content.innerHTML = `<p style="color:red;">❌ ${err.message}</p>`;
     toast.error("Erreur de chargement configuration");
   }
+}
+
+// Exposer globalement pour compatibilité (si needed)
+if (typeof window !== 'undefined') {
+  window.loadConfiguration = loadConfiguration;
 }
