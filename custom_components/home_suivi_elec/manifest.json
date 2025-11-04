@@ -1,15 +1,7 @@
 {
   "domain": "home_suivi_elec",
   "name": "Home Suivi Élec",
-<<<<<<< HEAD
-<<<<<<< HEAD
-  "version": "1.0.81",
-=======
-  "version": "1.0.81",
->>>>>>> 1e6fe3a (🚀 Release v1.0.62 — horodaté 2025-11-04 15:57)
-=======
-  "version": "1.0.81",
->>>>>>> 309ecb6 (🚀 Release v1.0.63 — horodaté 2025-11-04 15:58)
+  "version": "1.0.82",
   "documentation": "https://github.com/silentiss-jean/home_suivi_elec",
   "dependencies": [],
   "codeowners": ["@silentiss-jean"],
