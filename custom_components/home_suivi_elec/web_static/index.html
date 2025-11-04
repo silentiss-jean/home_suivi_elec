@@ -33,6 +33,16 @@ table thead th { background: #f2f2f2; }
 .config-section.hphc { background: #fff4e6; border-left-color: #ff9800; }
 .config-section h4 { margin-top: 0; color: #0078d4; }
 .config-section.hphc h4 { color: #ff9800; }
+
+/* 🔧 STYLES POUR DIAGNOSTICS */
+.diag-tab-btn { background: #6c757d; color: white; border: none; padding: 8px 16px; margin: 2px; border-radius: 5px; cursor: pointer; }
+.diag-tab-btn.active { background: #0078d4; }
+.diag-tab-btn:hover { background: #495057; }
+.diag-tab-btn.active:hover { background: #005fa3; }
+.diag-sub-content { display: none; margin-top: 15px; }
+.diag-sub-content.active { display: block; }
+.diag-tab-content { display: none; }
+.error { color: #dc3545; background: #f8d7da; padding: 10px; border-radius: 5px; border: 1px solid #f5c6cb; }
 </style>
 </head>
 <body>
@@ -52,8 +62,30 @@ table thead th { background: #f2f2f2; }
   <div id="content-home"></div>
 </div>
 
+<!-- 🔧 ONGLET DIAGNOSTICS AVEC CONTENEURS REQUIS -->
 <div id="diagnostics" class="tab-content">
-  <div id="content-diagnostics"></div>
+  <!-- Conteneur principal pour diagnostics.js (recherche diagnosticsGlobal OU diagnostics-container) -->
+  <div id="diagnosticsGlobal">
+    <!-- Le contenu sera généré dynamiquement par diagnostics.js -->
+    🔄 Chargement des diagnostics...
+  </div>
+  
+  <!-- Conteneurs pour les sous-onglets (utilisés par showDiagTab) -->
+  <div id="diag-sensors" class="diag-tab-content">
+    <!-- Contenu chargé dynamiquement depuis tabs/diagnostic_sensors.html -->
+  </div>
+  
+  <div id="diag-integrations" class="diag-tab-content">
+    <!-- Contenu pour intégrations -->
+  </div>
+  
+  <div id="diag-logs" class="diag-tab-content">
+    <!-- Contenu pour logs -->
+  </div>
+  
+  <div id="diag-health" class="diag-tab-content">
+    <!-- Contenu pour santé backend -->
+  </div>
 </div>
 
 <div id="detection" class="tab-content">
@@ -86,35 +118,46 @@ table thead th { background: #f2f2f2; }
 </div>
 
 <script>
+// 🔧 FONCTION showTab SÉCURISÉE (utilisée par les boutons onclick)
 function showTab(tab) {
+  console.log(`[index.showTab] Changement vers: ${tab}`);
+  
   // Masquer tous les contenus
   document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
   
   // Activer l'onglet demandé
   const selected = document.getElementById(tab);
-  if (selected) {
-    selected.classList.add('active');
-    
-    // Si diagnostics, initialiser le premier sous-onglet
-    if (tab === 'diagnostics' && typeof window.showDiagTab === 'function') {
-      setTimeout(() => {
-        try { 
-          window.showDiagTab('capteurs'); 
-        } catch(e) { 
-          console.log('[showTab] Diagnostics pas encore prêt:', e.message); 
-        }
-      }, 100);
-    }
+  if (!selected) {
+    console.error(`[index.showTab] ❌ Élément ${tab} non trouvé`);
+    return;
+  }
+  
+  selected.classList.add('active');
+  console.log(`[index.showTab] ✅ Onglet ${tab} activé`);
+  
+  // Actions spécifiques par onglet
+  if (tab === 'diagnostics') {
+    // Attendre que app.js charge les modules
+    setTimeout(() => {
+      if (typeof window.showDiagTab === 'function') {
+        console.log('[index.showTab] Tentative d\'initialisation diag-sensors');
+        window.showDiagTab('diag-sensors');
+      } else {
+        console.warn('[index.showTab] window.showDiagTab pas encore disponible');
+      }
+    }, 200);
   }
 }
 
-// Fonction showDiagTab sécurisée pour éviter erreurs
+// 🔧 FONCTION showDiagTab FALLBACK (au cas où app.js n'est pas encore chargé)
 function showDiagTab(tab) {
-  const tabElements = document.querySelectorAll('.diag-tab');
-  const contentElements = document.querySelectorAll('[id^="diag-content-"]');
+  console.log(`[index.showDiagTab] Fallback pour: ${tab}`);
+  
+  const tabElements = document.querySelectorAll('.diag-tab-btn');
+  const contentElements = document.querySelectorAll('.diag-tab-content');
   
   if (tabElements.length === 0) {
-    console.log('[showDiagTab] Onglets diagnostics pas encore générés');
+    console.log('[index.showDiagTab] Onglets diagnostics pas encore générés');
     return;
   }
   
@@ -124,19 +167,26 @@ function showDiagTab(tab) {
   
   // Activer le sous-onglet demandé
   const selectedTab = document.querySelector(`[data-tab="${tab}"]`);
-  const selectedContent = document.getElementById(`diag-content-${tab}`);
+  const selectedContent = document.getElementById(tab);
   
-  if (selectedTab) selectedTab.classList.add('active');
-  if (selectedContent) selectedContent.style.display = 'block';
+  if (selectedTab) {
+    selectedTab.classList.add('active');
+    console.log(`[index.showDiagTab] ✅ Bouton ${tab} activé`);
+  }
+  if (selectedContent) {
+    selectedContent.style.display = 'block';
+    console.log(`[index.showDiagTab] ✅ Contenu ${tab} affiché`);
+  }
 }
 
-// Exposer globalement
+// Exposer globalement (sera écrasé par app.js si tout va bien)
+window.showTab = showTab;
 window.showDiagTab = showDiagTab;
 
 // Onglet par défaut
 document.addEventListener('DOMContentLoaded', () => {
   showTab('home');
-  console.log('[index] Interface initialisée sur onglet Accueil');
+  console.log('[index] ✅ Interface initialisée sur onglet Accueil');
 });
 
 // ✅ Gestion affichage dynamique type contrat
@@ -167,6 +217,5 @@ document.addEventListener("DOMContentLoaded", () => {
 
 <!-- Mise à jour des entrées ES6 vers la nouvelle structure -->
 <script type="module" src="js/shared/app.js"></script>
-<script type="module" src="js/diagnostics/diagnostics.js"></script>
 </body>
 </html>
