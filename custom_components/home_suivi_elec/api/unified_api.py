@@ -40,6 +40,8 @@ class HomeElecUnifiedAPIView(HomeAssistantView):
                 return await self._handle_config()
             elif resource == "ui":
                 return await self._handle_ui()
+            elif resource == "get_sensors_health":
+                return await self.handle_sensors_health()
             else:
                 return self._success({
                     "message": f"API Unifiée opérationnelle - resource: {resource}",
@@ -315,3 +317,61 @@ class HomeElecUnifiedAPIView(HomeAssistantView):
     def _error(self, status, message):
         """Réponse erreur avec statut"""
         return web.json_response({"error": True, "message": message}, status=status)
+    
+    async def handle_sensors_health(self):
+        """Endpoint get_sensors_health - Diagnostic capteurs pour capteursSensor.js."""
+        try:
+            # Réutiliser logique sensors existante
+            sensors_data = await self.load_sensors_data()
+            selection_data = await self.load_selection_data()
+            
+            # Index de sélection
+            selection_index = {}
+            for category, items in selection_data.items():
+                if isinstance(items, list):
+                    for item in items:
+                        entity_id = item.get("entity_id")
+                        if entity_id:
+                            selection_index[entity_id] = item.get("enabled", False)
+            
+            # Format spécial pour diagnostic capteursSensor.js
+            sensors_health = {}
+            
+            for sensor in sensors_data:
+                entity_id = sensor.get("entity_id")
+                if entity_id:
+                    state_obj = self.hass.states.get(entity_id)
+                    
+                    # Calcul état santé selon logique capteursSensor.js
+                    health_state = "absent"
+                    if state_obj:
+                        if state_obj.state in ["unavailable", "unknown", "error", "none"]:
+                            health_state = "ko"
+                        else:
+                            health_state = "ok"
+                    
+                    # Format exact attendu par capteursSensor.js
+                    sensors_health[entity_id] = {
+                        "friendly_name": state_obj.attributes.get("friendly_name", entity_id) if state_obj else entity_id,
+                        "value": state_obj.state if state_obj else "N/A",
+                        "state": health_state,
+                        "unit_of_measurement": state_obj.attributes.get("unit_of_measurement", "") if state_obj else "",
+                        "integration": sensor.get("integration", "unknown"),
+                        "quarantine": sensor.get("quarantine", False),
+                        "last_seen": state_obj.last_changed.isoformat() if state_obj else None,
+                        "device_id": sensor.get("device_id", ""),
+                        "area": sensor.get("zone", ""),
+                        "duplicate_group": sensor.get("duplicate_group", "")
+                    }
+            
+            _LOGGER.info(f"🩺 Sensors health: {len(sensors_health)} capteurs analysés")
+            
+            # ✅ Format SUCCESS pour capteursSensor.js (pas self.success !)
+            return web.json_response({
+                "success": True,
+                "sensors": sensors_health,
+                "count": len(sensors_health)
+            })
+            
+        except Exception as e:
+            _LOGGER.exception(f"Erreur handle_sensors_health: {e}")
