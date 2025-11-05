@@ -10,7 +10,6 @@ import stateModule from "./stateModule.js";
 import { on } from "./eventBus.js";
 import { initReferencePanel, rerenderReferencePanel } from "./referencePanel.js";
 import { initSavePanel } from "./savePanel.js";
-import { loadDiagnosticSensors } from "./modules/diagnosticSensors.js";
 
 document.addEventListener("DOMContentLoaded", async () => {
   // Hydrate état utilisateur
@@ -66,21 +65,6 @@ document.addEventListener("DOMContentLoaded", async () => {
 });
 
 
-// Fonction sous-onglet Diagnostic : à mettre AVANT showTab
-window.showDiagTab = async function(tab) {
-  document.querySelectorAll('.diag-tab-content').forEach(el => el.style.display = 'none');
-  const selected = document.getElementById(tab);
-  if (!selected.dataset.loaded) {
-    if (tab === 'diag-sensors') {
-      const html = await (await fetch('tabs/diagnostic_sensors.html')).text();
-      selected.innerHTML = html;
-      await loadDiagnosticSensors();
-      selected.dataset.loaded = 'true';
-    }
-  }
-  selected.style.display = 'block';
-};
-
 // Fonction showTab principale
 window.showTab = function(tab) {
   document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
@@ -89,7 +73,6 @@ window.showTab = function(tab) {
 
   if (tab === 'diagnostics') {
     loadDiagnostics();
-    showDiagTab('diag-sensors');
   } else if (tab === 'detection') {
     loadDetection();
   } else if (tab === 'home') {
@@ -126,17 +109,3 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 });
-// Import du module Diagnostics
-window.showDiagTab = async function(tab) {
-  document.querySelectorAll('.diag-tab-content').forEach(el => el.style.display = 'none');
-  const selected = document.getElementById(tab);
-  if (!selected.dataset.loaded) {
-    if (tab === 'diag-sensors') {
-      const html = await (await fetch('tabs/diagnostic_sensors.html')).text();
-      selected.innerHTML = html;
-      await loadDiagnosticSensors();
-      selected.dataset.loaded = 'true';
-    }
-  }
-  selected.style.display = 'block';
-};
