@@ -113,7 +113,8 @@ async function switchSubTab(tabName) {
         activeSubTab = tabName;
         
         // Conteneur de contenu
-        const contentContainer = document.getElementById('diagnostics-tab-content');
+        const contentContainer = document.getElementById(tabName) || 
+                                 document.getElementById("diagnostics-tab-content");
         
         if (!contentContainer) {
             console.error("[diagnostics] Conteneur tab-content introuvable");
