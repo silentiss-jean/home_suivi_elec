@@ -805,7 +805,7 @@ class HSESensorsPublicView(HomeAssistantView):
 # hass.http.register_view(HSESensorsPublicView(hass))
 
 class SensorsHealthView(HomeAssistantView):
-    """API supervision complète des capteurs pour diagnostics enhanced."""
+    """API diagnostic santé capteurs - TRANSFORMATION de /api/sensors."""
     url = "/api/home_suivi_elec/get_sensors_health"
     name = "api:home_suivi_elec:get_sensors_health"
     requires_auth = False
@@ -815,56 +815,53 @@ class SensorsHealthView(HomeAssistantView):
         self.hass = hass
     
     async def get(self, request):
-        """Retourne état de santé complet avec gestion quarantaine."""
+        """Transform /api/sensors vers format capteursSensor.js."""
         try:
-            import asyncio
-            loop = asyncio.get_running_loop()
+            # ✅ Réutiliser ta logique /api/sensors existante
+            from .manage_selection_views import load_json, CAPTEURS_POWER_PATH
             
-            # Charger capteurs détectés + quarantaine
+            # Charger données capteurs depuis ton système
             if os.path.exists(CAPTEURS_POWER_PATH):
-                capteurs_data = await loop.run_in_executor(None, lambda: load_json(CAPTEURS_POWER_PATH))
+                capteurs_data = load_json(CAPTEURS_POWER_PATH)
             else:
                 capteurs_data = {}
             
-            # Enrichir avec états temps réel + quarantaine
+            # ✅ Transformation format pour capteursSensor.js
             sensors = {}
+            
             for entity_id, sensor_info in capteurs_data.items():
+                # État temps réel Home Assistant
                 state_obj = self.hass.states.get(entity_id)
                 
-                # État de santé calculé
-                if not state_obj:
-                    health_state = "absent"
-                elif state_obj.state in ["unavailable", "unknown", "error", "none"]:
-                    health_state = "ko"
-                else:
-                    health_state = "ok"
+                # Calcul état santé (logique capteursSensor.js)
+                health_state = "absent"
+                if state_obj:
+                    if state_obj.state in ["unavailable", "unknown", "error", "none"]:
+                        health_state = "ko"
+                    else:
+                        health_state = "ok"
                 
-                # Enrichissement complet pour supervision
+                # ✅ FORMAT EXACT attendu par capteursSensor.js
                 sensors[entity_id] = {
-                    **sensor_info,
-                    "value": state_obj.state if state_obj else "N/A",
-                    "last_seen": state_obj.last_changed.isoformat() if state_obj else None,
-                    "state": health_state,
                     "friendly_name": state_obj.attributes.get("friendly_name", entity_id) if state_obj else entity_id,
+                    "value": state_obj.state if state_obj else "N/A",
+                    "state": health_state,  # ← Clé pour le module !
                     "unit_of_measurement": state_obj.attributes.get("unit_of_measurement", "") if state_obj else "",
+                    "integration": sensor_info.get("integration", "unknown"),
                     "quarantine": sensor_info.get("quarantine", False),
-                    "is_selected": sensor_info.get("enabled", False),
-                    "integration": sensor_info.get("integration", "unknown")
+                    "last_seen": state_obj.last_changed.isoformat() if state_obj else None,
+                    "device_id": sensor_info.get("device_id", ""),
+                    "area": sensor_info.get("zone", ""),
+                    "duplicate_group": sensor_info.get("duplicategroup", "")
                 }
             
+            # ✅ FORMAT FINAL pour capteursSensor.js
             return self.json({
-                "success": True,
+                "success": True,  # ← success: true (pas error: false)
                 "sensors": sensors,
-                "count": len(sensors),
-                "health_summary": {
-                    "total": len(sensors),
-                    "ok": sum(1 for s in sensors.values() if s["state"] == "ok"),
-                    "ko": sum(1 for s in sensors.values() if s["state"] == "ko"),
-                    "absent": sum(1 for s in sensors.values() if s["state"] == "absent"),
-                    "quarantine": sum(1 for s in sensors.values() if s.get("quarantine", False))
-                }
+                "count": len(sensors)
             })
             
         except Exception as e:
             _LOGGER.exception("Erreur get_sensors_health: %s", e)
-            return self.json({"success": False, "error": str(e)}, status_code=500)
+            return self.json({"success": False, "error": str(e)})
