@@ -42,6 +42,8 @@ class HomeElecUnifiedAPIView(HomeAssistantView):
                 return await self._handle_ui()
             elif resource == "get_sensors_health":
                 return await self.handle_sensors_health()
+            elif resource == "get_integrations_status":
+                return await self._handle_integrations_status()
             else:
                 return self._success({
                     "message": f"API Unifiée opérationnelle - resource: {resource}",
@@ -375,3 +377,90 @@ class HomeElecUnifiedAPIView(HomeAssistantView):
             
         except Exception as e:
             _LOGGER.exception(f"Erreur handle_sensors_health: {e}")
+            
+    async def _handle_integrations_status(self):
+        """Endpoint /get_integrations_status - État des intégrations HA"""
+        try:
+            _LOGGER.info("🔍 Analyse des intégrations depuis états HA")
+            
+            # 1. Récupérer toutes les intégrations depuis HA
+            integrations_data = []
+            
+            # Analyse basée sur les domaines d'entités
+            all_states = self.hass.states.async_all()
+            domain_stats = {}
+            
+            # Grouper par domaine (intégration)
+            for state in all_states:
+                domain = state.entity_id.split('.')[0]
+                
+                if domain not in domain_stats:
+                    domain_stats[domain] = {
+                        'domain': domain,
+                        'entities_total': 0,
+                        'entities_ok': 0,
+                        'entities_unavailable': 0,
+                        'last_updated': None
+                    }
+                
+                domain_stats[domain]['entities_total'] += 1
+                
+                if state.state in ('unavailable', 'unknown'):
+                    domain_stats[domain]['entities_unavailable'] += 1
+                else:
+                    domain_stats[domain]['entities_ok'] += 1
+                
+                # Dernière mise à jour
+                if not domain_stats[domain]['last_updated'] or state.last_updated > domain_stats[domain]['last_updated']:
+                    domain_stats[domain]['last_updated'] = state.last_updated
+            
+            # 2. Transformer en format pour frontend
+            for domain, stats in domain_stats.items():
+                # Filtrer les domaines système et peu utiles
+                if domain in ('homeassistant', 'persistent_notification', 'updater'):
+                    continue
+                
+                unavailable_ratio = stats['entities_unavailable'] / stats['entities_total'] if stats['entities_total'] > 0 else 0
+                
+                # Déterminer l'état de santé
+                if unavailable_ratio > 0.3:  # >30% indisponible
+                    health_state = 'critical'
+                    status_text = 'Défaillante'
+                elif unavailable_ratio > 0.1:  # 10-30% indisponible  
+                    health_state = 'warning'
+                    status_text = 'Attention'
+                else:
+                    health_state = 'ok'
+                    status_text = 'Opérationnelle'
+                
+                integrations_data.append({
+                    'domain': domain,
+                    'friendly_name': domain.replace('_', ' ').title(),
+                    'status': status_text,
+                    'health_state': health_state,
+                    'entities_count': stats['entities_total'],
+                    'entities_ok': stats['entities_ok'],
+                    'entities_unavailable': stats['entities_unavailable'],
+                    'last_updated': stats['last_updated'].isoformat() if stats['last_updated'] else None,
+                    'unavailable_ratio': round(unavailable_ratio * 100, 1)
+                })
+            
+            # 3. Trier par nombre d'entités (plus importantes en premier)
+            integrations_data.sort(key=lambda x: x['entities_count'], reverse=True)
+            
+            _LOGGER.info(f"✅ Analysé {len(integrations_data)} intégrations")
+            
+            return self._success({
+                'integrations': integrations_data,
+                'count': len(integrations_data),
+                'summary': {
+                    'total': len(integrations_data),
+                    'ok': len([i for i in integrations_data if i['health_state'] == 'ok']),
+                    'warning': len([i for i in integrations_data if i['health_state'] == 'warning']),
+                    'critical': len([i for i in integrations_data if i['health_state'] == 'critical'])
+                }
+            })
+            
+        except Exception as e:
+            _LOGGER.exception(f"Erreur _handle_integrations_status: {e}")
+            return self._error(500, f"Erreur analyse intégrations: {e}")
