@@ -1,7 +1,7 @@
 "use strict";
 
 // Module pour l'onglet "Intégrations Home Assistant" des diagnostics
-import { fetchViaProxy } from "../shared/proxy.js";
+import { fetchViaProxy } from "../../shared/proxy.js";
 import { toast } from "../shared/uiToast.js";
 
 console.info("[integrations] Module intégrations HA chargé");
