@@ -33,7 +33,7 @@ export async function loadCapteursSensor(container) {
     container.innerHTML = '<div class="loading-spinner">🔄 Chargement des capteurs...</div>';
     
     // Récupérer les données via l'API de santé des capteurs
-    const sensorsData = await fetchViaProxy('/api/home_suivi_elec/get_sensors');
+    const sensorsData = await fetchViaProxy('/api/home_suivi_elec/get_sensors_health');
     
     if (!sensorsData?.success) {
       throw new Error(sensorsData?.error || 'Données capteurs indisponibles');
@@ -66,7 +66,7 @@ export async function loadCapteursSensor(container) {
           <button onclick="location.reload()" class="btn-fallback">🔄 Recharger la page</button>
         </div>
         <p style="font-size: 0.9em; color: #666; margin-top: 10px;">
-          <em>Note: L'API get_sensors peut ne pas être encore implémentée.<br>
+          <em>Note: L'API get_sensors_health peut ne pas être encore implémentée.<br>
           Cette interface nécessite des données étendues sur l'état de santé des capteurs.</em>
         </p>
       </div>
@@ -885,14 +885,14 @@ function updateStatsDisplay(stats) {
 }
 
 /**
- * Fallback vers API basique si get_sensors indisponible
+ * Fallback vers API basique si get_sensors_health indisponible
  */
 async function loadFallbackBasicView(container) {
   try {
     toast.info('🔄 Chargement via API basique...');
     
-    // Utiliser l'API existante get_sensors
-    const basicData = await fetchViaProxy('/api/home_suivi_elec/get_sensors');
+    // Utiliser l'API existante get_sensors_health
+    const basicData = await fetchViaProxy('/api/home_suivi_elec/get_sensors_health');
     
     if (!basicData?.success) {
       throw new Error('API basique également indisponible');
