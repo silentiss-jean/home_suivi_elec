@@ -82,7 +82,6 @@ window.showTab = function(tab) {
   }
 };
 
-// ✅ Fonction pour sous-onglets diagnostics (à ajouter)
 window.showDiagTab = async function(tab) {
     console.log(`[showDiagTab] Switching to: ${tab}`);
     
@@ -109,12 +108,14 @@ window.showDiagTab = async function(tab) {
             const html = await response.text();
             container.innerHTML = html;
             
-            // ✅ Charge module JS correspondant
+            // ✅ Charge module JS correspondant AVEC CONTAINER
             if (tab === "capteurs") {
                 const { loadCapteursSensor } = await import('./diagnostic_modules/capteursSensor.js');
-                await loadCapteursSensor();
+                await loadCapteursSensor(container);  // ✅ AVEC CONTAINER !
+            } else if (tab === "integrations") {
+                const { loadIntegrations } = await import('./diagnostic_modules/integrations.js');
+                await loadIntegrations(container);    // ✅ AVEC CONTAINER !
             }
-            // Autres modules...
             
             container.dataset.loaded = 'true';
         } catch (error) {
@@ -123,6 +124,7 @@ window.showDiagTab = async function(tab) {
         }
     }
 };
+
 
 // Import du module Génération
 import { loadGeneration } from './modules/generate.js';

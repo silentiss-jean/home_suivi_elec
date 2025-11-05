@@ -42,7 +42,7 @@ export async function loadDiagnostics() {
         initSubTabHandlers();
         
         // Charger le premier sous-onglet par défaut
-        await switchSubTab('capteurs');
+        // await switchSubTab('capteurs');
         
         console.log("✅ Interface diagnostics enrichie COMPLÈTE initialisée");
         
