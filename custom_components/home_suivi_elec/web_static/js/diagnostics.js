@@ -36,7 +36,7 @@ export async function loadDiagnostics() {
     
     try {
         // Créer la structure de base avec les 4 sous-onglets
-        container.innerHTML = createDiagnosticsLayout();
+        //container.innerHTML = createDiagnosticsLayout();
         
         // Initialiser les gestionnaires d'événements
         initSubTabHandlers();
