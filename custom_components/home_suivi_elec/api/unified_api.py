@@ -322,8 +322,8 @@ class HomeElecUnifiedAPIView(HomeAssistantView):
         """Endpoint get_sensors_health - Diagnostic capteurs pour capteursSensor.js."""
         try:
             # Réutiliser logique sensors existante
-            sensors_data = await self.load_sensors_data()
-            selection_data = await self.load_selection_data()
+            sensors_data = await self._load_sensors_data()
+            selection_data = await self._load_selection_data()
             
             # Index de sélection
             selection_index = {}
