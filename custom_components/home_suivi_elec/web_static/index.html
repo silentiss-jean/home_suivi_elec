@@ -142,7 +142,56 @@ table thead th { background: #f2f2f2; }
 
 <!-- Onglet principal Diagnostic -->
 <div id="diagnostics" class="tab-content">
-  <div id="diagnosticsGlobal"></div>
+    <div id="diagnosticsGlobal">
+        
+        <!-- 🧭 NAVIGATION SOUS-ONGLETS -->
+        <div class="diagnostic-nav">
+            <button class="diag-nav-btn" onclick="showDiagTab('capteurs')" data-active="true">
+                🔌 Capteurs
+            </button>
+            <button class="diag-nav-btn" onclick="showDiagTab('integrations')">
+                🔗 Intégrations  
+            </button>
+            <button class="diag-nav-btn" onclick="showDiagTab('logs')">
+                📋 Logs
+            </button>
+            <button class="diag-nav-btn" onclick="showDiagTab('health')">
+                ❤️ Santé Backend
+            </button>
+        </div>
+
+        <!-- 📦 CONTAINERS SOUS-ONGLETS -->
+        <div class="diagnostic-content">
+            <div id="capteurs" class="diag-tab-content" style="display:block;">
+                <div class="loading-placeholder">
+                    <div class="spinner"></div>
+                    <p>Chargement analyse capteurs...</p>
+                </div>
+            </div>
+            
+            <div id="integrations" class="diag-tab-content" style="display:none;">
+                <div class="loading-placeholder">
+                    <div class="spinner"></div>
+                    <p>Chargement analyse intégrations...</p>
+                </div>
+            </div>
+            
+            <div id="logs" class="diag-tab-content" style="display:none;">
+                <div class="loading-placeholder">
+                    <div class="spinner"></div>
+                    <p>Chargement logs système...</p>
+                </div>
+            </div>
+            
+            <div id="health" class="diag-tab-content" style="display:none;">
+                <div class="loading-placeholder">
+                    <div class="spinner"></div>
+                    <p>Chargement santé backend...</p>
+                </div>
+            </div>
+        </div>
+        
+    </div>
 </div>
 
 <!-- 🔍 Détection -->

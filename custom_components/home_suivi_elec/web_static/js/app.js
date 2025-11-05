@@ -82,6 +82,48 @@ window.showTab = function(tab) {
   }
 };
 
+// ✅ Fonction pour sous-onglets diagnostics (à ajouter)
+window.showDiagTab = async function(tab) {
+    console.log(`[showDiagTab] Switching to: ${tab}`);
+    
+    // Cache tous les sous-onglets diagnostic
+    document.querySelectorAll('.diag-tab-content').forEach(el => {
+        el.style.display = 'none';
+    });
+    
+    // Trouve le container du sous-onglet
+    const container = document.getElementById(tab);
+    if (!container) {
+        console.error(`❌ Container #${tab} not found`);
+        return;
+    }
+    
+    // Affiche le sous-onglet
+    container.style.display = 'block';
+    
+    // Charge dynamiquement si pas encore chargé
+    if (!container.dataset.loaded) {
+        try {
+            // ✅ Charge fragment HTML
+            const response = await fetch(`tabs/diagnostic_${tab}.html`);
+            const html = await response.text();
+            container.innerHTML = html;
+            
+            // ✅ Charge module JS correspondant
+            if (tab === "capteurs") {
+                const { loadCapteursSensor } = await import('./diagnostic_modules/capteursSensor.js');
+                await loadCapteursSensor();
+            }
+            // Autres modules...
+            
+            container.dataset.loaded = 'true';
+        } catch (error) {
+            console.error(`❌ Erreur chargement ${tab}:`, error);
+            container.innerHTML = `<div class="error">Erreur chargement ${tab}</div>`;
+        }
+    }
+};
+
 // Import du module Génération
 import { loadGeneration } from './modules/generate.js';
 
