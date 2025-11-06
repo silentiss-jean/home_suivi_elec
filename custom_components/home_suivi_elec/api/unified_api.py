@@ -40,6 +40,12 @@ class HomeElecUnifiedAPIView(HomeAssistantView):
                 return await self._handle_config()
             elif resource == "ui":
                 return await self._handle_ui()
+            elif resource == "get_sensors_health":
+                return await self.handle_sensors_health()
+            elif resource == "get_integrations_status":
+                return await self._handle_integrations_status()
+            elif resource == "get_logs":
+                return await self._handle_logs()
             else:
                 return self._success({
                     "message": f"API Unifiée opérationnelle - resource: {resource}",
@@ -315,3 +321,263 @@ class HomeElecUnifiedAPIView(HomeAssistantView):
     def _error(self, status, message):
         """Réponse erreur avec statut"""
         return web.json_response({"error": True, "message": message}, status=status)
+    
+    async def handle_sensors_health(self):
+        """Endpoint get_sensors_health - Diagnostic capteurs pour capteursSensor.js."""
+        try:
+            # Réutiliser logique sensors existante
+            sensors_data = await self._load_sensors_data()
+            selection_data = await self._load_selection_data()
+            
+            # Index de sélection
+            selection_index = {}
+            for category, items in selection_data.items():
+                if isinstance(items, list):
+                    for item in items:
+                        entity_id = item.get("entity_id")
+                        if entity_id:
+                            selection_index[entity_id] = item.get("enabled", False)
+            
+            # Format spécial pour diagnostic capteursSensor.js
+            sensors_health = {}
+            
+            for sensor in sensors_data:
+                entity_id = sensor.get("entity_id")
+                if entity_id:
+                    state_obj = self.hass.states.get(entity_id)
+                    
+                    # Calcul état santé selon logique capteursSensor.js
+                    health_state = "absent"
+                    if state_obj:
+                        if state_obj.state in ["unavailable", "unknown", "error", "none"]:
+                            health_state = "ko"
+                        else:
+                            health_state = "ok"
+                    
+                    # Format exact attendu par capteursSensor.js
+                    sensors_health[entity_id] = {
+                        "friendly_name": state_obj.attributes.get("friendly_name", entity_id) if state_obj else entity_id,
+                        "value": state_obj.state if state_obj else "N/A",
+                        "state": health_state,
+                        "unit_of_measurement": state_obj.attributes.get("unit_of_measurement", "") if state_obj else "",
+                        "integration": sensor.get("integration", "unknown"),
+                        "quarantine": sensor.get("quarantine", False),
+                        "last_seen": state_obj.last_changed.isoformat() if state_obj else None,
+                        "device_id": sensor.get("device_id", ""),
+                        "area": sensor.get("zone", ""),
+                        "duplicate_group": sensor.get("duplicate_group", "")
+                    }
+            
+            _LOGGER.info(f"🩺 Sensors health: {len(sensors_health)} capteurs analysés")
+            
+            # ✅ Format SUCCESS pour capteursSensor.js (pas self.success !)
+            return web.json_response({
+                "success": True,
+                "sensors": sensors_health,
+                "count": len(sensors_health)
+            })
+            
+        except Exception as e:
+            _LOGGER.exception(f"Erreur handle_sensors_health: {e}")
+            
+    async def _handle_integrations_status(self):
+        """Endpoint /get_integrations_status - État des intégrations HA"""
+        try:
+            _LOGGER.info("🔍 Analyse des intégrations depuis états HA")
+            
+            # 1. Récupérer toutes les intégrations depuis HA
+            integrations_data = []
+            
+            # Analyse basée sur les domaines d'entités
+            all_states = self.hass.states.async_all()
+            domain_stats = {}
+            
+            # Grouper par domaine (intégration)
+            for state in all_states:
+                domain = state.entity_id.split('.')[0]
+                
+                if domain not in domain_stats:
+                    domain_stats[domain] = {
+                        'domain': domain,
+                        'entities_total': 0,
+                        'entities_ok': 0,
+                        'entities_unavailable': 0,
+                        'last_updated': None
+                    }
+                
+                domain_stats[domain]['entities_total'] += 1
+                
+                if state.state in ('unavailable', 'unknown'):
+                    domain_stats[domain]['entities_unavailable'] += 1
+                else:
+                    domain_stats[domain]['entities_ok'] += 1
+                
+                # Dernière mise à jour
+                if not domain_stats[domain]['last_updated'] or state.last_updated > domain_stats[domain]['last_updated']:
+                    domain_stats[domain]['last_updated'] = state.last_updated
+            
+            # 2. Transformer en format pour frontend
+            for domain, stats in domain_stats.items():
+                # Filtrer les domaines système et peu utiles
+                if domain in ('homeassistant', 'persistent_notification', 'updater'):
+                    continue
+                
+                unavailable_ratio = stats['entities_unavailable'] / stats['entities_total'] if stats['entities_total'] > 0 else 0
+                
+                # Déterminer l'état de santé
+                if unavailable_ratio > 0.3:  # >30% indisponible
+                    health_state = 'critical'
+                    status_text = 'Défaillante'
+                elif unavailable_ratio > 0.1:  # 10-30% indisponible  
+                    health_state = 'warning'
+                    status_text = 'Attention'
+                else:
+                    health_state = 'ok'
+                    status_text = 'Opérationnelle'
+                
+                integrations_data.append({
+                    'domain': domain,
+                    'friendly_name': domain.replace('_', ' ').title(),
+                    'status': status_text,
+                    'health_state': health_state,
+                    'entities_count': stats['entities_total'],
+                    'entities_ok': stats['entities_ok'],
+                    'entities_unavailable': stats['entities_unavailable'],
+                    'last_updated': stats['last_updated'].isoformat() if stats['last_updated'] else None,
+                    'unavailable_ratio': round(unavailable_ratio * 100, 1)
+                })
+            
+            # 3. Trier par nombre d'entités (plus importantes en premier)
+            integrations_data.sort(key=lambda x: x['entities_count'], reverse=True)
+            
+            _LOGGER.info(f"✅ Analysé {len(integrations_data)} intégrations")
+            
+            return self._success({
+                'integrations': integrations_data,
+                'count': len(integrations_data),
+                'summary': {
+                    'total': len(integrations_data),
+                    'ok': len([i for i in integrations_data if i['health_state'] == 'ok']),
+                    'warning': len([i for i in integrations_data if i['health_state'] == 'warning']),
+                    'critical': len([i for i in integrations_data if i['health_state'] == 'critical'])
+                }
+            })
+
+        except Exception as e:
+            _LOGGER.exception(f"Erreur _handle_integrations_status: {e}")
+            return self._error(500, f"Erreur analyse intégrations: {e}")
+
+    async def _handle_logs(self):
+        """Endpoint /get_logs - Logs en temps réel avec filtrage et synthèse"""
+        try:
+            # ✅ 1. Récupérer tous les loggers et leurs handlers
+            import logging
+            
+            log_records = []
+            error_patterns = {}
+            module_stats = {}
+            
+            # ✅ 2. Accéder au root logger et tous ses handlers
+            root_logger = logging.getLogger()
+            
+            # Parcourir tous les loggers enregistrés
+            for logger_name in logging.Logger.manager.loggerDict:
+                logger = logging.getLogger(logger_name)
+                
+                # Pour chaque handler du logger
+                for handler in logger.handlers:
+                    # Si c'est un handler MemoryHandler ou buffer (in-memory)
+                    if hasattr(handler, 'buffer') and handler.buffer:
+                        for record in handler.buffer:
+                            log_entry = self._format_log_record(record, logger_name)
+                            log_records.append(log_entry)
+                            
+                            # Statistiques par module
+                            module = logger_name.split('.')[0] if '.' in logger_name else logger_name
+                            if module not in module_stats:
+                                module_stats[module] = {"total": 0, "errors": 0, "warnings": 0}
+                            module_stats[module]["total"] += 1
+                            if record.levelno >= logging.ERROR:
+                                module_stats[module]["errors"] += 1
+                                # Détecter patterns d'erreurs
+                                error_key = f"{module}:{record.msg[:50]}"
+                                error_patterns[error_key] = error_patterns.get(error_key, 0) + 1
+                            elif record.levelno >= logging.WARNING:
+                                module_stats[module]["warnings"] += 1
+            
+            # ✅ 3. Fallback : si pas de MemoryHandler, créer capture temporaire
+            if not log_records:
+                # Créer un handler temporaire pour capturer les logs
+                temp_handler = logging.handlers.MemoryHandler(capacity=500)
+                root_logger.addHandler(temp_handler)
+                
+                # Attendre un peu pour capturer les logs
+                import asyncio
+                await asyncio.sleep(0.1)
+                
+                for record in temp_handler.buffer:
+                    log_entry = self._format_log_record(record, "root")
+                    log_records.append(log_entry)
+                
+                root_logger.removeHandler(temp_handler)
+            
+            # ✅ 4. Trier par timestamp (plus récent en premier)
+            log_records.sort(key=lambda x: x.get("timestamp", ""), reverse=True)
+            
+            # ✅ 5. Filtrer les logs critiques (ERROR + WARNING)
+            critical_logs = [
+                log for log in log_records 
+                if log.get("level") in ["ERROR", "CRITICAL"]
+            ][:20]  # Top 20 erreurs
+            
+            # ✅ 6. Créer synthèse
+            synthesis = {
+                "total_logs": len(log_records),
+                "error_count": len([l for l in log_records if l.get("level") == "ERROR"]),
+                "warning_count": len([l for l in log_records if l.get("level") == "WARNING"]),
+                "top_error_patterns": sorted(
+                    error_patterns.items(), 
+                    key=lambda x: x[1], 
+                    reverse=True
+                )[:5],
+                "module_statistics": module_stats,
+                "health_status": "critical" if len(critical_logs) > 10 else "degraded" if len(critical_logs) > 0 else "healthy"
+            }
+            
+            _LOGGER.info(f"📋 Logs synthèse: {len(log_records)} logs, {synthesis['error_count']} erreurs, {synthesis['warning_count']} avertissements")
+            
+            return self._success({
+                "logs": log_records[-100:],  # Derniers 100 logs
+                "critical_logs": critical_logs,
+                "synthesis": synthesis,
+                "type": "logs",
+                "timestamp": self._get_timestamp(),
+                "source": "python_logging_system_realtime"
+            })
+            
+        except Exception as e:
+            _LOGGER.exception(f"Erreur _handle_logs: {e}")
+            return self._error(500, f"Erreur chargement logs: {e}")
+    
+    def _format_log_record(self, record, logger_name):
+        """Formate un LogRecord en dictionnaire"""
+        try:
+            return {
+                "timestamp": record.created,
+                "level": record.levelname,
+                "logger": logger_name,
+                "message": record.getMessage(),
+                "module": record.module,
+                "function": record.funcName,
+                "line": record.lineno
+            }
+        except Exception as e:
+            return {
+                "timestamp": record.created,
+                "level": "UNKNOWN",
+                "logger": logger_name,
+                "message": str(e),
+                "module": "error_formatting",
+                "function": "unknown",
+                "line": 0
+            }

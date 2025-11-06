@@ -605,6 +605,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     hass.http.register_view(AutoSelectBestSensorsView(hass))
     hass.http.register_view(GetSensorQualityScoresView(hass))
     hass.http.register_view(HSESensorsPublicView(hass))
+   
 
     # ✅ Enregistrer nos vues additionnelles INLINE
     _LOGGER.info("🔗 [API] Enregistrement des vues additionnelles...")
