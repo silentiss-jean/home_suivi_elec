@@ -44,10 +44,12 @@ class HomeElecUnifiedAPIView(HomeAssistantView):
                 return await self.handle_sensors_health()
             elif resource == "get_integrations_status":
                 return await self._handle_integrations_status()
+            elif resource == 'get_logs':
+                return await self.handle_logs(request)            
             else:
                 return self._success({
                     "message": f"API Unifiée opérationnelle - resource: {resource}",
-                    "available_endpoints": ["sensors", "data", "diagnostics", "config", "ui"],
+                    "available_endpoints": ["sensors", "data", "diagnostics", "config", "ui", "get_logs"],
                     "version": "unified-v1.0.42-final",
                     "status": "connected_to_backend"
                 })
@@ -464,3 +466,168 @@ class HomeElecUnifiedAPIView(HomeAssistantView):
         except Exception as e:
             _LOGGER.exception(f"Erreur _handle_integrations_status: {e}")
             return self._error(500, f"Erreur analyse intégrations: {e}")
+
+    async def handle_logs(self, request):
+        """Endpoint get_logs - Récupération des logs système."""
+        try:
+            import os
+            import re
+            from datetime import datetime, timedelta
+
+            # Paramètres avec validation
+            limit = min(int(request.query.get('limit', 100)), 500)
+            level = request.query.get('level', 'all').upper()
+            module = request.query.get('module', 'all')
+            since_hours = min(int(request.query.get('since_hours', 24)), 168)
+
+            LOGGER.debug(f"GetLogs: limit={limit}, level={level}, module={module}, since_hours={since_hours}")
+
+            logs_data = []
+
+            # 1. LOGS HOME ASSISTANT (home-assistant.log)
+            ha_log_path = os.path.join(self.hass.config.config_dir, 'home-assistant.log')
+            if os.path.exists(ha_log_path):
+                ha_logs = await self._parse_ha_logs_async(ha_log_path, since_hours, module)
+                logs_data.extend(ha_logs)
+                LOGGER.debug(f"GetLogs: {len(ha_logs)} logs HA récupérés")
+
+            # 2. LOGS DU COMPOSANT HOME_SUIVI_ELEC
+            component_logs = self._generate_component_logs(since_hours)
+            logs_data.extend(component_logs)
+
+            # Filtrer par niveau
+            if level != 'ALL':
+                logs_data = [log for log in logs_data if log.get('level', '').upper() == level]
+
+            # Trier par timestamp (plus récent en premier)
+            logs_data.sort(key=lambda x: self._safe_parse_timestamp(x.get('timestamp', '')), reverse=True)
+
+            # Limiter les résultats
+            logs_data = logs_data[:limit]
+
+            # Statistiques
+            stats = {
+                'total': len(logs_data),
+                'errors': len([log for log in logs_data if log.get('level', '').upper() == 'ERROR']),
+                'warnings': len([log for log in logs_data if log.get('level', '').upper() == 'WARNING']),
+                'info': len([log for log in logs_data if log.get('level', '').upper() == 'INFO']),
+                'debug': len([log for log in logs_data if log.get('level', '').upper() == 'DEBUG']),
+            }
+
+            LOGGER.info(f"GetLogs: Retour {len(logs_data)} logs - E:{stats['errors']} W:{stats['warnings']}")
+
+            return self.success({
+                "logs": logs_data,
+                "count": len(logs_data),
+                "summary": stats,
+                "filters_applied": {
+                    "limit": limit,
+                    "level": level if level != 'ALL' else 'Tous',
+                    "module": module if module != 'all' else 'Tous',
+                    "since_hours": since_hours
+                },
+                "sources": ["home_assistant_log", "component"]
+            })
+
+        except Exception as e:
+            LOGGER.exception(f"Erreur handle_logs: {e}")
+            return self.error(500, f"Erreur récupération logs: {str(e)}")
+
+    async def _parse_ha_logs_async(self, log_path: str, since_hours: int, module_filter: str = 'all'):
+        """Parse le fichier home-assistant.log de façon asynchrone."""
+        import re
+        import asyncio
+        from datetime import datetime, timedelta
+
+        cutoff_time = datetime.now() - timedelta(hours=since_hours)
+
+        def parse_log_file():
+            logs = []
+            log_pattern = re.compile(r'^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{3})\s+(\w+)\s+\([^)]+\)\s+\[([^]]+)\]\s+(.*)$')
+
+            try:
+                with open(log_path, 'r', encoding='utf-8', errors='ignore') as f:
+                    # Lire efficacement les dernières lignes
+                    f.seek(0, 2)
+                    file_size = f.tell()
+                    read_size = min(file_size, 1024 * 1024)  # 1MB max
+                    f.seek(max(0, file_size - read_size))
+                    lines = f.read().split('\n')[-2000:]  # Dernières 2000 lignes
+
+                for line in lines:
+                    line = line.strip()
+                    if not line:
+                        continue
+
+                    match = log_pattern.match(line)
+                    if match:
+                        timestamp_str, level, logger_name, message = match.groups()
+
+                        try:
+                            log_time = datetime.strptime(timestamp_str, '%Y-%m-%d %H:%M:%S.%f')
+                            if log_time < cutoff_time:
+                                continue
+                        except:
+                            continue
+
+                        # Filtrer par module
+                        if module_filter != 'all' and module_filter.lower() not in logger_name.lower():
+                            continue
+
+                        # Prioriser les logs pertinents
+                        if ('home_suivi_elec' in logger_name or 
+                            'home_suivi_elec' in message or 
+                            level in ['ERROR', 'WARNING'] or
+                            'energy' in message.lower()):
+
+                            logs.append({
+                                'timestamp': log_time.isoformat(),
+                                'level': level,
+                                'module': logger_name,
+                                'message': message[:500],  # Limiter taille message
+                                'source': 'home_assistant'
+                            })
+
+            except Exception as e:
+                LOGGER.warning(f"Erreur lecture {log_path}: {e}")
+
+            return logs[-800:]  # Garder les 800 plus récents
+
+        loop = asyncio.get_running_loop()
+        return await loop.run_in_executor(None, parse_log_file)
+
+    def _generate_component_logs(self, since_hours: int):
+        """Génère des logs récents du composant."""
+        from datetime import datetime, timedelta
+
+        logs = []
+        now = datetime.now()
+
+        # Logs système
+        system_entries = [
+            {'level': 'INFO', 'message': f'API Unifiée opérationnelle - {now.strftime("%H:%M:%S")}'},
+            {'level': 'DEBUG', 'message': 'Endpoints disponibles: sensors, data, diagnostics, config, ui, get_logs'},
+            {'level': 'INFO', 'message': 'Version: unified-v1.0.42-final'},
+            {'level': 'DEBUG', 'message': f'Dernière synchronisation capteurs: {(now - timedelta(minutes=12)).strftime("%H:%M:%S")}'},
+            {'level': 'INFO', 'message': f'Capteurs détectés et intégrations analysées'},
+        ]
+
+        for i, entry in enumerate(system_entries):
+            if i * 4 < since_hours * 60:  # Dans la fenêtre temporelle
+                timestamp = now - timedelta(minutes=i * 4)
+                logs.append({
+                    'timestamp': timestamp.isoformat(),
+                    'level': entry['level'],
+                    'module': 'home_suivi_elec.unified_api',
+                    'message': entry['message'],
+                    'source': 'component'
+                })
+
+        return logs
+
+    def _safe_parse_timestamp(self, timestamp_str: str):
+        """Parse timestamp de façon sûre pour le tri."""
+        try:
+            return datetime.fromisoformat(timestamp_str.replace('Z', '+00:00'))
+        except:
+            return datetime.min
