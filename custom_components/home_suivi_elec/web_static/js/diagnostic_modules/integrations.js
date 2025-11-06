@@ -1,7 +1,7 @@
 "use strict";
 
 // Module pour l'onglet "Intégrations Home Assistant" des diagnostics
-import { fetchViaProxy } from "/local/community/home_suivi_elec_ui/js/shared/proxy.js";
+import { fetchViaProxy } from "../shared/proxy.js";
 import { toast } from "../shared/uiToast.js";
 
 console.info("[integrations] Module intégrations HA chargé");
@@ -34,14 +34,21 @@ export async function loadIntegrations(container) {
     
     // Récupérer les données des intégrations
     const integrationsData = await fetchViaProxy('/api/home_suivi_elec/get_integrations_status');
-    
-    if (!integrationsData?.success) {
-      throw new Error(integrationsData?.error || 'Données intégrations indisponibles');
+    console.log('[DEBUG] Réponse integrationsData:', integrationsData);
+
+    if (integrationsData.error) {
+        throw new Error(integrationsData.message || 'Données intégrations indisponibles');
     }
+
+    if (!integrationsData.data || !integrationsData.data.integrations) {
+        throw new Error('Format de données inattendu - pas d\'intégrations');
+    }
+
+    cachedIntegrationsData = integrationsData.data.integrations;
+    console.log('[DEBUG] Intégrations chargées:', cachedIntegrationsData.length);
     
-    cachedIntegrationsData = integrationsData.integrations || [];
-    console.log(`[integrations] ${cachedIntegrationsData.length} intégrations reçues`);
-    
+
+
     // Traitement et enrichissement des données
     const enrichedIntegrations = processIntegrationsData(cachedIntegrationsData);
     
