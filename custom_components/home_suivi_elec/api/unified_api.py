@@ -468,139 +468,116 @@ class HomeElecUnifiedAPIView(HomeAssistantView):
             return self._error(500, f"Erreur analyse intégrations: {e}")
 
     async def _handle_logs(self):
-        """Endpoint /get_logs - Logs temps réel avec filtrage et synthèse intelligente"""
+        """Endpoint /get_logs - Logs en temps réel avec filtrage et synthèse"""
         try:
-            # Récupérer les paramètres de filtrage
-            ha_log_path = os.path.join(self.hass.config.path(), "home-assistant.log")
+            # ✅ 1. Récupérer tous les loggers et leurs handlers
+            import logging
             
-            if not os.path.exists(ha_log_path):
-                return self._error(404, f"Fichier log non trouvé: {ha_log_path}")
-            
-            logs = []
-            
-            def _read_and_parse_logs():
-                """Lit et parse les logs avec extraction intelligente"""
-                try:
-                    with open(ha_log_path, "r", encoding="utf-8", errors="ignore") as f:
-                        all_lines = f.readlines()
-                    
-                    # Lire les 500 dernières lignes pour plus de contexte
-                    for line in reversed(all_lines[-500:]):
-                        if not line.strip():
-                            continue
-                        
-                        # Parser: "2025-11-06 10:03:53 ERROR (MainThread) [custom_components.home_suivi_elec.api.unified_api] Erreur message"
-                        parts = line.split(" ", 2)
-                        if len(parts) < 3:
-                            continue
-                        
-                        timestamp = f"{parts[0]} {parts[1]}"  # Date et heure
-                        rest = parts[2]  # Reste du message
-                        
-                        # Extraire le niveau (ERROR, WARNING, INFO, DEBUG)
-                        level = "INFO"
-                        if " ERROR " in rest:
-                            level = "ERROR"
-                        elif " WARNING " in rest:
-                            level = "WARNING"
-                        elif " DEBUG " in rest:
-                            level = "DEBUG"
-                        elif " INFO " in rest:
-                            level = "INFO"
-                        
-                        # Extraire le module/composant
-                        module = "system"
-                        if "[" in rest and "]" in rest:
-                            try:
-                                module = rest.split("[")[1].split("]")[0]
-                            except:
-                                pass
-                        
-                        # Extraire le message nettoyé
-                        message = rest
-                        try:
-                            # Nettoyer les logs structurés
-                            if "] " in rest:
-                                message = rest.split("] ", 1)[1]
-                        except:
-                            pass
-                        
-                        logs.append({
-                            "timestamp": timestamp,
-                            "level": level,
-                            "module": module,
-                            "message": message.strip(),
-                            "raw": line.strip()
-                        })
-                        
-                        # Limiter à 200 logs
-                        if len(logs) >= 200:
-                            break
-                    
-                    # Inverser pour avoir les plus récents en dernier
-                    logs.reverse()
-                    return logs
-                
-                except Exception as e:
-                    _LOGGER.error(f"Erreur parsing logs: {e}")
-                    return []
-            
-            import asyncio
-            logs = await asyncio.get_event_loop().run_in_executor(None, _read_and_parse_logs)
-            
-            # === SYNTHÈSE INTELLIGENTE ===
-            
-            # 1. Comptage par niveau
-            errors = len([l for l in logs if l["level"] == "ERROR"])
-            warnings = len([l for l in logs if l["level"] == "WARNING"])
-            infos = len([l for l in logs if l["level"] == "INFO"])
-            debugs = len([l for l in logs if l["level"] == "DEBUG"])
-            
-            # 2. Comptage par module
-            modules_count = {}
-            for log in logs:
-                mod = log["module"]
-                modules_count[mod] = modules_count.get(mod, 0) + 1
-            
-            # 3. Détection de patterns d'erreurs répétitives
+            log_records = []
             error_patterns = {}
-            for log in logs:
-                if log["level"] == "ERROR":
-                    # Extraire le type d'erreur (première partie du message)
-                    msg_part = log["message"].split("\n")[0][:80]  # Premiers 80 caractères
-                    error_patterns[msg_part] = error_patterns.get(msg_part, 0) + 1
+            module_stats = {}
             
-            # 4. Logs critiques (erreurs + warnings récents)
-            critical_logs = [l for l in logs if l["level"] in ("ERROR", "WARNING")][-10:]
+            # ✅ 2. Accéder au root logger et tous ses handlers
+            root_logger = logging.getLogger()
             
-            # 5. Logs du composant home_suivi_elec
-            hse_logs = [l for l in logs if "home_suivi_elec" in l["module"]]
+            # Parcourir tous les loggers enregistrés
+            for logger_name in logging.Logger.manager.loggerDict:
+                logger = logging.getLogger(logger_name)
+                
+                # Pour chaque handler du logger
+                for handler in logger.handlers:
+                    # Si c'est un handler MemoryHandler ou buffer (in-memory)
+                    if hasattr(handler, 'buffer') and handler.buffer:
+                        for record in handler.buffer:
+                            log_entry = self._format_log_record(record, logger_name)
+                            log_records.append(log_entry)
+                            
+                            # Statistiques par module
+                            module = logger_name.split('.')[0] if '.' in logger_name else logger_name
+                            if module not in module_stats:
+                                module_stats[module] = {"total": 0, "errors": 0, "warnings": 0}
+                            module_stats[module]["total"] += 1
+                            if record.levelno >= logging.ERROR:
+                                module_stats[module]["errors"] += 1
+                                # Détecter patterns d'erreurs
+                                error_key = f"{module}:{record.msg[:50]}"
+                                error_patterns[error_key] = error_patterns.get(error_key, 0) + 1
+                            elif record.levelno >= logging.WARNING:
+                                module_stats[module]["warnings"] += 1
+            
+            # ✅ 3. Fallback : si pas de MemoryHandler, créer capture temporaire
+            if not log_records:
+                # Créer un handler temporaire pour capturer les logs
+                temp_handler = logging.handlers.MemoryHandler(capacity=500)
+                root_logger.addHandler(temp_handler)
+                
+                # Attendre un peu pour capturer les logs
+                import asyncio
+                await asyncio.sleep(0.1)
+                
+                for record in temp_handler.buffer:
+                    log_entry = self._format_log_record(record, "root")
+                    log_records.append(log_entry)
+                
+                root_logger.removeHandler(temp_handler)
+            
+            # ✅ 4. Trier par timestamp (plus récent en premier)
+            log_records.sort(key=lambda x: x.get("timestamp", ""), reverse=True)
+            
+            # ✅ 5. Filtrer les logs critiques (ERROR + WARNING)
+            critical_logs = [
+                log for log in log_records 
+                if log.get("level") in ["ERROR", "CRITICAL"]
+            ][:20]  # Top 20 erreurs
+            
+            # ✅ 6. Créer synthèse
+            synthesis = {
+                "total_logs": len(log_records),
+                "error_count": len([l for l in log_records if l.get("level") == "ERROR"]),
+                "warning_count": len([l for l in log_records if l.get("level") == "WARNING"]),
+                "top_error_patterns": sorted(
+                    error_patterns.items(), 
+                    key=lambda x: x[1], 
+                    reverse=True
+                )[:5],
+                "module_statistics": module_stats,
+                "health_status": "critical" if len(critical_logs) > 10 else "degraded" if len(critical_logs) > 0 else "healthy"
+            }
+            
+            _LOGGER.info(f"📋 Logs synthèse: {len(log_records)} logs, {synthesis['error_count']} erreurs, {synthesis['warning_count']} avertissements")
             
             return self._success({
-                "logs": logs[-100:],  # Retourner les 100 derniers
-                "count": len(logs),
-                "summary": {
-                    "total": len(logs),
-                    "errors": errors,
-                    "warnings": warnings,
-                    "infos": infos,
-                    "debugs": debugs,
-                    "critical_count": len(critical_logs)
-                },
-                "modules": {
-                    "total": len(modules_count),
-                    "top": dict(sorted(modules_count.items(), key=lambda x: x[1], reverse=True)[:5]),
-                    "home_suivi_elec_count": len(hse_logs)
-                },
-                "error_patterns": {
-                    "total_unique": len(error_patterns),
-                    "top": dict(sorted(error_patterns.items(), key=lambda x: x[1], reverse=True)[:5])
-                },
+                "logs": log_records[-100:],  # Derniers 100 logs
                 "critical_logs": critical_logs,
-                "hse_logs": hse_logs[-20:],  # 20 derniers logs du composant
-                "type": "logs_realtime"
+                "synthesis": synthesis,
+                "type": "logs",
+                "timestamp": self._get_timestamp(),
+                "source": "python_logging_system_realtime"
             })
-        
+            
         except Exception as e:
             _LOGGER.exception(f"Erreur _handle_logs: {e}")
             return self._error(500, f"Erreur chargement logs: {e}")
+    
+    def _format_log_record(self, record, logger_name):
+        """Formate un LogRecord en dictionnaire"""
+        try:
+            return {
+                "timestamp": record.created,
+                "level": record.levelname,
+                "logger": logger_name,
+                "message": record.getMessage(),
+                "module": record.module,
+                "function": record.funcName,
+                "line": record.lineno
+            }
+        except Exception as e:
+            return {
+                "timestamp": record.created,
+                "level": "UNKNOWN",
+                "logger": logger_name,
+                "message": str(e),
+                "module": "error_formatting",
+                "function": "unknown",
+                "line": 0
+            }
