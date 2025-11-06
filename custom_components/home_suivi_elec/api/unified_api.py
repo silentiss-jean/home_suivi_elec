@@ -468,64 +468,137 @@ class HomeElecUnifiedAPIView(HomeAssistantView):
             return self._error(500, f"Erreur analyse intégrations: {e}")
 
     async def _handle_logs(self):
-        """Endpoint /get_logs - Logs système Home Assistant"""
+        """Endpoint /get_logs - Logs temps réel avec filtrage et synthèse intelligente"""
         try:
+            # Récupérer les paramètres de filtrage
             ha_log_path = os.path.join(self.hass.config.path(), "home-assistant.log")
             
             if not os.path.exists(ha_log_path):
-                return self._success({
-                    "logs": [],
-                    "count": 0,
-                    "summary": {"total": 0, "errors": 0, "warnings": 0}
-                })
+                return self._error(404, f"Fichier log non trouvé: {ha_log_path}")
             
             logs = []
             
-            def _read_logs():
+            def _read_and_parse_logs():
+                """Lit et parse les logs avec extraction intelligente"""
                 try:
                     with open(ha_log_path, "r", encoding="utf-8", errors="ignore") as f:
-                        all_lines = f.readlines()[-1000:]
+                        all_lines = f.readlines()
                     
-                    for line in reversed(all_lines):
+                    # Lire les 500 dernières lignes pour plus de contexte
+                    for line in reversed(all_lines[-500:]):
                         if not line.strip():
                             continue
                         
-                        log_entry = {
-                            "message": line.strip(),
-                            "level": "INFO"
-                        }
+                        # Parser: "2025-11-06 10:03:53 ERROR (MainThread) [custom_components.home_suivi_elec.api.unified_api] Erreur message"
+                        parts = line.split(" ", 2)
+                        if len(parts) < 3:
+                            continue
                         
-                        if " ERROR " in line or " ERROR:" in line:
-                            log_entry["level"] = "ERROR"
-                        elif " WARNING " in line or " WARNING:" in line:
-                            log_entry["level"] = "WARNING"
-                        elif " DEBUG " in line:
-                            log_entry["level"] = "DEBUG"
+                        timestamp = f"{parts[0]} {parts[1]}"  # Date et heure
+                        rest = parts[2]  # Reste du message
                         
-                        logs.append(log_entry)
-                        if len(logs) >= 100:
+                        # Extraire le niveau (ERROR, WARNING, INFO, DEBUG)
+                        level = "INFO"
+                        if " ERROR " in rest:
+                            level = "ERROR"
+                        elif " WARNING " in rest:
+                            level = "WARNING"
+                        elif " DEBUG " in rest:
+                            level = "DEBUG"
+                        elif " INFO " in rest:
+                            level = "INFO"
+                        
+                        # Extraire le module/composant
+                        module = "system"
+                        if "[" in rest and "]" in rest:
+                            try:
+                                module = rest.split("[")[1].split("]")[0]
+                            except:
+                                pass
+                        
+                        # Extraire le message nettoyé
+                        message = rest
+                        try:
+                            # Nettoyer les logs structurés
+                            if "] " in rest:
+                                message = rest.split("] ", 1)[1]
+                        except:
+                            pass
+                        
+                        logs.append({
+                            "timestamp": timestamp,
+                            "level": level,
+                            "module": module,
+                            "message": message.strip(),
+                            "raw": line.strip()
+                        })
+                        
+                        # Limiter à 200 logs
+                        if len(logs) >= 200:
                             break
                     
+                    # Inverser pour avoir les plus récents en dernier
+                    logs.reverse()
                     return logs
+                
                 except Exception as e:
-                    _LOGGER.error(f"Erreur lecture logs: {e}")
+                    _LOGGER.error(f"Erreur parsing logs: {e}")
                     return []
             
             import asyncio
-            logs = await asyncio.get_event_loop().run_in_executor(None, _read_logs)
+            logs = await asyncio.get_event_loop().run_in_executor(None, _read_and_parse_logs)
             
-            errors_count = len([l for l in logs if l["level"] == "ERROR"])
-            warnings_count = len([l for l in logs if l["level"] == "WARNING"])
+            # === SYNTHÈSE INTELLIGENTE ===
+            
+            # 1. Comptage par niveau
+            errors = len([l for l in logs if l["level"] == "ERROR"])
+            warnings = len([l for l in logs if l["level"] == "WARNING"])
+            infos = len([l for l in logs if l["level"] == "INFO"])
+            debugs = len([l for l in logs if l["level"] == "DEBUG"])
+            
+            # 2. Comptage par module
+            modules_count = {}
+            for log in logs:
+                mod = log["module"]
+                modules_count[mod] = modules_count.get(mod, 0) + 1
+            
+            # 3. Détection de patterns d'erreurs répétitives
+            error_patterns = {}
+            for log in logs:
+                if log["level"] == "ERROR":
+                    # Extraire le type d'erreur (première partie du message)
+                    msg_part = log["message"].split("\n")[0][:80]  # Premiers 80 caractères
+                    error_patterns[msg_part] = error_patterns.get(msg_part, 0) + 1
+            
+            # 4. Logs critiques (erreurs + warnings récents)
+            critical_logs = [l for l in logs if l["level"] in ("ERROR", "WARNING")][-10:]
+            
+            # 5. Logs du composant home_suivi_elec
+            hse_logs = [l for l in logs if "home_suivi_elec" in l["module"]]
             
             return self._success({
-                "logs": logs,
+                "logs": logs[-100:],  # Retourner les 100 derniers
                 "count": len(logs),
                 "summary": {
                     "total": len(logs),
-                    "errors": errors_count,
-                    "warnings": warnings_count
+                    "errors": errors,
+                    "warnings": warnings,
+                    "infos": infos,
+                    "debugs": debugs,
+                    "critical_count": len(critical_logs)
                 },
-                "type": "logs"
+                "modules": {
+                    "total": len(modules_count),
+                    "top": dict(sorted(modules_count.items(), key=lambda x: x[1], reverse=True)[:5]),
+                    "home_suivi_elec_count": len(hse_logs)
+                },
+                "error_patterns": {
+                    "total_unique": len(error_patterns),
+                    "top": dict(sorted(error_patterns.items(), key=lambda x: x[1], reverse=True)[:5])
+                },
+                "critical_logs": critical_logs,
+                "hse_logs": hse_logs[-20:],  # 20 derniers logs du composant
+                "type": "logs_realtime"
             })
         
         except Exception as e:
