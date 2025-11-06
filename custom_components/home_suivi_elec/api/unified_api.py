@@ -44,6 +44,8 @@ class HomeElecUnifiedAPIView(HomeAssistantView):
                 return await self.handle_sensors_health()
             elif resource == "get_integrations_status":
                 return await self._handle_integrations_status()
+            elif resource == "get_logs":
+                return await self._handle_logs()
             else:
                 return self._success({
                     "message": f"API Unifiée opérationnelle - resource: {resource}",
@@ -460,7 +462,72 @@ class HomeElecUnifiedAPIView(HomeAssistantView):
                     'critical': len([i for i in integrations_data if i['health_state'] == 'critical'])
                 }
             })
-            
+
         except Exception as e:
             _LOGGER.exception(f"Erreur _handle_integrations_status: {e}")
             return self._error(500, f"Erreur analyse intégrations: {e}")
+
+    async def _handle_logs(self):
+        """Endpoint /get_logs - Logs système Home Assistant"""
+        try:
+            ha_log_path = os.path.join(self.hass.config.path(), "home-assistant.log")
+            
+            if not os.path.exists(ha_log_path):
+                return self._success({
+                    "logs": [],
+                    "count": 0,
+                    "summary": {"total": 0, "errors": 0, "warnings": 0}
+                })
+            
+            logs = []
+            
+            def _read_logs():
+                try:
+                    with open(ha_log_path, "r", encoding="utf-8", errors="ignore") as f:
+                        all_lines = f.readlines()[-1000:]
+                    
+                    for line in reversed(all_lines):
+                        if not line.strip():
+                            continue
+                        
+                        log_entry = {
+                            "message": line.strip(),
+                            "level": "INFO"
+                        }
+                        
+                        if " ERROR " in line or " ERROR:" in line:
+                            log_entry["level"] = "ERROR"
+                        elif " WARNING " in line or " WARNING:" in line:
+                            log_entry["level"] = "WARNING"
+                        elif " DEBUG " in line:
+                            log_entry["level"] = "DEBUG"
+                        
+                        logs.append(log_entry)
+                        if len(logs) >= 100:
+                            break
+                    
+                    return logs
+                except Exception as e:
+                    _LOGGER.error(f"Erreur lecture logs: {e}")
+                    return []
+            
+            import asyncio
+            logs = await asyncio.get_event_loop().run_in_executor(None, _read_logs)
+            
+            errors_count = len([l for l in logs if l["level"] == "ERROR"])
+            warnings_count = len([l for l in logs if l["level"] == "WARNING"])
+            
+            return self._success({
+                "logs": logs,
+                "count": len(logs),
+                "summary": {
+                    "total": len(logs),
+                    "errors": errors_count,
+                    "warnings": warnings_count
+                },
+                "type": "logs"
+            })
+        
+        except Exception as e:
+            _LOGGER.exception(f"Erreur _handle_logs: {e}")
+            return self._error(500, f"Erreur chargement logs: {e}")
