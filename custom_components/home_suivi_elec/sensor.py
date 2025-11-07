@@ -22,7 +22,7 @@ async def async_setup_entry(
     def on_hse_sensors_ready(event):
         sensor_type = event.data.get('type', 'unknown')
         count = event.data.get('count', 0)
-        LOGGER.info(f"📡 [EVENT REÇU] {sensor_type.upper()} [signalé] (count={count})")
+        LOGGER.debug(f"📡 [EVENT REÇU] {sensor_type.upper()} [signalé] (count={count})")
         if sensor_type == 'energy':
             sensors = hass.data.get(DOMAIN, {}).get("energy_sensors", [])
         elif sensor_type == 'power':
