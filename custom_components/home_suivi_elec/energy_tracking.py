@@ -522,7 +522,7 @@ async def create_energy_sensors(
             )
 
             # ✅ Enregistrer dans registry pour friendly names
-            registry.register(entity_id, entity_base)
+            await registry.async_register(entity_id, entity_base)
             
             sensors.append(created_sensor)
             _LOGGER.debug(f"✅ [CREATE-SENSOR] {entity_id} → {name}")
