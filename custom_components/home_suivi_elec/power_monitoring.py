@@ -274,10 +274,8 @@ async def async_setup_power_monitoring(hass: HomeAssistant, entry) -> None:
     # 🚀 EVENT-DRIVEN: Émettre event pour notifier sensor.py
     _LOGGER.info(f"📡 [EVENT] Émission 'hse_power_sensors_ready' (JSON-safe) avec {len(live_sensors)} sensors")
     hass.bus.async_fire('hse_power_sensors_ready', {
-        'sensor_ids': [s.entity_id for s in live_sensors],
-        'count': len(live_sensors),
         'type': 'power',
-        'timestamp': datetime.now().isoformat()
+        'count': len(live_sensors),
     })
     
     _LOGGER.debug(

@@ -533,10 +533,8 @@ async def create_energy_sensors(
     # 🚀 EVENT-DRIVEN: Émettre event pour notifier sensor.py
     _LOGGER.info(f"📡 [EVENT] Émission 'hse_energy_sensors_ready' (JSON-safe) avec {len(sensors)} sensors")
     hass.bus.async_fire('hse_energy_sensors_ready', {
-        'sensor_ids': [s.entity_id for s in sensors],
-        'count': len(sensors),
         'type': 'energy',
-        'timestamp': datetime.now().isoformat()
+        'count': len(sensors),
     })
 
     return sensors
