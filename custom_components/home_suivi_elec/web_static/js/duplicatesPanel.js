@@ -4,6 +4,37 @@
 import { on, emit } from "./eventBus.js";
 import stateModule from "./stateModule.js";
 
+// ============================================================================
+// ✅ PATCH SCROLL - Ajout uniquement, aucune modification du code existant
+// ============================================================================
+const SCROLL_KEY = 'dup_scroll';
+
+function saveScroll() {
+    sessionStorage.setItem(SCROLL_KEY, window.scrollY.toString());
+}
+
+function restoreScroll() {
+    const saved = sessionStorage.getItem(SCROLL_KEY);
+    if (saved) {
+        setTimeout(() => window.scrollTo(0, parseInt(saved)), 100);
+        sessionStorage.removeItem(SCROLL_KEY);
+    }
+}
+
+// Restaurer automatiquement
+document.addEventListener('DOMContentLoaded', restoreScroll);
+
+// Sauvegarder avant chaque clic
+document.addEventListener('click', (e) => {
+    if (e.target.tagName === 'BUTTON') {
+        saveScroll();
+    }
+}, true);
+
+// ============================================================================
+// Ton code existant reste inchangé ci-dessous
+// ============================================================================
+
 // Utilitaires d’affichage
 function makeToggleHeader(storageKey, columnKey, titleHTML, panelEl) {
   const header = document.createElement("div");
