@@ -25,26 +25,10 @@ class EntityNameRegistry:
         self.data_dir = data_dir
         self.registry_file = data_dir / "entity_name_registry.json"
         self._mappings: Dict[str, str] = {}  # short_name → display_name
-        # ⚠️ Charge sync au __init__ (acceptable car appelé hors event loop)
-        # Si appelé dans async context, utiliser async_load() à la place
-        self._load_sync()
-    
-    def _load_sync(self):
-        """Charge le registry depuis le disque (version synchrone pour __init__)."""
-        try:
-            if self.registry_file.exists():
-                with open(self.registry_file, "r", encoding="utf-8") as f:
-                    self._mappings = json.load(f)
-                _LOGGER.debug(f"📖 Registry chargé : {len(self._mappings)} mappings")
-            else:
-                self._mappings = {}
-                _LOGGER.debug("📖 Registry nouveau (fichier inexistant)")
-        except Exception as e:
-            _LOGGER.warning(f"⚠️ Erreur chargement registry : {e}")
-            self._mappings = {}
+        # ✅ NE PAS charger ici - sera fait via async_load() ou register()
     
     async def async_load(self):
-        """Charge le registry de manière asynchrone (pour contexte async)."""
+        """Charge le registry de manière asynchrone (OBLIGATOIRE en contexte async)."""
         loop = asyncio.get_running_loop()
         
         def _load():
@@ -93,28 +77,6 @@ class EntityNameRegistry:
         if short_name not in self._mappings or self._mappings[short_name] != display_name:
             self._mappings[short_name] = display_name
             await self.async_save()
-            _LOGGER.debug(f"🔗 Registry: {short_name} → {display_name}")
-        
-        return display_name
-    
-    def register(self, entity_id: str, short_name: str) -> str:
-        """
-        Version synchrone de register (deprecated - utiliser async_register).
-        ⚠️ À n'utiliser QUE si appelé hors event loop.
-        """
-        display_name = self._generate_display_name(entity_id)
-        
-        if short_name not in self._mappings or self._mappings[short_name] != display_name:
-            self._mappings[short_name] = display_name
-            # ⚠️ Sauvegarde sync - peut bloquer l'event loop
-            try:
-                self.data_dir.mkdir(parents=True, exist_ok=True)
-                with open(self.registry_file, "w", encoding="utf-8") as f:
-                    json.dump(self._mappings, f, ensure_ascii=False, indent=2)
-                _LOGGER.debug(f"💾 Registry sauvé (sync) : {len(self._mappings)} mappings")
-            except Exception as e:
-                _LOGGER.error(f"❌ Erreur sauvegarde registry : {e}")
-            
             _LOGGER.debug(f"🔗 Registry: {short_name} → {display_name}")
         
         return display_name

@@ -459,6 +459,9 @@ async def create_energy_sensors(
     sensors = []
     data_dir = Path(__file__).parent / "data"
     registry = EntityNameRegistry(data_dir)
+    
+    # ✅ OBLIGATOIRE : Charger le registry de manière async
+    await registry.async_load()
 
     for capteur in capteurs_selection:
         source_id = capteur.get("entity_id")
@@ -484,7 +487,6 @@ async def create_energy_sensors(
             "reference_type": capteur.get("reference_type"),
             "tags": capteur.get("tags", []),
         }
-
 
         # ✅ NOUVEAU: Nom complet préservé (plus de shortening)
         entity_base = source_id.replace("sensor.", "")
@@ -521,7 +523,7 @@ async def create_energy_sensors(
                 metadata=metadata,
             )
 
-            # ✅ Enregistrer dans registry pour friendly names
+            # ✅ Enregistrer dans registry pour friendly names (version async)
             await registry.async_register(entity_id, entity_base)
             
             sensors.append(created_sensor)
@@ -530,11 +532,11 @@ async def create_energy_sensors(
     # 🚨 BUGFIX CRITIQUE: Ajout du return manquant !
     _LOGGER.info(f"✅ [CREATE-SENSORS] {len(sensors)} sensors créés au total")
  
-    # 🚀 EVENT-DRIVEN: Émettre event pour notifier sensor.py
-    _LOGGER.info(f"📡 [EVENT] Émission 'hse_energy_sensors_ready' (JSON-safe) avec {len(sensors)} sensors")
+    # 🚀 EVENT-DRIVEN: Émettre event JSON-safe pour notifier sensor.py
+    _LOGGER.info(f"📡 [EVENT] Émission 'hse_energy_sensors_ready' avec {len(sensors)} sensors")
     hass.bus.async_fire('hse_energy_sensors_ready', {
         'type': 'energy',
-        'count': len(sensors),
+        'count': len(sensors)
     })
 
     return sensors
