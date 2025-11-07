@@ -468,83 +468,126 @@ class HomeElecUnifiedAPIView(HomeAssistantView):
             return self._error(500, f"Erreur analyse intégrations: {e}")
 
     async def _handle_logs(self):
-        """Endpoint /get_logs - Logs en temps réel avec filtrage et synthèse"""
+        """Endpoint /get_logs - Logs depuis fichiers rotatés"""
         try:
-            # ✅ 1. Récupérer tous les loggers et leurs handlers
-            import logging
+            import os
+            from pathlib import Path
+            import asyncio
+            from collections import defaultdict
             
             log_records = []
-            error_patterns = {}
-            module_stats = {}
+            error_patterns = defaultdict(int)
+            module_stats = defaultdict(lambda: {"total": 0, "errors": 0, "warnings": 0})
             
-            # ✅ 2. Accéder au root logger et tous ses handlers
-            root_logger = logging.getLogger()
+            # ✅ Chercher les fichiers de logs rotatés
+            config_path = Path("/config")
+            log_files = sorted([
+                f for f in config_path.glob("home-assistant.log*")
+            ], key=lambda x: x.stat().st_mtime, reverse=True)  # Plus récents en premier
             
-            # Parcourir tous les loggers enregistrés
-            for logger_name in logging.Logger.manager.loggerDict:
-                logger = logging.getLogger(logger_name)
-                
-                # Pour chaque handler du logger
-                for handler in logger.handlers:
-                    # Si c'est un handler MemoryHandler ou buffer (in-memory)
-                    if hasattr(handler, 'buffer') and handler.buffer:
-                        for record in handler.buffer:
-                            log_entry = self._format_log_record(record, logger_name)
-                            log_records.append(log_entry)
-                            
-                            # Statistiques par module
-                            module = logger_name.split('.')[0] if '.' in logger_name else logger_name
-                            if module not in module_stats:
-                                module_stats[module] = {"total": 0, "errors": 0, "warnings": 0}
-                            module_stats[module]["total"] += 1
-                            if record.levelno >= logging.ERROR:
-                                module_stats[module]["errors"] += 1
-                                # Détecter patterns d'erreurs
-                                error_key = f"{module}:{record.msg[:50]}"
-                                error_patterns[error_key] = error_patterns.get(error_key, 0) + 1
-                            elif record.levelno >= logging.WARNING:
-                                module_stats[module]["warnings"] += 1
+            if not log_files:
+                _LOGGER.warning("⚠️ Aucun fichier de logs trouvé dans /config/")
+                return self._success({
+                    "logs": [],
+                    "critical_logs": [],
+                    "synthesis": {
+                        "total_logs": 0,
+                        "error_count": 0,
+                        "warning_count": 0,
+                        "top_error_patterns": [],
+                        "module_statistics": {},
+                        "health_status": "no_logs_found"
+                    },
+                    "type": "logs",
+                    "timestamp": self._get_timestamp(),
+                    "source": "rotated_log_files"
+                })
             
-            # ✅ 3. Fallback : si pas de MemoryHandler, créer capture temporaire
-            if not log_records:
-                # Créer un handler temporaire pour capturer les logs
-                temp_handler = logging.handlers.MemoryHandler(capacity=500)
-                root_logger.addHandler(temp_handler)
+            # ✅ Lire les fichiers de logs
+            def _read_log_files():
+                for log_file in log_files[:3]:  # Max 3 fichiers
+                    try:
+                        with open(log_file, 'r', encoding='utf-8', errors='ignore') as f:
+                            for line in f:
+                                line = line.strip()
+                                if not line:
+                                    continue
+                                
+                                # Parser les logs Home Assistant
+                                # Format: 2025-11-06 16:35:11 ERROR (Thread-1) [custom_components.home_suivi_elec.api] Message
+                                parts = line.split(' ', 4)
+                                if len(parts) < 5:
+                                    continue
+                                
+                                timestamp_str = f"{parts[0]} {parts[1]}"
+                                level = parts[2]
+                                rest = ' '.join(parts[3:])
+                                
+                                # Extraire le module
+                                module = "unknown"
+                                if '[' in rest and ']' in rest:
+                                    module = rest.split('[')[1].split(']')[0]
+                                
+                                message = rest.split('] ', 1)[1] if '] ' in rest else rest
+                                
+                                log_records.append({
+                                    "timestamp": timestamp_str,
+                                    "level": level,
+                                    "logger": module,
+                                    "message": message[:250],
+                                    "module": module.split('.')[-1],
+                                    "raw_line": line[:300]
+                                })
+                                
+                                # Statistiques
+                                if level in ["ERROR", "CRITICAL"]:
+                                    error_patterns[f"{module}:{message[:40]}"] += 1
+                                    module_stats[module]["errors"] += 1
+                                elif level == "WARNING":
+                                    module_stats[module]["warnings"] += 1
+                                
+                                module_stats[module]["total"] += 1
+                    except Exception as e:
+                        _LOGGER.error(f"Erreur lecture {log_file}: {e}")
                 
-                # Attendre un peu pour capturer les logs
-                import asyncio
-                await asyncio.sleep(0.1)
-                
-                for record in temp_handler.buffer:
-                    log_entry = self._format_log_record(record, "root")
-                    log_records.append(log_entry)
-                
-                root_logger.removeHandler(temp_handler)
+                return log_records
             
-            # ✅ 4. Trier par timestamp (plus récent en premier)
+            # Exécuter la lecture en async
+            loop = asyncio.get_event_loop()
+            log_records = await loop.run_in_executor(None, _read_log_files)
+            
+            # ✅ Trier et filtrer
             log_records.sort(key=lambda x: x.get("timestamp", ""), reverse=True)
             
-            # ✅ 5. Filtrer les logs critiques (ERROR + WARNING)
             critical_logs = [
                 log for log in log_records 
                 if log.get("level") in ["ERROR", "CRITICAL"]
-            ][:20]  # Top 20 erreurs
+            ][:20]
             
-            # ✅ 6. Créer synthèse
+            # ✅ Synthèse
+            total_errors = len([l for l in log_records if l.get("level") == "ERROR"])
+            total_warnings = len([l for l in log_records if l.get("level") == "WARNING"])
+            
             synthesis = {
                 "total_logs": len(log_records),
-                "error_count": len([l for l in log_records if l.get("level") == "ERROR"]),
-                "warning_count": len([l for l in log_records if l.get("level") == "WARNING"]),
-                "top_error_patterns": sorted(
-                    error_patterns.items(), 
-                    key=lambda x: x[1], 
-                    reverse=True
-                )[:5],
-                "module_statistics": module_stats,
-                "health_status": "critical" if len(critical_logs) > 10 else "degraded" if len(critical_logs) > 0 else "healthy"
+                "error_count": total_errors,
+                "warning_count": total_warnings,
+                "top_error_patterns": [
+                    {"pattern": k, "count": v} for k, v in sorted(
+                        error_patterns.items(), 
+                        key=lambda x: x[1], 
+                        reverse=True
+                    )[:5]
+                ],
+                "module_statistics": dict(module_stats),
+                "health_status": (
+                    "critical" if total_errors > 10 
+                    else "degraded" if total_errors > 0 
+                    else "healthy"
+                )
             }
             
-            _LOGGER.info(f"📋 Logs synthèse: {len(log_records)} logs, {synthesis['error_count']} erreurs, {synthesis['warning_count']} avertissements")
+            _LOGGER.info(f"📋 Logs API: {len(log_records)} logs lus, {total_errors} erreurs")
             
             return self._success({
                 "logs": log_records[-100:],  # Derniers 100 logs
@@ -552,32 +595,9 @@ class HomeElecUnifiedAPIView(HomeAssistantView):
                 "synthesis": synthesis,
                 "type": "logs",
                 "timestamp": self._get_timestamp(),
-                "source": "python_logging_system_realtime"
+                "source": "rotated_log_files_from_disk"
             })
             
         except Exception as e:
             _LOGGER.exception(f"Erreur _handle_logs: {e}")
             return self._error(500, f"Erreur chargement logs: {e}")
-    
-    def _format_log_record(self, record, logger_name):
-        """Formate un LogRecord en dictionnaire"""
-        try:
-            return {
-                "timestamp": record.created,
-                "level": record.levelname,
-                "logger": logger_name,
-                "message": record.getMessage(),
-                "module": record.module,
-                "function": record.funcName,
-                "line": record.lineno
-            }
-        except Exception as e:
-            return {
-                "timestamp": record.created,
-                "level": "UNKNOWN",
-                "logger": logger_name,
-                "message": str(e),
-                "module": "error_formatting",
-                "function": "unknown",
-                "line": 0
-            }
