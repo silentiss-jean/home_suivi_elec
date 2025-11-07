@@ -35,7 +35,7 @@ document.addEventListener('click', (e) => {
 // Ton code existant reste inchangé ci-dessous
 // ============================================================================
 
-// Utilitaires d’affichage
+// Utilitaires d'affichage
 function makeToggleHeader(storageKey, columnKey, titleHTML, panelEl) {
   const header = document.createElement("div");
   header.className = "duplicate-header";
@@ -227,7 +227,6 @@ function renderGroups(wrapper, { groupsByDevice, ignored, allCapteurs, onIgnore,
   const ignBlock = document.createElement("div");
   ignBlock.className = "ignored-block";
   
-  // ✅ NOUVELLE VERSION avec toggle
   ignBlock.innerHTML = `
     <div class="ignored-header" style="display: flex; align-items: center; gap: 8px; cursor: pointer;" onclick="toggleIgnored()">
       <button type="button" style="border: none; background: none; font-size: 14px; cursor: pointer;">
@@ -238,7 +237,7 @@ function renderGroups(wrapper, { groupsByDevice, ignored, allCapteurs, onIgnore,
   `;
   
   const ignUl = document.createElement("ul");
-  ignUl.style.display = "none"; // ✅ Fermé par défaut
+  ignUl.style.display = "none";
   ignUl.className = "ignored-list-content";
   
   ignoredList.forEach(eid => {
@@ -256,16 +255,33 @@ function renderGroups(wrapper, { groupsByDevice, ignored, allCapteurs, onIgnore,
   ignBlock.appendChild(ignUl);
   wrapper.appendChild(ignBlock);
 
-
-  // Handlers
+  // ✅ MODIFICATION 1 : Checkbox "Ignorer" - Empêcher rechargement
   wrapper.querySelectorAll("input.ignore-toggle").forEach(cb => {
-    cb.addEventListener("change", () => onIgnore?.(cb.dataset.entity, cb.checked));
+    cb.addEventListener("change", async (e) => {
+      e.stopPropagation();
+      saveScroll();
+      if (onIgnore) await onIgnore(cb.dataset.entity, cb.checked);
+    });
   });
+
+  // ✅ MODIFICATION 2 : Bouton "Réintégrer" - Empêcher rechargement
   wrapper.querySelectorAll("button.unignore").forEach(btn => {
-    btn.addEventListener("click", () => onIgnore?.(btn.dataset.entity, false));
+    btn.addEventListener("click", async (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      saveScroll();
+      if (onIgnore) await onIgnore(btn.dataset.entity, false);
+    });
   });
+
+  // ✅ MODIFICATION 3 : Bouton "Choisir la meilleure" - Empêcher rechargement
   wrapper.querySelectorAll("button.keep-best").forEach(btn => {
-    btn.addEventListener("click", () => onKeepBest?.(btn.dataset.device));
+    btn.addEventListener("click", async (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      saveScroll();
+      if (onKeepBest) await onKeepBest(btn.dataset.device);
+    });
   });
 }
 
