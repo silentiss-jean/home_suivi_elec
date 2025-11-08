@@ -6,6 +6,7 @@ Enregistre aussi les noms complets dans le registry universel.
 ✅ BUGFIX CRITIQUE: Ajout du return sensors manquant
 ✅ BUGFIX TRACKING: Fix async_track_time_change() API deprecated
 ✅ BUGFIX STATE: Lecture initiale + publication état initial
+✅ CORRECTION 2025-11-08: Gestion type null + support power/energy
 """
 from __future__ import annotations
 
@@ -419,7 +420,7 @@ class PowerEnergyCycleSensor(RestoreEntity, SensorEntity):
 
 
 # ============================================================================
-# API PUBLIQUE - Création des sensors (Phase 2)
+# API PUBLIQUE - Création des sensors (Phase 2) — ✅ CORRECTION 2025-11-08
 # ============================================================================
 
 async def create_energy_sensors(
@@ -430,6 +431,7 @@ async def create_energy_sensors(
     Crée les sensors de tracking d'énergie selon le type de source.
 
     Phase 2 : Support energy vs power + propagation fiabilité
+    ✅ CORRECTION 2025-11-08: Gestion robuste type null + support power
 
     Args:
         hass: Instance Home Assistant
@@ -450,18 +452,23 @@ async def create_energy_sensors(
         if not source_id:
             continue
         
-        # ✅ FIX COLLISION: Détection intelligente energy vs power
-        source_type = capteur.get("type", "power")
-
-        if "today_energy" in source_id and source_type != "energy":
-            _LOGGER.warning(f"🔧 [AUTO-FIX] {source_id} mal typé '{source_type}' → 'energy'")
-            source_type = "energy"
-
-        if source_type != "energy":
-            _LOGGER.debug(f"⏭️ [SKIP-ENERGY] {source_id} n'est pas energy (type: {source_type})")
+        # ✅ CORRECTION: Validation robuste du type
+        source_type = capteur.get("type")
+        
+        # ⚠️ VALIDATION CRITIQUE: Type obligatoire !
+        if not source_type:
+            _LOGGER.error(
+                f"❌ [SKIP-NULL] {source_id} a un type null ! "
+                f"Vérifier capteurs_selection.json"
+            )
             continue
-
-        _LOGGER.debug(f"✅ [PROCESS-ENERGY] {source_id} (type: {source_type})")
+        
+        # ✅ FILTRAGE: Accepter energy ET power
+        if source_type not in ["energy", "power"]:
+            _LOGGER.warning(f"⏭️ [SKIP] {source_id} type invalide: {source_type}")
+            continue
+        
+        _LOGGER.info(f"✅ [PROCESS] {source_id} (type: {source_type})")
         
         metadata = {
             "is_virtual": capteur.get("is_virtual"),
@@ -480,7 +487,7 @@ async def create_energy_sensors(
         for cycle in CYCLES.keys():
             cycle_short = cycle[0]  # h, d, w, m, y
             
-            # ✅ SIMPLE : tous les sensors ici sont energy
+            # Nommage des entity_id
             if "today_energy" in source_id:
                 entity_id = f"sensor.hse_{base_name}_{cycle}"
                 unique_id = f"hse_{source_hash}_{cycle_short}"
@@ -490,21 +497,34 @@ async def create_energy_sensors(
 
             name = f"HSE {entity_base} {cycle.capitalize()}"
             
-            # ✅ TOUJOURS CumulativeEnergyCycleSensor
-            created_sensor = CumulativeEnergyCycleSensor(
-                hass=hass,
-                source_entity=source_id,
-                cycle=cycle,
-                unique_id=unique_id,
-                name=name,
-                metadata=metadata,
-            )
+            # ✅ CORRECTION MAJEURE: Choix du sensor selon le type
+            if source_type == "energy":
+                # Type energy → CumulativeEnergyCycleSensor (Delta tracking)
+                created_sensor = CumulativeEnergyCycleSensor(
+                    hass=hass,
+                    source_entity=source_id,
+                    cycle=cycle,
+                    unique_id=unique_id,
+                    name=name,
+                    metadata=metadata,
+                )
+                _LOGGER.debug(f"✅ [CREATE-ENERGY] {entity_id} → CumulativeEnergyCycleSensor")
+            else:  # source_type == "power"
+                # Type power → PowerEnergyCycleSensor (Intégration trapézoïdale)
+                created_sensor = PowerEnergyCycleSensor(
+                    hass=hass,
+                    source_entity=source_id,
+                    cycle=cycle,
+                    unique_id=unique_id,
+                    name=name,
+                    metadata=metadata,
+                )
+                _LOGGER.debug(f"✅ [CREATE-POWER] {entity_id} → PowerEnergyCycleSensor")
 
             # ✅ Enregistrer dans registry pour friendly names
             await registry.async_register(entity_id, entity_base)
             
             sensors.append(created_sensor)
-            _LOGGER.debug(f"✅ [CREATE-SENSOR] {entity_id} → {name}")
 
     # ✅ Return + événement
     _LOGGER.info(f"✅ [CREATE-SENSORS] {len(sensors)} sensors créés au total")

@@ -8,39 +8,36 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import DOMAIN
 
-LOGGER = logging.getLogger(__name__)
+_LOGGER = logging.getLogger(__name__)
 
-async def async_setup_entry(
-    hass: HomeAssistant,
-    entry: ConfigEntry,
-    async_add_entities: AddEntitiesCallback,
-) -> None:
-    from homeassistant.core import callback
-    LOGGER.info("🎯 [EVENT-DRIVEN] Setup sensor platform - Attente events...")
-
-    @callback
-    def on_hse_sensors_ready(event):
-        sensor_type = event.data.get('type', 'unknown')
-        count = event.data.get('count', 0)
-        LOGGER.debug(f"📡 [EVENT REÇU] {sensor_type.upper()} [signalé] (count={count})")
-        if sensor_type == 'energy':
-            sensors = hass.data.get(DOMAIN, {}).get("energy_sensors", [])
-        elif sensor_type == 'power':
-            sensors = hass.data.get(DOMAIN, {}).get("live_power_sensors", [])
-        else:
-            LOGGER.warning(f"⚠️ [EVENT] Type inconnu: {sensor_type}")
+async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities):
+    """Setup sensor platform."""
+    _LOGGER.error("🔥 [SENSOR.PY] Setup entry appelé")
+    
+    # ✅ Attendre que energy_sensors soit disponible
+    max_wait = 30
+    waited = 0
+    while DOMAIN not in hass.data or "energy_sensors" not in hass.data[DOMAIN]:
+        if waited >= max_wait:
+            _LOGGER.error("❌ [SENSOR.PY] Timeout: energy_sensors non disponible")
             return
-        if sensors:
-            async_add_entities(sensors, True)
-            LOGGER.info(f"✅ [EVENT-PROCESSED] {len(sensors)} sensors {sensor_type} enregistrés")
-        else:
-            LOGGER.warning(f"⚠️ [EVENT] Aucun sensor {sensor_type} trouvé dans hass.data.")
-
-    hass.bus.async_listen('hse_energy_sensors_ready', on_hse_sensors_ready)
-    hass.bus.async_listen('hse_power_sensors_ready', on_hse_sensors_ready)
-    LOGGER.info("🎧 [EVENT-DRIVEN] Listeners activés - En attente des events sensors...")
-    # Setup initial si sensors déjà présents
-    energy_sensors = hass.data.get(DOMAIN, {}).get("energy_sensors", [])
-    live_power_sensors = hass.data.get(DOMAIN, {}).get("live_power_sensors", [])
-    if energy_sensors or live_power_sensors:
-        async_add_entities(energy_sensors + live_power_sensors, True)
+        await asyncio.sleep(1)
+        waited += 1
+        if waited % 5 == 0:  # Log toutes les 5 secondes
+            _LOGGER.debug(f"[SENSOR.PY] Attente energy_sensors... {waited}s")
+    
+    _LOGGER.error("🔥 [SENSOR.PY] energy_sensors disponible!")
+    
+    energy_sensors = hass.data[DOMAIN].get("energy_sensors", [])
+    live_power_sensors = hass.data[DOMAIN].get("live_power_sensors", [])
+    all_sensors = energy_sensors + live_power_sensors
+    
+    _LOGGER.error(f"🔥 [SENSOR.PY] Energy: {len(energy_sensors)}, Live power: {len(live_power_sensors)}")
+    
+    if not all_sensors:
+        _LOGGER.error("⚠️ [SENSOR.PY] Aucun sensor à enregistrer")
+        return
+    
+    _LOGGER.error(f"🔥 [SENSOR.PY] Enregistrement de {len(all_sensors)} sensors")
+    async_add_entities(all_sensors, True)
+    _LOGGER.error("🔥 [SENSOR.PY] ✅ Sensors enregistrés avec succès")
