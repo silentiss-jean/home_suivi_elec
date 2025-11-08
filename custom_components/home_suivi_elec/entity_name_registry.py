@@ -4,14 +4,12 @@ Registry universel des noms d'entités : mapping short_name ↔ display_name
 """
 from __future__ import annotations
 
-import asyncio
 import json
 import logging
 from pathlib import Path
 from typing import Dict, Optional
 
 _LOGGER = logging.getLogger(__name__)
-
 
 class EntityNameRegistry:
     """
@@ -25,43 +23,35 @@ class EntityNameRegistry:
         self.data_dir = data_dir
         self.registry_file = data_dir / "entity_name_registry.json"
         self._mappings: Dict[str, str] = {}  # short_name → display_name
-        # ✅ NE PAS charger ici - sera fait via async_load() ou register()
+        self._load()
     
-    async def async_load(self):
-        """Charge le registry de manière asynchrone (OBLIGATOIRE en contexte async)."""
-        loop = asyncio.get_running_loop()
-        
-        def _load():
-            try:
-                if self.registry_file.exists():
-                    with open(self.registry_file, "r", encoding="utf-8") as f:
-                        return json.load(f)
-                return {}
-            except Exception as e:
-                _LOGGER.warning(f"⚠️ Erreur chargement registry : {e}")
-                return {}
-        
-        self._mappings = await loop.run_in_executor(None, _load)
-        _LOGGER.debug(f"📖 Registry chargé (async) : {len(self._mappings)} mappings")
+    def _load(self):
+        """Charge le registry depuis le disque."""
+        try:
+            if self.registry_file.exists():
+                with open(self.registry_file, "r", encoding="utf-8") as f:
+                    self._mappings = json.load(f)
+                _LOGGER.debug(f"📖 Registry chargé : {len(self._mappings)} mappings")
+            else:
+                self._mappings = {}
+                _LOGGER.debug("📖 Registry nouveau (fichier inexistant)")
+        except Exception as e:
+            _LOGGER.warning(f"⚠️ Erreur chargement registry : {e}")
+            self._mappings = {}
     
-    async def async_save(self):
-        """Sauvegarde le registry de manière asynchrone."""
-        loop = asyncio.get_running_loop()
-        
-        def _save():
-            try:
-                self.data_dir.mkdir(parents=True, exist_ok=True)
-                with open(self.registry_file, "w", encoding="utf-8") as f:
-                    json.dump(self._mappings, f, ensure_ascii=False, indent=2)
-                _LOGGER.debug(f"💾 Registry sauvé : {len(self._mappings)} mappings")
-            except Exception as e:
-                _LOGGER.error(f"❌ Erreur sauvegarde registry : {e}")
-        
-        await loop.run_in_executor(None, _save)
+    def _save(self):
+        """Sauvegarde le registry sur disque."""
+        try:
+            self.data_dir.mkdir(parents=True, exist_ok=True)
+            with open(self.registry_file, "w", encoding="utf-8") as f:
+                json.dump(self._mappings, f, ensure_ascii=False, indent=2)
+            _LOGGER.debug(f"💾 Registry sauvé : {len(self._mappings)} mappings")
+        except Exception as e:
+            _LOGGER.error(f"❌ Erreur sauvegarde registry : {e}")
     
-    async def async_register(self, entity_id: str, short_name: str) -> str:
+    def register(self, entity_id: str, short_name: str) -> str:
         """
-        Enregistre un mapping et retourne le display_name (version async).
+        Enregistre un mapping et retourne le display_name.
         
         Args:
             entity_id: ID complet (ex: sensor.chambre_ordinateur_prise_connectee_puissance)
@@ -76,7 +66,7 @@ class EntityNameRegistry:
         # Enregistrer le mapping
         if short_name not in self._mappings or self._mappings[short_name] != display_name:
             self._mappings[short_name] = display_name
-            await self.async_save()
+            self._save()
             _LOGGER.debug(f"🔗 Registry: {short_name} → {display_name}")
         
         return display_name

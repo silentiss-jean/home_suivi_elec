@@ -142,57 +142,33 @@ table thead th { background: #f2f2f2; }
 
 <!-- Onglet principal Diagnostic -->
 <div id="diagnostics" class="tab-content">
-    <div id="diagnosticsGlobal">
-        
-        <!-- 🧭 NAVIGATION SOUS-ONGLETS -->
-        <div class="diagnostic-nav">
-            <button class="diag-nav-btn" onclick="showDiagTab('capteurs')" data-active="true">
-                🔌 Capteurs
-            </button>
-            <button class="diag-nav-btn" onclick="showDiagTab('integrations')">
-                🔗 Intégrations  
-            </button>
-            <button class="diag-nav-btn" onclick="showDiagTab('logs')">
-                📋 Logs
-            </button>
-            <button class="diag-nav-btn" onclick="showDiagTab('health')">
-                ❤️ Santé Backend
-            </button>
-        </div>
 
-        <!-- 📦 CONTAINERS SOUS-ONGLETS -->
-        <div class="diagnostic-content">
-            <div id="capteurs" class="diag-tab-content" style="display:block;">
-                <div class="loading-placeholder">
-                    <div class="spinner"></div>
-                    <p>Chargement analyse capteurs...</p>
-                </div>
-            </div>
-            
-            <div id="integrations" class="diag-tab-content" style="display:none;">
-                <div class="loading-placeholder">
-                    <div class="spinner"></div>
-                    <p>Chargement analyse intégrations...</p>
-                </div>
-            </div>
-            
-            <div id="logs" class="diag-tab-content" style="display:none;">
-                <div class="loading-placeholder">
-                    <div class="spinner"></div>
-                    <p>Chargement logs système...</p>
-                </div>
-            </div>
-            
-            <div id="health" class="diag-tab-content" style="display:none;">
-                <div class="loading-placeholder">
-                    <div class="spinner"></div>
-                    <p>Chargement santé backend...</p>
-                </div>
-            </div>
-        </div>
-        
-    </div>
+  <!-- Barre de sous-onglets -->
+  <div class="diag-tabs" style="margin-bottom:16px;">
+    <button type="button" onclick="showDiagTab('diag-sensors')">Capteurs</button>
+    <!-- Future extension : <button>Coûts</button>, etc. -->
+  </div>
+
+  <!-- Container du tab detailed capteurs -->
+  <div id="diag-sensors" class="diag-tab-content"></div>
+
+  <!-- Ancienne partie Diagnostic technique globale -->
+  <!-- Tu peux soit la laisser pour garder le diagnostic “classique”, soit la migrer/séparer vers des sous-onglets comme fait ici pour les capteurs -->
+  <h2>🔧 Diagnostic technique</h2>
+  <div id="diagnosticsPanel">
+    <div id="diagnosticsGlobal"></div>
+    <h3>Capteurs sources sélectionnés (W)</h3>
+    <div id="diagnosticsSources"></div>
+    <h3>Sensors d'intégration (kWh)</h3>
+    <div id="diagnosticsIntegrationSensors"></div>
+    <h3>Utility Meters</h3>
+    <div id="diagnosticsUtilityMeters"></div>
+    <h3>Alertes et recommandations</h3>
+    <div id="diagnosticsAlerts"></div>
+    <button id="refreshDiagnostics" class="primary" type="button">🔄 Rafraîchir Diagnostic</button>
+  </div>
 </div>
+
 
 <!-- 🔍 Détection -->
 <div id="detection" class="tab-content">
@@ -390,5 +366,6 @@ document.addEventListener("DOMContentLoaded", () => {
 </script>
 
 <script type="module" src="js/app.js"></script>
+<script type="module" src="js/diagnostics.js"></script>
 </body>
 </html>

@@ -3,32 +3,30 @@
 Détection automatique des capteurs power/energy depuis Home Assistant.
 
 VERSION 2.10 : Détection multi-intégration complète
-
-✅ Détection native sans subprocess jq
-✅ Classification enrichie (device_class > unit > state_class)
-✅ Filtrage intelligent avec valeurs par défaut
-✅ Architecture prête pour config_entry.options (TODO CONFIG)
-✅ Tagging des helpers
-✅ Détection multi-plateforme enrichie
-✅ NOUVEAU : Groupement par (device_id, integration) pour capturer TOUTES les intégrations
-✅ NOUVEAU : Conservation des sensors de toutes les intégrations (Tapo + TP-Link + etc.)
-✅ LOGS INTELLIGENTS : Réduction massive des logs répétitifs
+  ✅ Détection native sans subprocess jq
+  ✅ Classification enrichie (device_class > unit > state_class)
+  ✅ Filtrage intelligent avec valeurs par défaut
+  ✅ Architecture prête pour config_entry.options (TODO CONFIG)
+  ✅ Tagging des helpers
+  ✅ Détection multi-plateforme enrichie
+  ✅ NOUVEAU : Groupement par (device_id, integration) pour capturer TOUTES les intégrations
+  ✅ NOUVEAU : Conservation des sensors de toutes les intégrations (Tapo + TP-Link + etc.)
 
 PRIORITÉS :
-1. Energy (kWh) physique > Power (W) physique
-2. Energy virtuel (PowerCalc) > Power virtuel (PowerCalc)
-3. Physique > Virtuel > Helper
-4. today_energy > device_energy (pour Tapo/Tuya)
+  1. Energy (kWh) physique > Power (W) physique
+  2. Energy virtuel (PowerCalc) > Power virtuel (PowerCalc)
+  3. Physique > Virtuel > Helper
+  4. today_energy > device_energy (pour Tapo/Tuya)
 
 TAGS ENRICHIS :
-- integration: platform utilisé pour ce sensor
-- platform_declared: entry.platform (source officielle)
-- platform_detected: premier platform via device identifiers
-- is_multi_platform: true si même device physique dans plusieurs intégrations
-- all_platforms: liste de toutes les plateformes détectées
-- physical_signature: empreinte unique du device physique (pour groupement UI)
-- reference_type: "physical" | "calculated" | "aggregated"
-- is_virtual, is_helper, helper_type
+  - integration: platform utilisé pour ce sensor
+  - platform_declared: entry.platform (source officielle)
+  - platform_detected: premier platform via device identifiers
+  - is_multi_platform: true si même device physique dans plusieurs intégrations
+  - all_platforms: liste de toutes les plateformes détectées
+  - physical_signature: empreinte unique du device physique (pour groupement UI)
+  - reference_type: "physical" | "calculated" | "aggregated"
+  - is_virtual, is_helper, helper_type
 """
 
 import os
@@ -132,7 +130,6 @@ PRIORITY_MAP = {
 # ============================================================================
 
 def __get_energy_platforms_from_registry(entity_reg, hass) -> Set[str]:
-    """✅ DEBUG uniquement pour détails."""
     platforms = set()
     for entry in entity_reg.entities.values():
         if entry.domain != "sensor":
@@ -154,7 +151,6 @@ def __get_energy_platforms_from_registry(entity_reg, hass) -> Set[str]:
 # ============================================================================
 
 def __classify_sensor(state) -> str:
-    """✅ Aucun log (classification pure)."""
     if not state:
         return "unknown"
     attrs = state.attributes or {}
@@ -176,7 +172,6 @@ def __classify_sensor(state) -> str:
     return "unknown"
 
 def __classify_platform(platform: str, has_device_id: bool, excluded_platforms: Set[str], helper_platforms: Dict[str, Dict]) -> Dict[str, Any]:
-    """✅ DEBUG pour exclusions seulement."""
     if platform in excluded_platforms:
         return {"action": "exclude", "reason": "user_excluded"}
     if platform in helper_platforms:
@@ -189,7 +184,6 @@ def __classify_platform(platform: str, has_device_id: bool, excluded_platforms: 
     return {"action": "include", "reference_type": "unknown", "is_helper": False}
 
 def __calculate_priority(sensor_type: str, reference_type: str, helper_config: Optional[Dict] = None) -> int:
-    """✅ Aucun log (calcul pur)."""
     base_priority = PRIORITY_MAP.get((sensor_type, reference_type), 25)
     if helper_config:
         penalty = helper_config.get("priority_penalty", 0)
@@ -197,7 +191,6 @@ def __calculate_priority(sensor_type: str, reference_type: str, helper_config: O
     return max(0, base_priority)
 
 def __calculate_reliability_score(platform: str, reference_type: str, has_device_id: bool) -> int:
-    """✅ Aucun log (calcul pur)."""
     if has_device_id:
         return 100
     if platform in VIRTUAL_INTEGRATIONS:
@@ -211,7 +204,6 @@ def __calculate_reliability_score(platform: str, reference_type: str, has_device
 # ============================================================================
 
 def __detect_all_platforms_from_device(device_reg, device_id: str) -> List[str]:
-    """✅ Aucun log (détection pure)."""
     if not device_id:
         return []
     device = device_reg.async_get(device_id)
@@ -226,7 +218,6 @@ def __detect_all_platforms_from_device(device_reg, device_id: str) -> List[str]:
     return platforms
 
 def __get_physical_device_signature(device_reg, device_id: str) -> Optional[str]:
-    """✅ Aucun log (extraction signature)."""
     device = device_reg.async_get(device_id)
     if not device or not device.identifiers:
         return None
@@ -241,7 +232,6 @@ def __get_physical_device_signature(device_reg, device_id: str) -> Optional[str]
     return "|".join(sorted(unique_ids))
 
 def __detect_integration_complete(entity_reg, device_reg, entity_id: str, entry) -> Dict[str, Any]:
-    """✅ INFO seulement si multi-plateforme détecté."""
     result = {
         "integration": "unknown",
         "platform_declared": None,
@@ -261,19 +251,26 @@ def __detect_integration_complete(entity_reg, device_reg, entity_id: str, entry)
         if detected_platforms:
             result["platform_detected"] = detected_platforms[0]
             result["all_platforms_raw"].extend(detected_platforms)
-            result["physical_signature"] = __get_physical_device_signature(device_reg, entry.device_id)
+        result["physical_signature"] = __get_physical_device_signature(device_reg, entry.device_id)
     
     result["all_platforms_raw"] = list(set(result["all_platforms_raw"]))
     result["all_platforms"] = result["all_platforms_raw"]
     
     if len(result["all_platforms"]) > 1:
         result["is_multi_platform"] = True
-        # ✅ INFO seulement pour multi-plateforme
         _LOGGER.info(
-            f"🔀 Multi-plateforme: {entity_id} → {result['all_platforms']} (signature: {result['physical_signature']})"
+            f"🔀 {entity_id} → Multi-plateforme détecté ! "
+            f"Platform déclaré: {result['platform_declared']}, "
+            f"Plateformes disponibles: {result['all_platforms']}, "
+            f"Signature physique: {result['physical_signature']}"
         )
     
     result["integration"] = result["platform_declared"] or result["platform_detected"] or "unknown"
+    _LOGGER.debug(
+        f"🔍 {entity_id} → integration: {result['integration']} "
+        f"(declared={result['platform_declared']}, detected={result['platform_detected']})"
+    )
+    
     return result
 
 # ============================================================================
@@ -281,52 +278,51 @@ def __detect_integration_complete(entity_reg, device_reg, entity_id: str, entry)
 # ============================================================================
 
 def __read_json_sync(path: str) -> Any:
-    """✅ Aucun log."""
     with open(path, "r", encoding="utf-8") as f:
         return json.load(f)
 
 def __write_json_sync(path: str, data: Any) -> None:
-    """✅ Aucun log."""
     os.makedirs(os.path.dirname(path), exist_ok=True)
     with open(path, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
 
 def __load_quality_map_sync() -> Dict[str, str]:
-    """✅ Aucun log."""
     if not os.path.exists(_QUALITY_MAP_FILE):
         return {}
     with open(_QUALITY_MAP_FILE, "r", encoding="utf-8") as f:
         data = yaml.safe_load(f) or {}
-    return {str(k): str(v) for k, v in data.items()}
+        return {str(k): str(v) for k, v in data.items()}
 
 def __is_premium(quality_scale: str) -> bool:
-    """✅ Aucun log."""
     return quality_scale in ("platinum", "gold")
 
 def __device_signature(c: Dict[str, Any]) -> str:
-    """✅ Aucun log."""
     name = (c.get("friendly_name") or c.get("nom") or "").strip().lower()
+    
     # Nettoyer TOUS les suffixes energy
     name = name.replace("device energy", "")
     name = name.replace("today energy", "")
     name = name.replace("consommation d'aujourd'hui", "")
     name = name.replace("d'aujourd'hui", "")
+    
     # Nettoyer TOUS les suffixes power
     name = name.replace("device power", "")
     name = name.replace("current power", "")
     name = name.replace("consommation actuelle", "")
     name = name.replace("actuelle", "")
+    
     # Nettoyer les mots génériques
     name = name.replace("consommation", "")
     name = name.replace("puissance", "")
+    
     # Nettoyer les espaces multiples
     name = " ".join(name.split())
+    
     zone = (c.get("zone") or "").strip().lower()
     sensor_type = (c.get("type") or "").strip().lower()
     return f"{name}|{zone}|{sensor_type}"
 
 def __get_name_preference(entity_id: str, sensor_type: str) -> int:
-    """✅ Aucun log."""
     entity_lower = entity_id.lower()
     if sensor_type == "energy":
         for idx, name in enumerate(PREFERRED_ENERGY_NAMES):
@@ -346,8 +342,6 @@ def __detect_from_hass(hass, config_entry=None) -> Tuple[List[Dict[str, Any]], L
     """
     VERSION 2.10 : Groupement par (device_id, integration) pour capturer
     TOUTES les intégrations d'un même device physique.
-    
-    ✅ LOGS INTELLIGENTS : Seulement résumés en INFO, détails en DEBUG
     """
     try:
         from homeassistant.helpers import (
@@ -356,35 +350,31 @@ def __detect_from_hass(hass, config_entry=None) -> Tuple[List[Dict[str, Any]], L
             area_registry as ar,
         )
     except ImportError:
-        _LOGGER.error("❌ Impossible d'importer les registries HA")
+        _LOGGER.error("Impossible d'importer les registries HA")
         return ([], [])
-    
+
     entity_reg = er.async_get(hass)
     device_reg = dr.async_get(hass)
     area_reg = ar.async_get(hass)
-    
+
     excluded_platforms = __get_excluded_platforms(config_entry)
     helper_platforms = __get_helper_platforms(config_entry)
     detect_helpers = __should_detect_helpers(config_entry)
     
-    # ✅ INFO config initiale
     _LOGGER.info(
-        f"🔧 [DETECT] Config: exclusions={len(excluded_platforms)}, helpers={'✓' if detect_helpers else '✗'}"
+        f"🔧 Config: exclusions={list(excluded_platforms)}, "
+        f"helpers={'activés' if detect_helpers else 'désactivés'}"
     )
-    
+
     energy_platforms = __get_energy_platforms_from_registry(entity_reg, hass)
-    # ✅ INFO plateformes détectées
-    _LOGGER.info(f"✅ [DETECT] Plateformes énergétiques: {sorted(energy_platforms)}")
-    
+    _LOGGER.info(f"✅ Plateformes énergétiques détectées: {sorted(energy_platforms)}")
+
     # CHANGEMENT V2.10 : Dict avec clé (device_id, integration)
     devices: Dict[str, Dict[str, Any]] = {}
-    
-    # Compteurs pour logs résumés
-    processed_count = 0
-    excluded_count = 0
-    
+
     for state in hass.states.async_all("sensor"):
         entity_id = state.entity_id
+        
         if entity_id.startswith("sensor.hse_"):
             continue
         
@@ -401,7 +391,7 @@ def __detect_from_hass(hass, config_entry=None) -> Tuple[List[Dict[str, Any]], L
         
         if integration not in energy_platforms:
             continue
-        
+
         device_id = entry.device_id
         has_device_id = bool(device_id)
         
@@ -413,25 +403,26 @@ def __detect_from_hass(hass, config_entry=None) -> Tuple[List[Dict[str, Any]], L
         )
         
         if platform_info["action"] == "exclude":
-            excluded_count += 1
-            # ✅ DEBUG seulement pour exclusions
-            _LOGGER.debug(f"🚫 {entity_id} exclu: {platform_info['reason']}")
+            _LOGGER.debug(
+                f"🚫 {entity_id} exclu : plateforme={integration} "
+                f"(raison: {platform_info['reason']})"
+            )
             continue
         
         is_helper = platform_info.get("is_helper", False)
         if is_helper and not detect_helpers:
-            excluded_count += 1
-            _LOGGER.debug(f"🚫 {entity_id} exclu: helper désactivé")
+            _LOGGER.debug(f"🚫 {entity_id} exclu : helper désactivé par config")
             continue
         
         is_virtual = not has_device_id
+        
         if is_virtual and not is_helper:
             safe_name = entity_id.replace("sensor.", "")[:50]
             device_id = f"virtual_{integration}_{safe_name}"
-        
+
         # CHANGEMENT V2.10 : Clé unique = device_id + integration
         device_key = f"{device_id}@{integration}"
-        
+
         if device_key not in devices:
             if is_virtual or is_helper:
                 devices[device_key] = {
@@ -463,12 +454,13 @@ def __detect_from_hass(hass, config_entry=None) -> Tuple[List[Dict[str, Any]], L
                     "is_helper": False,
                     "sensors": {"energy": [], "power": []}
                 }
-        
+
         reference_type = platform_info["reference_type"]
         helper_config = platform_info.get("helper_config")
+        
         reliability = __calculate_reliability_score(integration, reference_type, has_device_id)
         priority = __calculate_priority(sensor_type, reference_type, helper_config)
-        
+
         cand = {
             "entity_id": entity_id,
             "friendly_name": state.attributes.get("friendly_name", entity_id),
@@ -488,20 +480,15 @@ def __detect_from_hass(hass, config_entry=None) -> Tuple[List[Dict[str, Any]], L
             "all_platforms": integration_info["all_platforms"],
             "physical_signature": integration_info["physical_signature"],
         }
-        
         devices[device_key]["sensors"][sensor_type].append(cand)
-        processed_count += 1
-    
-    # ✅ INFO résumé processing
-    _LOGGER.info(f"📊 [DETECT] Traité: {processed_count} sensors, exclu: {excluded_count}")
-    
+
     result_energy = []
     result_power = []
-    
+
     for device_key, device_data in devices.items():
         energy_sensors = device_data["sensors"]["energy"]
         power_sensors = device_data["sensors"]["power"]
-        
+
         if energy_sensors:
             energy_sensors.sort(
                 key=lambda x: (
@@ -541,7 +528,7 @@ def __detect_from_hass(hass, config_entry=None) -> Tuple[List[Dict[str, Any]], L
                 "unavailable_since": None,
                 "removal_scheduled": None,
             })
-        
+
         if power_sensors:
             power_sensors.sort(
                 key=lambda x: (
@@ -581,7 +568,7 @@ def __detect_from_hass(hass, config_entry=None) -> Tuple[List[Dict[str, Any]], L
                 "unavailable_since": None,
                 "removal_scheduled": None,
             })
-    
+
     return (result_energy, result_power)
 
 # ============================================================================
@@ -589,23 +576,19 @@ def __detect_from_hass(hass, config_entry=None) -> Tuple[List[Dict[str, Any]], L
 # ============================================================================
 
 def __annotate_and_deduplicate(capteurs_raw: List[Dict[str, Any]], quality_map: Dict[str, str]) -> List[Dict[str, Any]]:
-    """✅ INFO seulement pour doublons, DEBUG pour détails."""
     for c in capteurs_raw:
         integ = c.get("integration")
         q = quality_map.get(integ, "custom")
         c["quality_scale"] = q
         c["is_premium"] = __is_premium(q)
-    
+
     groups: Dict[str, List[Dict[str, Any]]] = {}
     for c in capteurs_raw:
         sig = __device_signature(c)
         groups.setdefault(sig, []).append(c)
-    
-    duplicate_groups_count = 0
-    
+
     for signature, group in groups.items():
         if len(group) > 1:
-            duplicate_groups_count += 1
             ordered = sorted(
                 group,
                 key=lambda x: (
@@ -615,25 +598,27 @@ def __annotate_and_deduplicate(capteurs_raw: List[Dict[str, Any]], quality_map: 
                 ),
                 reverse=True
             )
-            
             for idx, sensor in enumerate(ordered):
                 sensor["is_duplicate"] = (idx > 0)
                 sensor["is_main_duplicate"] = (idx == 0)
                 sensor["duplicate_rank"] = idx + 1
                 sensor["duplicate_group"] = signature
                 sensor["suggested_enabled"] = (idx == 0)
-                sensor["enabled"] = False
+                sensor["enabled"] = False  # ← AJOUT
                 sensor["disabled"] = False
                 sensor["alternatives"] = [
                     s["entity_id"] for s in ordered if s["entity_id"] != sensor["entity_id"]
                 ][:3]
-            
+
             main = ordered[0]
-            # ✅ INFO pour doublons
+            duplicates_info = ", ".join([
+                f"{s['entity_id']} ({s['integration']}, {s['priority']})"
+                for s in ordered[1:]
+            ])
             _LOGGER.info(
-                f"🔍 [DOUBLON] {len(ordered)} sensors: suggéré={main['entity_id']} "
-                f"({main['integration']}, prio={main['priority']}), "
-                f"alts={[s['entity_id'] for s in ordered[1:]]}"
+                f"🔍 Doublon détecté '{signature}': {len(ordered)} sensors. "
+                f"Suggéré: {main['entity_id']} ({main['integration']}, priorité {main['priority']}). "
+                f"Alternatives: {duplicates_info}"
             )
         else:
             sensor = group[0]
@@ -642,13 +627,10 @@ def __annotate_and_deduplicate(capteurs_raw: List[Dict[str, Any]], quality_map: 
             sensor["duplicate_rank"] = 1
             sensor["duplicate_group"] = signature
             sensor["suggested_enabled"] = True
-            sensor["enabled"] = False
+            sensor["enabled"] = False  # ← AJOUT
             sensor["disabled"] = False
             sensor["alternatives"] = []
-    
-    if duplicate_groups_count > 0:
-        _LOGGER.info(f"🔍 [DOUBLON] {duplicate_groups_count} groupes de doublons détectés")
-    
+
     return capteurs_raw
 
 # ============================================================================
@@ -656,7 +638,6 @@ def __annotate_and_deduplicate(capteurs_raw: List[Dict[str, Any]], quality_map: 
 # ============================================================================
 
 async def run_detect_local(*args, **kwargs) -> List[Dict[str, Any]]:
-    """✅ INFO pour résumé final uniquement."""
     hass = kwargs.get("hass")
     config_entry = kwargs.get("config_entry")
     
@@ -681,15 +662,14 @@ async def run_detect_local(*args, **kwargs) -> List[Dict[str, Any]]:
             integ = c.get("integration", "unknown")
             integrations_count[integ] = integrations_count.get(integ, 0) + 1
         
-        # ✅ INFO résumé final complet
         _LOGGER.info(
-            f"✅ [DETECT] RÉSUMÉ: total={total}, physique={physical}, virtuel={virtual}, "
-            f"helpers={helpers}, multi_platform={multi_platform}, energy={energy_count}, "
-            f"power={power_count}, doublons={duplicates}, suggérés={suggested}"
+            "[DETECT] total=%s, physique=%s, virtuel=%s, helpers=%s, multi_platform=%s, "
+            "energy=%s, power=%s, doublons_detectes=%s, suggeres_actifs=%s",
+            total, physical, virtual, helpers, multi_platform, energy_count, power_count, duplicates, suggested
         )
-        
         _LOGGER.info(
-            f"📊 [DETECT] Par intégration: {', '.join([f'{k}={v}' for k, v in sorted(integrations_count.items(), key=lambda x: -x[1])[:5]])}"
+            "[DETECT] Répartition par intégration: %s",
+            ", ".join([f"{k}={v}" for k, v in sorted(integrations_count.items(), key=lambda x: -x[1])[:10]])
         )
         
         await hass.async_add_executor_job(__write_json_sync, _CAPTEURS_FILE, capteurs_final)

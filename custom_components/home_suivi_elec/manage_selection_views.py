@@ -803,4 +803,3 @@ class HSESensorsPublicView(HomeAssistantView):
 
 # Enregistre la vue dans async_setup ou async_setup_entry (__init__.py) :
 # hass.http.register_view(HSESensorsPublicView(hass))
-
