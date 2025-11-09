@@ -264,3 +264,136 @@ class HomeElecUnifiedConfigAPIView(HomeAssistantView):
     def _error(self, status, message):
         """Réponse erreur"""
         return web.json_response({"error": True, "message": message}, status=status)
+    
+class ValidationActionView(HomeAssistantView):
+    """
+    POST /api/home_suivi_elec/validation/action
+    Actions de correction pour synchronisation
+    """
+    url = "/api/home_suivi_elec/validation/action"
+    name = "api:home_suivi_elec:validation_action"
+    requires_auth = False
+    cors_allowed = True
+
+    def __init__(self, hass: HomeAssistant):
+        self.hass = hass
+
+    async def post(self, request):
+        """Applique les actions de correction"""
+        try:
+            import json
+            import os
+            import asyncio
+            from pathlib import Path
+            
+            data = await request.json()
+            action = data.get("action")
+            
+            selection_file = Path(__file__).parent.parent / "data" / "capteurs_selection.json"
+            power_file = Path(__file__).parent.parent / "data" / "capteurs_power.json"
+            
+            def _apply_action():
+                # Charger les fichiers
+                with open(selection_file, "r", encoding="utf-8") as f:
+                    selection_data = json.load(f)
+                
+                with open(power_file, "r", encoding="utf-8") as f:
+                    power_data = json.load(f)
+                
+                power_ids = {s["entity_id"] for s in power_data}
+                
+                result = {"success": True, "action": action, "changes": [], "errors": []}
+                
+                if action == "disable_orphans":
+                    # Désactiver tous les capteurs orphelins
+                    for category, items in selection_data.items():
+                        if not isinstance(items, list):
+                            continue
+                        for item in items:
+                            if item.get("enabled") and item["entity_id"] not in power_ids:
+                                item["enabled"] = False
+                                result["changes"].append({
+                                    "entity_id": item["entity_id"],
+                                    "action": "disabled",
+                                    "reason": "orphan"
+                                })
+                    
+                    result["message"] = f"{len(result['changes'])} capteur(s) orphelin(s) désactivé(s)"
+                
+                elif action == "enable_available":
+                    # Activer tous les capteurs détectés mais non activés
+                    for category, items in selection_data.items():
+                        if not isinstance(items, list):
+                            continue
+                        for item in items:
+                            if not item.get("enabled") and item["entity_id"] in power_ids:
+                                item["enabled"] = True
+                                result["changes"].append({
+                                    "entity_id": item["entity_id"],
+                                    "action": "enabled",
+                                    "reason": "available"
+                                })
+                    
+                    result["message"] = f"{len(result['changes'])} capteur(s) activé(s)"
+                
+                elif action == "full_sync":
+                    # Synchronisation complète
+                    for category, items in selection_data.items():
+                        if not isinstance(items, list):
+                            continue
+                        for item in items:
+                            entity_id = item["entity_id"]
+                            should_be_enabled = entity_id in power_ids
+                            
+                            if item.get("enabled", False) != should_be_enabled:
+                                item["enabled"] = should_be_enabled
+                                result["changes"].append({
+                                    "entity_id": entity_id,
+                                    "action": "enabled" if should_be_enabled else "disabled",
+                                    "reason": "sync"
+                                })
+                    
+                    result["message"] = f"{len(result['changes'])} capteur(s) synchronisé(s)"
+                
+                elif action == "disable_specific":
+                    # Désactiver des capteurs spécifiques
+                    entity_ids = data.get("entity_ids", [])
+                    for category, items in selection_data.items():
+                        if not isinstance(items, list):
+                            continue
+                        for item in items:
+                            if item["entity_id"] in entity_ids and item.get("enabled"):
+                                item["enabled"] = False
+                                result["changes"].append({
+                                    "entity_id": item["entity_id"],
+                                    "action": "disabled",
+                                    "reason": "user_request"
+                                })
+                    
+                    result["message"] = f"{len(result['changes'])} capteur(s) désactivé(s)"
+                
+                else:
+                    result["success"] = False
+                    result["error"] = f"Action inconnue: {action}"
+                    return result
+                
+                # Sauvegarder
+                with open(selection_file, "w", encoding="utf-8") as f:
+                    json.dump(selection_data, f, indent=2, ensure_ascii=False)
+                
+                return result
+            
+            # Exécuter action
+            loop = asyncio.get_event_loop()
+            result = await loop.run_in_executor(None, _apply_action)
+            
+            _LOGGER.info(f"[VALIDATION-ACTION] '{action}': {result.get('message')}")
+            
+            return web.json_response({"error": False, "data": result})
+            
+        except Exception as e:
+            _LOGGER.exception(f"[VALIDATION-ACTION] POST error: {e}")
+            return web.json_response({
+                "error": True,
+                "message": str(e)
+            }, status=500)
