@@ -900,6 +900,15 @@ async def async_setup_energy_tracking(hass: HomeAssistant, entry: ConfigEntry):
 
     hass.data[DOMAIN]["energy_sensors"] = energy_sensors
     _LOGGER.info(f"💾 [DEBUG] Stocké {len(energy_sensors)} sensors dans hass.data")
+    # ✅ Émettre event APRÈS stockage
+    from datetime import datetime
+    hass.bus.async_fire("hse_energy_sensors_ready", {
+        "entity_ids": [s.entity_id for s in energy_sensors],
+        "count": len(energy_sensors),
+        "type": "energy",
+        "timestamp": datetime.now().isoformat()
+    })
+    _LOGGER.info(f"📡 [EVENT] hse_energy_sensors_ready émis")
 
     # ✅ PROTECTION pour stats
     try:

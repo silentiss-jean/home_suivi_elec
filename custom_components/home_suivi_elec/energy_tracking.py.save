@@ -1,5 +1,4 @@
-"""
-Module de tracking d'énergie avec cycles automatiques.
+"""  %%%ù%£%%XXW+X<%=wùÙÙùùModule de tracking d'énergie avec cycles automatiques.
 Enregistre aussi les noms complets dans le registry universel.
 ✅ FIX: unique_id collision-proof avec hash source
 ✅ BUGFIX CRITIQUE: Ajout du return sensors manquant
