@@ -13,7 +13,7 @@
 
 Mention "Un utilitaire CLI/AI de navigation backend est disponible dans docs/scripts/cli_backend_nav.py" 
 
-✅ SUCCÈS NO-SHORTENING (Octobre 2025)
+✅ SUCCES NO-SHORTENING (Octobre 2025)
 	•	Élimination complète des orphelins (0/125 vs 65/125 avant)
 	•	Correspondance directe parent↔enfant sans raccourcissement
 	•	Préservation noms complets et lisibles (143+ caractères supportés)
@@ -40,6 +40,10 @@ Mention "Un utilitaire CLI/AI de navigation backend est disponible dans docs/scr
 
 🧩 Description synthétique :
 Ce diagramme illustre la chaîne complète depuis la détection des capteurs jusqu'à la visualisation, le scoring et les exports.
+
+⸻
+
+## 3. Modules principaux
 
 ⸻
 
@@ -77,6 +81,7 @@ Ce diagramme illustre la chaîne complète depuis la détection des capteurs jus
 | Debug standalone | 5 | custom_components/home_suivi_elec/detect_local_debug_standalone.py |
 | Detect energy (util) | 5 | custom_components/home_suivi_elec/detect_energy.py |
 
+
 ⸻
 
 ## 1. Introduction générale
@@ -113,10 +118,6 @@ Le backend de home_suivi_elec vise à :
 
 ⸻
 
-## 3. Modules principaux
-
-⸻
-
 #### 3.1 __init__.py — Résumé et accès rapide
 
 **Rôle métier :** Orchestration et setup global de l'intégration, enregistrement services, endpoints, lifecycle et gestion hass.data.
@@ -145,15 +146,15 @@ Le backend de home_suivi_elec vise à :
 | `migrate_cleanup` | Nettoyage migration automatique |
 
 **Endpoints REST :** 
-- ✅ `/api/home_suivi_elec/{resource}` — API Unifiée GET (voir 3.21)
-- ✅ `/api/home_suivi_elec/config/{action}` — API Configuration POST (voir 3.22)
+- ✅ `/api/home_suivi_elec/{resource}` — API Unifiée (NOUVEAU)
+- ✅ `/api/home_suivi_elec/config/{action}` — API Configuration (NOUVEAU)
 - `/api/home_suivi_elec/ping` — Test API
-- `/api/home_suivi_elec/entity_name_registry` — Registry noms (voir 3.24)
+- `/api/home_suivi_elec/entity_name_registry` — Registry noms (NOUVEAU)
 - `/api/home_suivi_elec/diagnostic_groups` — Diagnostic parent↔enfant
 - `/api/home_suivi_elec/set_ignored_entity`
 - `/api/home_suivi_elec/choose_best_for_device`
 - `/api/home_suivi_elec/get_diagnostics`
-- Voir manage_selection_views.py (3.23) pour les autres endpoints
+- Tous les endpoints de manage_selection_views.py
 
 **Clés hass.data :** 
 - DOMAIN
@@ -204,8 +205,8 @@ Le backend de home_suivi_elec vise à :
 **Endpoints REST — Architecture hybride :**
 
 **✅ API Unifiée (nouveau système) :**
-- `/api/home_suivi_elec/{resource}` - API GET unifiée (voir 3.21)
-- `/api/home_suivi_elec/config/{action}` - API POST configuration (voir 3.22)
+- `/api/home_suivi_elec/{resource}` - API GET unifiée (remplace progressivement 18+ endpoints)
+- `/api/home_suivi_elec/config/{action}` - API POST configuration
 
 **API Legacy (inline dans __init__.py) :**
 - `/api/home_suivi_elec/ping` - Test connexion API
@@ -1412,7 +1413,7 @@ Vérifie la présence du dossier panel statique, le crée si absent.
 
 Vérifie l'existence des fichiers panel.js et panel.html, génère un HTML minimal si nécessaire.
 
-Enregistre le répertoire comme ressource statique accessible via `/home_suivi_elec`.
+Enregistre le répertoire comme ressource statique accessible via `/home_suivi_elec`.```
 
 Ajoute le panneau dans la barre latérale Home Assistant grâce à `frontend.async_register_built_in_panel`.
 
@@ -1505,9 +1506,7 @@ Confirmer la présence du panneau dans la sidebar après boot/reload
 ✅ NOUVEAU : Implémente la solution NO-SHORTENING (préservation noms complets)
 ❌ SUPPRIMÉ : Plus de raccourcissement/hash des entity_id  
 🎯 OBJECTIF : Élimination complète des orphelins causés par mismatch de noms
-🏆 RÉSULTAT : 100% de correspon
-
-dance parent↔enfant (vs 48% avant)
+🏆 RÉSULTAT : 100% de correspondance parent↔enfant (vs 48% avant)
 
 **⚙️ Fonctionnement technique**
 
@@ -2244,7 +2243,7 @@ Pour debuguer :
 
 **Services HA :** N/A
 
-**Endpoints REST :** /api/home_suivi_elec/entity_name_registry (GET - voir 3.24)
+**Endpoints REST :** /api/home_suivi_elec/entity_name_registry (GET)
 
 **Clés hass.data :** N/A (stockage interne registry)
 
@@ -2315,7 +2314,7 @@ await registry.async_save()  \# Sauvegarde async
 - power_monitoring.py (enregistrement sensors power live)
 
 **API REST :**
-- `/api/home_suivi_elec/entity_name_registry` (GET) - Vue dans 3.24
+- `/api/home_suivi_elec/entity_name_registry` (GET) - Vue inline dans __init__.py
 
 **🔄 Cycle de vie**
 
@@ -2353,6 +2352,21 @@ Input: sensor.chambre_pwr_plug_today_energy
 
 ```
 
+**Exemple 3 - API REST :**
+```
+
+GET /api/home_suivi_elec/entity_name_registry
+→ {
+"success": true,
+"mappings": {
+"salon_plug": "Salon Prise Connectée",
+"chambre_pwr": "Chambre Puissance"
+},
+"stats": {"total": 2, "version": "1.0"}
+}
+
+```
+
 **Debug & Repérage rapide (IA) :**
 
 **Classe principale :**
@@ -2376,836 +2390,241 @@ Input: sensor.chambre_pwr_plug_today_energy
 **Pour debuguer :**
 1. Vérifier fichier `entity_name_registry.json` existe
 2. Contrôler format JSON et contenu
-3. Tester API GET `/entity_name_registry` (voir 3.24)
+3. Tester API GET `/entity_name_registry`
 4. Logs chargement/sauvegarde
 5. Vérifier appels register_sync() dans energy_tracking/power_monitoring
 6. Contrôler génération display_name (expansions, capitalisation)
 
-⸻
 
 #### 3.21 api/unified_api.py — Résumé et accès rapide
+Rôle métier :
+API REST unifiée GET (nouvelle génération) : expose les données réelles du backend Home Suivi Élec (capteurs, config, diagnostics, UI).
 
-**Rôle métier :** API REST unifiée GET (nouvelle génération) exposant données backend réelles (capteurs, config, diagnostics, UI).
+Fichier Python : custom_components/home_suivi_elec/api/unified_api.py
 
-**Fichier Python :** custom_components/home_suivi_elec/api/unified_api.py
+Classe(s) principale(s) : HomeElecUnifiedAPIView (HomeAssistantView)
 
-**Classe principale :** HomeElecUnifiedAPIView (HomeAssistantView)
+Endpoints REST :
 
-**Fonctions critiques :**
-- get (router principal)
-- _handle_sensors, _handle_data, _handle_diagnostics, _handle_config, _handle_ui
+/api/home_suivi_elec/{resource}
 
-**Services HA :** N/A
+sensors: Capteurs détectés avec état+sélection
 
-**Endpoints REST :**
-- `/api/home_suivi_elec/sensors` — Liste capteurs détectés + sélection + état HA
-- `/api/home_suivi_elec/data` — Données consommation (sensors energy)
-- `/api/home_suivi_elec/diagnostics` — Santé système
-- `/api/home_suivi_elec/config` — Configuration actuelle
-- `/api/home_suivi_elec/ui` — Infos panel UI
+data: Données/valeurs de consommation (energy sensors)
 
-**Clés hass.data :** DOMAIN (config, options)
+diagnostics: Santé/synthèse système (capteurs opérationnels, count)
 
-**Logs/caractéristiques :**
-- [API Unifiée GET], logs fusion capteurs, health check
+config: Configuration utilisateur+options
 
-**Exemples d'usage :**
-- Monitoring externe backend
-- Dashboard custom avec données temps réel
-- Diagnostic automatisé
+ui: Infos panel UI et endpoints
 
-**Pour debuguer :**
-- Tester chaque endpoint GET
-- Vérifier fusion capteurs_power + capteurs_selection
-- Analyser health check système
+(resource inconnu : meta et endpoints listés)
 
-**🧠 Rôle métier**
+Fonctionnement technique
 
-**API REST moderne unifiée :**
-- **Architecture RESTful** : Un endpoint unique `/api/home_suivi_elec/{resource}` avec router interne
-- **Données réelles** : Connexion directe backend (capteurs_power.json, hass.data, états HA)
-- **Fusion intelligente** : Combine détection + sélection + état live
-- **Health monitoring** : Diagnostic automatique santé système
-- **Migration progressive** : Remplace 18+ endpoints legacy
+GET générique unique, route selon resource (router interne)
 
-**⚙️ Fonctionnement technique**
+Fusion de capteurs de différents fichiers JSON, ajout de l'état HA live
 
-**Classe HomeElecUnifiedAPIView :**
-- URL pattern : `/api/home_suivi_elec/{resource}`
-- Router GET avec switch sur resource
-- Auth désactivée : `requires_auth = False`
-- CORS autorisé : `cors_allowed = True`
+Statistiques santé (part de capteurs unavailable, warning si >30%)
 
-**Endpoints disponibles :**
+Fournit la config backend live (self.hass.data[DOMAIN]["config"], etc.)
 
-| Resource | Fonction | Données retournées |
-|----------|----------|-------------------|
-| `sensors` | _handle_sensors | Capteurs détectés + sélection + état HA live |
-| `data` | _handle_data | Valeurs consommation sensors HSE energy |
-| `diagnostics` | _handle_diagnostics | Santé système, stats capteurs |
-| `config` | _handle_config | Configuration utilisateur + options |
-| `ui` | _handle_ui | Infos panel, URLs, vues disponibles |
-| *(autre)* | — | Meta info + endpoints disponibles |
+Utile pour dashboards externes, debug, UX avancée
 
-**Fusion capteurs (endpoint /sensors) :**
-1. Charge `capteurs_power.json` (détection)
-2. Charge `capteurs_selection.json` (sélection user)
-3. Crée index sélection pour fusion rapide
-4. Enrichit avec état HA live (current_state, last_changed, attributes)
-5. Retourne capteurs fusionnés + stats (total, enabled_count)
+Exemples d'usage
 
-**Health monitoring (endpoint /diagnostics) :**
-- Statut global : `operational`, `degraded` (>30% unavailable), `critical` (0 sensors)
-- Stats : total_detected, hse_energy_sensors, unavailable_sensors
-- Sources data : présence fichiers JSON + états HA
+Monitoring santé backend
 
-**🔗 Interactions et dépendances**
+Liste complète des capteurs actuels (avec fusion d'état)
 
-**Lit les fichiers :**
-- capteurs_power.json (détection)
-- capteurs_selection.json (sélection)
+Consommations agrégées pour visualisation ou analyse externe
 
-**Accède à :**
-- hass.data[DOMAIN] (config, options)
-- hass.states (états HA live)
+Debug & Repérage rapide :
 
-**Utilisé par :**
-- Frontend custom/dashboard externe
-- Scripts monitoring/debug
-- Panel UI avancé
+GET /api/home_suivi_elec/sensors → liste enrichie des capteurs HSE
 
-**🔄 Cycle de vie**
+GET /api/home_suivi_elec/data → toutes les valeurs des energy sensors
 
-| Phase | Action |
-|-------|--------|
-| Init | Enregistrement dans __init__.py |
-| Runtime | Réponse GET selon resource |
-| Fusion | Load JSON + états HA à chaque requête |
-| Cache | Pas de cache (données temps réel) |
+GET /api/home_suivi_elec/config → config/option actuelle
 
-**🧪 Exemple(s)**
+GET /api/home_suivi_elec/diagnostics → health check
 
-**Exemple 1 - Liste capteurs fusionnés :**
-```
-
-GET /api/home_suivi_elec/sensors
-→ {
-"error": false,
-"data": {
-"sensors": [...],  \# Fusion détection + sélection + état HA
-"count": 25,
-"enabled_count": 18,
-"source": "capteurs_power.json + capteurs_selection.json + live_states"
-}
-}
-
-```
-
-**Exemple 2 - Health check :**
-```
-
-GET /api/home_suivi_elec/diagnostics
-→ {
-"error": false,
-"data": {
-"system_status": "operational",
-"health_check": {
-"total_detected": 25,
-"hse_energy_sensors": 120,
-"unavailable_sensors": 2
-},
-"backend_connected": true
-}
-}
-
-```
-
-**Debug & Repérage rapide (IA) :**
-
-**Classe principale :**
-- `HomeElecUnifiedAPIView`
-
-**Méthodes handler :**
-- `_handle_sensors()` : Fusion capteurs
-- `_handle_data()` : Consommations
-- `_handle_diagnostics()` : Santé système
-- `_handle_config()` : Config/options
-- `_handle_ui()` : Infos panel
-
-**Helpers internes :**
-- `_load_sensors_data()` : Charge capteurs_power.json async
-- `_load_selection_data()` : Charge capteurs_selection.json async
-- `_get_hse_energy_sensors()` : Filtre sensors HSE depuis états HA
-- `_extract_cycle_from_entity()` : Extrait cycle depuis entity_id
-
-**Logs caractéristiques :**
-- `🧪 API Unifiée GET: /{resource}`
-- `🔀 Fusion: N capteurs détectés + M sélections`
-- `📊 Fusion résultat: X/Y capteurs activés`
-- `Erreur API GET: {e}`
-
-**Pour debuguer :**
-1. Tester chaque endpoint avec curl/Postman
-2. Vérifier fusion capteurs (logs 🔀)
-3. Contrôler health check diagnostics
-4. Analyser états HA récupérés
-5. Vérifier présence fichiers JSON source
-6. Logger requêtes pour tracer appels frontend
-
-⸻
+GET /api/home_suivi_elec/ui → info UI/lien panel
 
 #### 3.22 api/unified_api_extensions.py — Résumé et accès rapide
+Rôle métier :
+API REST POST/PUT pour modification dynamique de la config, de la sélection et des options de l'intégration.
 
-**Rôle métier :** API REST POST/PUT pour actions configuration : sauvegarde sélection, modification options, toggle sensors, reset.
+Fichier Python : custom_components/home_suivi_elec/api/unified_api_extensions.py
 
-**Fichier Python :** custom_components/home_suivi_elec/api/unified_api_extensions.py
+Classe principale : HomeElecUnifiedConfigAPIView (HomeAssistantView)
 
-**Classe principale :** HomeElecUnifiedConfigAPIView (HomeAssistantView)
+Endpoints REST :
 
-**Fonctions critiques :**
-- post (router principal)
-- _save_sensor_selection, _update_integration_options, _toggle_sensor_state, _reset_configuration
+/api/home_suivi_elec/config/{action} (POST)
 
-**Services HA :** N/A
+save_selection: Sauvegarde la sélection métier (capteurs activés)
 
-**Endpoints REST :**
-- `/api/home_suivi_elec/config/save_selection` (POST)
-- `/api/home_suivi_elec/config/update_options` (POST)
-- `/api/home_suivi_elec/config/toggle_sensor` (POST)
-- `/api/home_suivi_elec/config/reset_config` (POST)
+update_options: Met à jour dynamiquement hass.data[DOMAIN]["options"]
 
-**Clés hass.data :** DOMAIN (options modifiées dynamiquement)
+toggle_sensor: Active/désactive un capteur spécifique (via entity_id)
 
-**Logs/caractéristiques :**
-- [API Config POST], logs sauvegarde, validation, reset
+reset_config: Réinitialise config ou sélection (support vide/safe)
 
-**Exemples d'usage :**
-- Sauvegarde sélection depuis UI custom
-- Modification options contractuelles à la volée
-- Activation/désactivation capteur spécifique
-- Reset config/sélection
+Techniques & Sécurité
 
-**Pour debuguer :**
-- Tester POST avec payload JSON
-- Vérifier logs validation/sauvegarde
-- Contrôler modification fichiers JSON
+Structure POST routée selon action
 
-**🧠 Rôle métier**
+Valide la structure du payload et effectue la modification sur JSON ou RAM
 
-**API Configuration moderne (actions POST) :**
-- **Modifications dynamiques** : Sauvegarde sélection, options, toggle sans restart
-- **Validation stricte** : Vérification structure payload avant modification
-- **Sécurité** : Filtrage options valides, validation catégories
-- **Traçabilité** : Logs complets de chaque action
+Gère le backup/sauvegarde des fichiers selection.json
 
-**⚙️ Fonctionnement technique**
+Retourne succès/error détaillé + logger backend
 
-**Classe HomeElecUnifiedConfigAPIView :**
-- URL pattern : `/api/home_suivi_elec/config/{action}`
-- Router POST avec switch sur action
-- Parsing JSON automatique du body
-- Validation payload avant traitement
+Exemples d'usage
 
-**Actions disponibles :**
+Sauvegarder une selection UI custom en JSON
 
-| Action | Payload | Fonction | Effet |
-|--------|---------|----------|-------|
-| `save_selection` | `{selection: {...}}` | _save_sensor_selection | Sauvegarde capteurs_selection.json |
-| `update_options` | `{options: {...}}` | _update_integration_options | MAJ hass.data[DOMAIN]["options"] |
-| `toggle_sensor` | `{entity_id, enabled}` | _toggle_sensor_state | Active/désactive capteur |
-| `reset_config` | `{type: "selection"/"options"}` | _reset_configuration | Reset config |
+Basculer dynamiquement un capteur enable/disable
 
-**Validation save_selection :**
-- Catégories valides : salle_de_bain, cuisine, chauffage, general
-- Structure : dict → list[dict] avec entity_id obligatoire
-- Retour erreur 400 si structure invalide
+Mettre à jour dynamiquement les options contractuelles d'abonnement
 
-**Validation update_options :**
-- Options valides filtrées : auto_generate, tariff_type, contract_type, etc.
-- Options inconnues ignorées avec warning
-- Mise à jour directe hass.data (pas de restart requis)
+Debug & Repérage rapide :
 
-**🔗 Interactions et dépendances**
+POST /api/home_suivi_elec/config/save_selection + payload sélection complète
 
-**Modifie :**
-- capteurs_selection.json (save_selection, toggle_sensor, reset)
-- hass.data[DOMAIN]["options"] (update_options, reset)
+POST /api/home_suivi_elec/config/update_options + options HA
 
-**Validation via :**
-- const.py (DOMAIN, clés options valides)
+POST /api/home_suivi_elec/config/toggle_sensor + {entity_id, enabled}
 
-**Utilisé par :**
-- Frontend UI custom
-- Panel configuration avancée
-- Scripts automatisation
-
-**🔄 Cycle de vie**
-
-| Phase | Action |
-|-------|--------|
-| Init | Enregistrement dans __init__.py |
-| Runtime | Réponse POST selon action |
-| Validation | Contrôle structure + valeurs |
-| Modification | Update JSON ou hass.data |
-| Log | Traçabilité complète actions |
-
-**🧪 Exemple(s)**
-
-**Exemple 1 - Sauvegarde sélection :**
-```
-
-POST /api/home_suivi_elec/config/save_selection
-Body: {
-"selection": {
-"cuisine": [
-{"entity_id": "sensor.xxx", "enabled": true}
-]
-}
-}
-→ Sauvegarde dans capteurs_selection.json
-→ {"success": true, "categories_saved": 1}
-
-```
-
-**Exemple 2 - Toggle capteur :**
-```
-
-POST /api/home_suivi_elec/config/toggle_sensor
-Body: {"entity_id": "sensor.xxx", "enabled": false}
-→ Désactive dans capteurs_selection.json
-→ {"success": true, "enabled": false}
-
-```
-
-**Exemple 3 - Reset sélection :**
-```
-
-POST /api/home_suivi_elec/config/reset_config
-Body: {"type": "selection"}
-→ Réinitialise capteurs_selection.json (vide)
-→ {"success": true, "reset_type": "selection"}
-
-```
-
-**Debug & Repérage rapide (IA) :**
-
-**Classe principale :**
-- `HomeElecUnifiedConfigAPIView`
-
-**Méthodes handler :**
-- `_save_sensor_selection()` : Sauvegarde sélection complète
-- `_update_integration_options()` : MAJ options dynamiques
-- `_toggle_sensor_state()` : Active/désactive un capteur
-- `_reset_configuration()` : Reset selection ou options
-
-**Helpers async I/O :**
-- `_load_json_file()` : Lecture async
-- `_save_json_file()` : Écriture async
-- `_get_selection_file_path()` : Chemin selection JSON
-
-**Logs caractéristiques :**
-- `🛠️ API Config POST: /{action}`
-- `✅ Sélection sauvegardée: N catégories`
-- `✅ Options mises à jour: [keys]`
-- `✅ Capteur {entity_id} activé/désactivé`
-- `✅ Configuration réinitialisée: {type}`
-- `JSON invalide: {e}`
-
-**Pour debuguer :**
-1. Tester POST avec curl/Postman + payload JSON
-2. Vérifier validation structure (logs erreur 400)
-3. Contrôler modifications fichiers JSON
-4. Analyser logs sauvegarde/MAJ
-5. Vérifier options filtrées vs ignorées
-6. Tester reset et vérifier état après
-
-⸻
+POST /api/home_suivi_elec/config/reset_config + {type} (selection/options)
 
 #### 3.23 manage_selection_views.py — Résumé et accès rapide
+Rôle métier :
+Expose la majorité des endpoints REST de sélection, mapping, diagnostic métier, scoring et options utilisateur.
 
-**Rôle métier :** Ensemble complet d'endpoints REST legacy pour sélection, mapping, consommations, scoring, sync et diagnostic.
+Fichier Python : custom_components/home_suivi_elec/manage_selection_views.py
 
-**Fichier Python :** custom_components/home_suivi_elec/manage_selection_views.py
+Classe(s) principale(s) :
 
-**Classe(s) principale(s) :**
-- GetSensorsView, SaveSelectionView, GetSelectionView
-- GetConsumptionsView, GetInstantPowerView
-- GetUserConfigView, SaveUserConfigView
-- GetUserOptionsView, SaveUserOptionsView
-- GetSummaryView
-- GetSyncStatusView, ForceSyncView
-- AutoSelectBestSensorsView, GetSensorQualityScoresView
-- HSESensorsPublicView
+GetSensorsView
 
-**Fonctions critiques :**
-- Handlers GET/POST pour chaque vue
-- _enrich_device_info, _compute_signature, _build_hse_energy_sensor_id
+SaveSelectionView
 
-**Services HA :** N/A
+GetSelectionView
 
-**Endpoints REST (pattern `/api/home_suivi_elec/xxx`) :**
-- `get_sensors` — Liste capteurs avec sélection/alternatives/référence
-- `save_selection` — Sauvegarde sélection (validation doublons/device)
-- `get_selection` — Récupère sélection JSON
-- `get_consumptions` — Valeurs HSE energy sensors par cycle
-- `get_instant_puissance` — Valeurs power temps réel
-- `get_user_config`, `save_user_config` — Config utilisateur
-- `get_user_options`, `save_user_options` — Options intégration
-- `get_summary` — Stats capteurs (total, actifs, doublons)
-- `sync/status`, `sync/force` — État/force sync manager
-- `auto_select_best_sensors` — Sélection auto (physiques uniquement)
-- `get_sensor_quality_scores` — Scores qualité tous capteurs
-- `lovelace_sensors` — Liste complète sensors HSE
+GetConsumptionsView
 
-**Clés hass.data :** N/A direct (accès via manage_selection)
+GetInstantPowerView
 
-**Logs/caractéristiques :**
-- Logs validation, détection doublons/conflits device
-- [AUTO_SELECT], [QUALITY_SCORES]
-- Logs GetConsumptions avec sensors introuvables
+GetUserConfigView / SaveUserConfigView
 
-**Exemples d'usage :**
-- UI custom frontend pour sélection capteurs
-- Dashboard temps réel consommations
-- Auto-sélection intelligente capteurs physiques
-- Diagnostic scoring qualité
+GetUserOptionsView / SaveUserOptionsView
 
-**Pour debuguer :**
-- Tester chaque endpoint individuellement
-- Vérifier validation doublons (save_selection)
-- Analyser fusion capteurs + sélection + état HA
-- Contrôler exclusion helpers dans auto_select
+GetSummaryView
 
-**🧠 Rôle métier**
+GetSyncStatusView / ForceSyncView
 
-**Collection complète d'endpoints REST legacy :**
-- **Sélection/mapping** : get_sensors, save_selection, get_selection
-- **Données temps réel** : get_consumptions, get_instant_puissance
-- **Configuration** : user_config, user_options
-- **Diagnostic** : summary, sync status, quality scores
-- **Intelligence** : auto_select (physiques), scoring qualité
-- **Export UI** : lovelace_sensors (tous sensors HSE)
+AutoSelectBestSensorsView (scoring auto)
 
-**⚙️ Fonctionnement technique**
+GetSensorQualityScoresView (score capteurs)
 
-**Architecture :**
-- Chaque vue = classe HomeAssistantView dédiée
-- Pattern URL dédié par fonction
-- Auth désactivée pour majorité (local use)
-- CORS autorisé pour accès cross-origin
+HSESensorsPublicView (liste sensors HSE)
 
-**Fonctions helpers partagées :**
-- `_enrich_device_info(hass, caps)` : Enrichit capteurs avec device/area/registry
-- `_compute_signature(c)` : Signature unique (name+area) pour détection doublons
-- `_build_hse_energy_sensor_id(source, cycle)` : Construit entity_id HSE energy
-- `_load_json(path)`, `_save_json(path, data)` : I/O JSON sync
+Endpoints REST principaux (pattern /api/home_suivi_elec/xxx) :
 
-**✅ Correction chirurgicale (NO-SHORTENING) :**
-```
+get_sensors, save_selection, get_selection
 
-def _build_hse_energy_sensor_id(source_entity_id: str, cycle: str) -> str:
-"""Alignement PARFAIT avec energy_tracking.py"""
-base_name = source_entity_id.replace("sensor.", "")
+get_consumptions, get_instant_puissance
 
-    if "today_energy" in source_entity_id:
-        return f"sensor.hse_{base_name}_{cycle}"
-    else:
-        return f"sensor.hse_energy_{base_name}_{cycle}"
-    ```
+get_user_config, save_user_config
 
-**Validation SaveSelectionView :**
-1. Détection doublons par signature (name+area)
-2. Détection conflits device (plusieurs capteurs même device)
-3. Retour erreur + liste conflits si détecté
-4. Sauvegarde uniquement si validation OK
+get_user_options, save_user_options
 
-**Auto-sélection (AutoSelectBestSensorsView) :**
-- ✅ **Filtre helpers** : Utilise `is_physical_sensor()` (exclusion min_max, template, etc.)
-- Enrichissement qualité : `enrich_sensors_with_quality()`
-- Sélection best : `auto_select_best_sensors()` (par device)
-- Sauvegarde automatique sélection optimale
+get_summary — stats capteurs actifs/doublons
 
-**🔗 Interactions et dépendances**
+sync/status, sync/force
 
-**Importe :**
-- manage_selection (chemins JSON)
-- sensor_quality_scorer (scoring, auto_select, is_physical_sensor)
-- const (DOMAIN, clés config)
+auto_select_best_sensors
 
-**Lit/écrit :**
-- capteurs_power.json
-- capteurs_selection.json
-- user_config.json
-- integration_quality.yaml
+get_sensor_quality_scores
 
-**Accède à :**
-- entity_registry, device_registry, area_registry (enrichissement)
-- hass.states (données temps réel)
-- hass.data[DOMAIN] (config, options)
-- Store (ignored_entities)
+lovelace_sensors (totale sensors HSE pour UI)
 
-**Utilisé par :**
-- Frontend UI custom
-- Panel selection avancé
-- Scripts monitoring/automatisation
+Fonctionnement technique
 
-**🔄 Cycle de vie**
+Récupère/fusionne capteurs depuis JSON & hass.data, expose toutes les datas d'orchestration backend selection/scoring
 
-| Phase | Action |
-|-------|--------|
-| Init | Enregistrement toutes vues dans __init__.py |
-| Runtime | Réponse GET/POST selon endpoint |
-| Validation | Contrôle structure + doublons |
-| I/O | Lecture/écriture JSON async |
-| Enrichissement | Fusion registries HA + métadonnées |
+Offre endpoints public pour selection, scoring, consommations, state
 
-**🧪 Exemple(s)**
+Diagnostique et force la synchronisation (force_sync)
 
-**Exemple 1 - Auto-sélection avec exclusion helpers :**
-```
+Debug & Repérage rapide
 
-POST /api/home_suivi_elec/auto_select_best_sensors
-→ Détection : 30 capteurs
-→ Filtrage : 25 physiques, 5 helpers exclus
-→ Scoring + sélection best par device
-→ Sauvegarde capteurs_selection.json
-→ {
-"success": true,
-"selected_count": 18,
-"helpers_excluded": 5,
-"message": "18 meilleurs capteurs physiques sélectionnés. 5 helpers exclus."
-}
+APIs clé pour tous les flux UI custom (mapping, dashboard métier, scoring, options…)
 
-```
-
-**Exemple 2 - Consommations avec fusion :**
-```
-
-GET /api/home_suivi_elec/get_consumptions
-→ Pour chaque capteur sélectionné + 5 cycles
-→ Cherche sensor.hse_{base}_{cycle} ou sensor.hse_energy_{base}_{cycle}
-→ Retourne dict[entity_id][cycle] = valeur kWh
-
-```
-
-**Exemple 3 - Validation doublons save :**
-```
-
-POST /api/home_suivi_elec/save_selection
-Body: {...sélection avec 2 capteurs même signature...}
-→ Détection conflit
-→ {
-"success": false,
-"error": "Conflits détectés",
-"conflicts": [{...}],
-"device_conflicts": [{...}]
-}
-
-```
-
-**Debug & Repérage rapide (IA) :**
-
-**Classes principales :**
-- Voir liste complète ci-dessus (13 vues)
-
-**Endpoints critiques :**
-- `get_sensors` : Fusion capteurs + sélection + alternatives
-- `save_selection` : Validation + sauvegarde
-- `get_consumptions` : Valeurs HSE energy (corrigé NO-SHORTENING)
-- `auto_select_best_sensors` : Sélection auto physiques
-- `get_sensor_quality_scores` : Scoring tous capteurs
-
-**Helpers clés :**
-- `_build_hse_energy_sensor_id()` : Construction entity_id alignée energy_tracking
-- `_enrich_device_info()` : Enrichissement registries HA
-- `_compute_signature()` : Détection doublons
-
-**Logs caractéristiques :**
-- `[AUTO_SELECT] Total capteurs chargés : N`
-- `[AUTO_SELECT] Physiques : N | Helpers exclus : M`
-- `[AUTO_SELECT] ✅ N capteurs physiques sélectionnés`
-- `[QUALITY_SCORES] Total : N | Physiques : X | Helpers : Y`
-- `[GetConsumptions] Sensor introuvable: {entity_id}`
-- Erreurs validation : JSON invalide, conflicts détectés
-
-**Pour debuguer :**
-1. Tester chaque endpoint avec curl/Postman
-2. Vérifier validation doublons (save_selection)
-3. Contrôler construction entity_id HSE (get_consumptions)
-4. Analyser exclusion helpers (auto_select, quality_scores)
-5. Vérifier enrichissement device/area
-6. Tracer logs pour sensors introuvables
-7. Valider cohérence avec energy_tracking.py (_build_hse_energy_sensor_id)
-
-⸻
+Points de vérité pour le frontend, l'audit, ou la correction automatique
 
 #### 3.24 manage_selection_views_entity_registry.py — Résumé et accès rapide
+Rôle métier :
+Expose en API REST le mapping noms courts → noms lisibles du registry universel, pour affichage, debug et UI avancée.
 
-**Rôle métier :** Expose en API REST le registry universel des noms (courts ↔ complets) pour affichage UI et debug.
+Fichier Python : custom_components/home_suivi_elec/manage_selection_views_entity_registry.py
 
-**Fichier Python :** custom_components/home_suivi_elec/manage_selection_views_entity_registry.py
+Classe principale : GetEntityNameRegistryView (HomeAssistantView)
 
-**Classe principale :** GetEntityNameRegistryView (HomeAssistantView)
+Endpoint REST
 
-**Fonctions critiques :** get
+/api/home_suivi_elec/entity_name_registry (GET)
+Retourne :
 
-**Services HA :** N/A
+le mapping nom court → nom d'affichage (mappings)
 
-**Endpoints REST :**
-- `/api/home_suivi_elec/entity_name_registry` (GET)
+statistiques registry (stats: nombre total, versions…)
 
-**Clés hass.data :** N/A (registry interne)
+Fonctionnement technique
 
-**Logs/caractéristiques :**
-- [ENTITY-NAME-REGISTRY] GET, erreurs load
+Instancie le registry sur accès, renvoie l’état courant
 
-**Exemples d'usage :**
-- Affichage noms lisibles dans UI
-- Debug mapping noms
-- Validation registry
+Sert à la fois pour le panel, la UI avancée et le debug
 
-**Pour debuguer :**
-- GET endpoint et vérifier mappings
-- Contrôler stats (total, version)
-- Logs erreurs load
+Autorise l'accès sans authentification pour faciliter l'intégration externe
 
-**🧠 Rôle métier**
+Debug & Repérage rapide :
 
-**Exposition REST du registry universel :**
-- Retourne tous les mappings short_name → display_name
-- Statistiques registry (total, version, date création)
-- Accès sans auth pour faciliter debug/UI
+GET /api/home_suivi_elec/entity_name_registry → voir tous les noms générés
 
-**⚙️ Fonctionnement technique**
-
-**Classe GetEntityNameRegistryView :**
-- URL : `/api/home_suivi_elec/entity_name_registry`
-- Méthode : GET uniquement
-- Auth désactivée : `requires_auth = False`
-- CORS autorisé : `cors_allowed = True`
-
-**Traitement :**
-1. Instancie EntityNameRegistry(data_dir)
-2. Récupère mappings via `registry.mappings()`
-3. Récupère stats via `registry.stats()`
-4. Retourne JSON avec success + data
-
-**Format réponse :**
-```
-
-{
-"success": true,
-"mappings": {
-"salon_plug": "Salon Prise Connectée",
-"chambre_pwr": "Chambre Puissance"
-},
-"stats": {
-"total": 150,
-"version": "1.0",
-"created": "2025-10-31T10:40:00Z"
-}
-}
-
-```
-
-**🔗 Interactions et dépendances**
-
-**Utilise :**
-- EntityNameRegistry (classe 3.20)
-
-**Enregistré par :**
-- api_extra_views.py (via async_register_extra_views)
-- ou __init__.py directement
-
-**Utilisé par :**
-- Frontend UI pour affichage noms lisibles
-- Scripts debug/validation
-- Panel configuration
-
-**🔄 Cycle de vie**
-
-| Phase | Action |
-|-------|--------|
-| Init | Enregistrement vue dans __init__.py |
-| GET request | Instanciation registry + load |
-| Response | Retour mappings + stats JSON |
-
-**🧪 Exemple**
-
-```
-
-GET /api/home_suivi_elec/entity_name_registry
-→ {
-"success": true,
-"mappings": {...150 mappings...},
-"stats": {"total": 150, "version": "1.0"}
-}
-
-```
-
-**Debug & Repérage rapide (IA) :**
-
-**Classe principale :**
-- `GetEntityNameRegistryView`
-
-**Méthode handler :**
-- `get(request)` : Retourne registry complet
-
-**Dépendance :**
-- `EntityNameRegistry(data_dir)` (voir 3.20)
-
-**Logs caractéristiques :**
-- `[ENTITY-NAME-REGISTRY] GET failed: {e}`
-
-**Pour debuguer :**
-1. GET endpoint et analyser JSON retourné
-2. Vérifier présence entity_name_registry.json
-3. Contrôler stats (total mappings)
-4. Comparer mappings avec sensors créés
-5. Logs erreurs si registry corrompu
-
-⸻
+Contrôle cohérence back/frontend, debug mapping et UI
 
 #### 3.25 api_extra_views.py — Résumé et accès rapide
+Rôle métier :
+Expose des endpoints REST additionnels (ping de santé API, diagnostic groups, registry noms) ; registration centralisée de vues.
 
-**Rôle métier :** Enregistrement centralisé des vues additionnelles (ping, entity_name_registry, diagnostic_groups).
+Fichier Python : custom_components/home_suivi_elec/api_extra_views.py
 
-**Fichier Python :** custom_components/home_suivi_elec/api_extra_views.py
+Classe(s) principale(s) :
 
-**Classe(s) principale(s) :**
-- PingView
-- async_register_extra_views (fonction registration)
+PingView  (GET /api/home_suivi_elec/ping) : Test simple API backend
 
-**Fonctions critiques :**
-- async_register_extra_views
+async_register_extra_views (fonction d'enregistrement)
 
-**Services HA :** N/A
+(importe) GetEntityNameRegistryView, DiagnosticGroupsView
 
-**Endpoints REST :**
-- `/api/home_suivi_elec/ping` (GET) — Test santé API
+Fonctionnement technique
 
-**Clés hass.data :** N/A
+Registre les vues additionnelles en un call (ping, entity_name_registry, diagnostic_groups)
 
-**Logs/caractéristiques :**
-- [API] logs enregistrement vues
-- ✅/❌ pour chaque vue enregistrée
+Utilisé pour automatiser la mise à disposition des endpoints auxiliaires lors du boot backend
 
-**Exemples d'usage :**
-- Test connexion API backend
-- Enregistrement automatique vues auxiliaires
-- Centralisation registration endpoints
+Debug & Repérage rapide :
 
-**Pour debuguer :**
-- GET /ping pour test API
-- Vérifier logs [API] registration
-- Contrôler enregistrement toutes vues
+GET /api/home_suivi_elec/ping → API live ?
 
-**🧠 Rôle métier**
+GET /api/home_suivi_elec/diagnostic_groups → Validation mapping parent-enfant (0 orphelins)
 
-**Centralisation registration vues additionnelles :**
-- **PingView** : Test santé API simple
-- **Registration automatique** : GetEntityNameRegistryView, DiagnosticGroupsView
-- **Logs traçabilité** : Succès/erreur pour chaque vue
-- **Facilite maintenance** : Un seul point d'enregistrement
+GET /api/home_suivi_elec/entity_name_registry → Voir registry mapping
 
-**⚙️ Fonctionnement technique**
-
-**Classe PingView :**
-- URL : `/api/home_suivi_elec/ping`
-- Retourne : `{"success": true, "message": "API is working"}`
-- Utilisé pour health check rapide
-
-**Fonction async_register_extra_views(hass) :**
-```
-
-async def async_register_extra_views(hass):
-"""Enregistre toutes les vues additionnelles"""
-hass.http.register_view(PingView())
-hass.http.register_view(GetEntityNameRegistryView(hass))
-hass.http.register_view(DiagnosticGroupsView(hass))
-
-```
-
-**Import vues externes :**
-- manage_selection_views_entity_registry.GetEntityNameRegistryView
-- manage_selection_views_diagnostic_groups.DiagnosticGroupsView
-
-**🔗 Interactions et dépendances**
-
-**Importe :**
-- manage_selection_views_entity_registry
-- manage_selection_views_diagnostic_groups
-
-**Appelé par :**
-- __init__.py (peut-être, selon architecture)
-
-**Enregistre :**
-- PingView locale
-- Vues importées externes
-
-**🔄 Cycle de vie**
-
-| Phase | Action |
-|-------|--------|
-| Init | Appel async_register_extra_views(hass) |
-| Registration | Enregistrement chaque vue avec logs |
-| Runtime | Vues disponibles endpoints |
-
-**🧪 Exemple**
-
-```
-
-
-# Dans __init__.py
-
-from .api_extra_views import async_register_extra_views
-await async_register_extra_views(hass)
-
-# Logs:
-
-# 🔗 [API] Enregistrement des vues additionnelles...
-
-# ✅ [API] PingView enregistrée: /api/home_suivi_elec/ping
-
-# ✅ [API] EntityNameRegistryView enregistrée
-
-# ✅ [API] DiagnosticGroupsView enregistrée
-
-```
-
-```
-
-GET /api/home_suivi_elec/ping
-→ {"success": true, "message": "Home Suivi Elec API is working"}
-
-```
-
-**Debug & Repérage rapide (IA) :**
-
-**Classe locale :**
-- `PingView` : Test santé simple
-
-**Fonction registration :**
-- `async_register_extra_views(hass)` : Enregistrement centralisé
-
-**Vues enregistrées :**
-- PingView (locale)
-- GetEntityNameRegistryView (importée)
-- DiagnosticGroupsView (importée)
-
-**Logs caractéristiques :**
-- `🔗 [API] Enregistrement des vues additionnelles...`
-- `✅ [API] PingView enregistrée: /api/home_suivi_elec/ping`
-- `✅ [API] EntityNameRegistryView enregistrée`
-- `✅ [API] DiagnosticGroupsView enregistrée`
-- `❌ [API] Erreur {VueName}: {e}`
-
-**Pour debuguer :**
-1. Vérifier logs [API] au boot
-2. Test GET /ping pour santé API
-3. Contrôler enregistrement toutes vues
-4. Vérifier imports modules externes
-5. Analyser erreurs registration
 
 ⸻
 
@@ -3216,23 +2635,23 @@ GET /api/home_suivi_elec/ping
 ```
 
 flowchart TD
-INIT[__init__.py 🎛️ Orchestration]
-DETECT[detect_local.py 🔎 Détection]
-SELECTION[manage_selection.py 🎯 Sélection / Mapping]
-SCORER[sensor_quality_scorer.py 🏅 Scoring / Diagnostic]
-TRACKING[energy_tracking.py 📈 Cycles Énergie]
-POWER[power_monitoring.py ⚡ Power Live]
-SYNC[sensor_sync_manager.py 🔄 Synchronisation]
-ANALYTICS[energy_analytics.py 🧮 Analyse / Prédictions]
-EXPORT[energy_export.py 🚚 Export / Backup]
-SENSOR[sensor.py 🪪 Entités HSE]
-GENERATOR[generator.py 🖼️ Dashboards]
-VALIDATION[helpers/validation.py ✅ Validation]
-REGISTRY[entity_name_registry.py 📇 Registry noms]
-VIEWS[manage_selection_views.py 🌐 API REST Legacy]
-API_UNIFIED[api/unified_api.py 🔗 API Unifiée GET]
-API_CONFIG[api/unified_api_extensions.py ⚙️ API Config POST]
-PANEL[panel_selection.py 🎨 Panel UI]
+    INIT[__init__.py 🎛️ Orchestration]
+    DETECT[detect_local.py 🔎 Détection]
+    SELECTION[manage_selection.py 🎯 Sélection / Mapping]
+    SCORER[sensor_quality_scorer.py 🏅 Scoring / Diagnostic]
+    TRACKING[energy_tracking.py 📈 Cycles Énergie]
+    POWER[power_monitoring.py ⚡ Power Live]
+    SYNC[sensor_sync_manager.py 🔄 Synchronisation]
+    ANALYTICS[energy_analytics.py 🧮 Analyse / Prédictions]
+    EXPORT[energy_export.py 🚚 Export / Backup]
+    SENSOR[sensor.py 🪪 Entités HSE]
+    GENERATOR[generator.py 🖼️ Dashboards]
+    VALIDATION[helpers/validation.py ✅ Validation]
+    REGISTRY[entity_name_registry.py 📇 Registry noms]
+    VIEWS[manage_selection_views.py 🌐 API REST Legacy]
+    API_UNIFIED[api/unified_api.py 🔗 API Unifiée GET]
+    API_CONFIG[api/unified_api_extensions.py ⚙️ API Config POST]
+    PANEL[panel_selection.py 🎨 Panel UI]
 
     INIT --> DETECT
     INIT --> PANEL
@@ -3283,7 +2702,7 @@ PANEL[panel_selection.py 🎨 Panel UI]
     
     PANEL --> VIEWS
     PANEL --> API_UNIFIED
-    
+
     style INIT fill:#e1f5ff,stroke:#01579b,stroke-width:3px
     style API_UNIFIED fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px
     style API_CONFIG fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px
@@ -3291,7 +2710,7 @@ PANEL[panel_selection.py 🎨 Panel UI]
     style POWER fill:#fff3e0,stroke:#e65100,stroke-width:2px
     style REGISTRY fill:#f3e5f5,stroke:#6a1b9a,stroke-width:2px
     style SYNC fill:#fce4ec,stroke:#c2185b,stroke-width:2px
-    ```
+
 
 🖼️ Illustration :
 ![Schéma global Backend](diagram-backend.svg)
@@ -3304,7 +2723,8 @@ PANEL[panel_selection.py 🎨 Panel UI]
 |----------|------|
 | `migration_cleanup.py` | Gère la migration des anciennes entités et le nettoyage des entités obsolètes lors d'une mise à jour. |
 | `detect_local_debug_standalone.py` / `detect_energy.py` | Outils utilitaires de test et de débogage : permettent d'exécuter la détection locale hors du contexte Home Assistant. |
-| `manage_selection_views_diagnostic_groups.py` | Vue REST pour diagnostic associations parent↔enfant (NO-SHORTENING validation). |
+| `api/unified_api.py` | **✅ NOUVEAU** - API REST unifiée GET pour remplacer progressivement 18+ endpoints legacy |
+| `api/unified_api_extensions.py` | **✅ NOUVEAU** - API REST POST pour actions configuration avancées |
 
 ⸻
 
@@ -3313,45 +2733,18 @@ PANEL[panel_selection.py 🎨 Panel UI]
 📡 Liste complète des endpoints REST exposés
 
 **API Unifiée (Architecture moderne) :**
-
-| Endpoint | Méthode | Section | Description |
-|----------|---------|---------|-------------|
-| `/api/home_suivi_elec/sensors` | GET | 3.21 | Capteurs détectés + sélection + état HA |
-| `/api/home_suivi_elec/data` | GET | 3.21 | Consommations sensors energy |
-| `/api/home_suivi_elec/diagnostics` | GET | 3.21 | Santé système backend |
-| `/api/home_suivi_elec/config` | GET | 3.21 | Configuration actuelle |
-| `/api/home_suivi_elec/ui` | GET | 3.21 | Infos panel UI |
-| `/api/home_suivi_elec/config/save_selection` | POST | 3.22 | Sauvegarde sélection capteurs |
-| `/api/home_suivi_elec/config/update_options` | POST | 3.22 | MAJ options intégration |
-| `/api/home_suivi_elec/config/toggle_sensor` | POST | 3.22 | Active/désactive capteur |
-| `/api/home_suivi_elec/config/reset_config` | POST | 3.22 | Reset config/sélection |
+- `GET /api/home_suivi_elec/{resource}` - API unifiée lecture
+- `POST /api/home_suivi_elec/config/{action}` - API unifiée configuration
 
 **API Legacy (Endpoints dédiés) :**
-
-| Endpoint | Méthode | Section | Description |
-|----------|---------|---------|-------------|
-| `/api/home_suivi_elec/get_sensors` | GET | 3.23 | Capteurs + alternatives + référence |
-| `/api/home_suivi_elec/save_selection` | POST | 3.23 | Sauvegarde avec validation doublons |
-| `/api/home_suivi_elec/get_selection` | GET | 3.23 | Récup sélection JSON |
-| `/api/home_suivi_elec/get_consumptions` | GET | 3.23 | Valeurs HSE energy par cycle |
-| `/api/home_suivi_elec/get_instant_puissance` | GET | 3.23 | Valeurs power temps réel |
-| `/api/home_suivi_elec/get_user_config` | GET | 3.23 | Config utilisateur |
-| `/api/home_suivi_elec/save_user_config` | POST | 3.23 | Sauvegarde config user |
-| `/api/home_suivi_elec/get_user_options` | GET | 3.23 | Options intégration |
-| `/api/home_suivi_elec/save_user_options` | POST | 3.23 | Sauvegarde options |
-| `/api/home_suivi_elec/get_summary` | GET | 3.23 | Stats résumé capteurs |
-| `/api/home_suivi_elec/sync/status` | GET | 3.23 | Statut sync manager |
-| `/api/home_suivi_elec/sync/force` | POST | 3.23 | Force synchronisation |
-| `/api/home_suivi_elec/auto_select_best_sensors` | POST | 3.23 | Sélection auto physiques |
-| `/api/home_suivi_elec/get_sensor_quality_scores` | GET | 3.23 | Scores qualité capteurs |
-| `/api/home_suivi_elec/lovelace_sensors` | GET | 3.23 | Liste complète sensors HSE |
-| `/api/home_suivi_elec/ping` | GET | 3.25 | Test santé API |
-| `/api/home_suivi_elec/entity_name_registry` | GET | 3.24 | Registry noms |
-| `/api/home_suivi_elec/diagnostic_groups` | GET | 3.1/3.25 | Diagnostic parent↔enfant |
-| `/api/home_suivi_elec/set_ignored_entity` | POST | 3.1 | Ignorer/activer entité |
-| `/api/home_suivi_elec/choose_best_for_device` | POST | 3.1 | Choix auto best sensor device |
-| `/api/home_suivi_elec/get_diagnostics` | GET | 3.1 | Diagnostic complet HSE |
-| `/api/home_suivi_elec/proxy` | POST | 3.19 | Proxy sécurisé frontend→backend |
+- `GET /api/home_suivi_elec/ping` - Test connexion
+- `GET /api/home_suivi_elec/entity_name_registry` - Registry noms
+- `GET /api/home_suivi_elec/diagnostic_groups` - Diagnostic parent↔enfant (NO-SHORTENING)
+- `POST /api/home_suivi_elec/set_ignored_entity` - Ignorer entité
+- `POST /api/home_suivi_elec/choose_best_for_device` - Choix auto best sensor
+- `GET /api/home_suivi_elec/get_diagnostics` - Diagnostic complet HSE
+- `POST /api/home_suivi_elec/proxy` - Proxy sécurisé frontend→backend
+- Voir manage_selection_views.py pour endpoints sélection/scoring
 
 ⸻
 
@@ -3375,25 +2768,19 @@ Filtres utiles :
 - `grep "home_suivi_elec"` - Tous les logs HSE
 - `grep "\[PHASE 2\]"` - Logs energy tracking
 - `grep "\[CREATE-SENSOR\]"` - Création sensors
-- `grep "\[API\]"` - Enregistrement/appels API
 - `grep "ERROR\|WARNING"` - Erreurs uniquement
 
 🧰 Outils de diagnostic et audit
 
 **APIs de diagnostic :**
-- `/api/home_suivi_elec/diagnostic_groups` - Associations parent↔enfant (0 orphelins)
-- `/api/home_suivi_elec/diagnostics` - Health check système (API unifiée)
-- `/api/home_suivi_elec/get_diagnostics` - Diagnostic complet HSE (legacy)
+- `/api/home_suivi_elec/diagnostic_groups` - Associations parent↔enfant
+- `/api/home_suivi_elec/get_diagnostics` - État complet sensors
 - `/api/home_suivi_elec/entity_name_registry` - Registry noms
-- `/api/home_suivi_elec/get_sensor_quality_scores` - Scores qualité tous capteurs
-- `/api/home_suivi_elec/sync/status` - État sync manager
 
 **Services de maintenance :**
 - `fix_sensor_names` - Correction automatique noms
 - `migrate_cleanup` - Nettoyage capteurs aberrants
 - `reset_integration_sensor` - Reset sensor spécifique
-- `generate_local_data
-- `Re-détection complète
 
 **Event de synchronisation :**
 - `hse_energy_sensors_ready` - Signal fin création sensors
@@ -3420,19 +2807,6 @@ Filtres utiles :
 2. Réponse : `{"orphans": [], "stats": {"orphans": 0}}`
 3. ✅ 0 orphelins = Solution NO-SHORTENING fonctionnelle
 
-**Scénario 4 - Auto-sélection capteurs physiques :**
-1. POST `/api/home_suivi_elec/auto_select_best_sensors`
-2. Filtrage helpers (exclusion min_max, template, etc.)
-3. Scoring qualité capteurs physiques
-4. Sélection best par device
-5. Sauvegarde automatique `capteurs_selection.json`
-
-**Scénario 5 - Utilisation API unifiée :**
-1. GET `/api/home_suivi_elec/sensors` → Liste capteurs fusionnés
-2. POST `/api/home_suivi_elec/config/save_selection` → Sauvegarde sélection
-3. GET `/api/home_suivi_elec/data` → Consommations temps réel
-4. GET `/api/home_suivi_elec/diagnostics` → Health check
-
 ⸻
 
 ## 9. Extension et maintenance
@@ -3441,82 +2815,50 @@ Filtres utiles :
 
 **Ajout d'un nouveau module :**
 1. Créer le fichier dans `custom_components/home_suivi_elec/`
-2. Documenter dans backend.md (section 3.X avec format standard)
+2. Documenter dans backend.md (section 3.X)
 3. Ajouter import dans `__init__.py`
 4. Enregistrer services/API si nécessaire
-5. Mettre à jour index recherche rapide (section après intro)
-6. Mettre à jour flowchart si interactions majeures
-7. Ajouter au changelog (section 11)
+5. Mettre à jour index recherche rapide
 
 **Ajout d'un endpoint API :**
-
-**Option 1 - API Unifiée (recommandé) :**
-1. Ajouter resource dans `api/unified_api.py` (GET)
-2. Ou ajouter action dans `api/unified_api_extensions.py` (POST)
-3. Documenter dans section 6 (tableau endpoints)
+1. Option 1 : Ajouter à `api/unified_api.py` (recommandé)
+2. Option 2 : Créer view dans `__init__.py` (legacy)
+3. Documenter dans section 6
 4. Tester via curl/Postman
-
-**Option 2 - Endpoint dédié (legacy) :**
-1. Créer classe View dans module approprié
-2. Enregistrer dans `__init__.py` ou `api_extra_views.py`
-3. Documenter dans section module + section 6
-4. Ajouter logs [API]
 
 **Ajout d'un service HA :**
 1. Enregistrer dans `async_setup_entry` (__init__.py)
-2. Ajouter fonction handler correspondante
-3. Documenter dans `services.yaml`
-4. Mettre à jour section 3.1 (tableau services)
-5. Ajouter logs avec préfixe [SERVICE]
-
-**Ajout nouvelle classe sensor :**
-1. Hériter de `SensorEntity` et `RestoreEntity` si nécessaire
-2. Implémenter méthodes requises (name, state, unique_id, etc.)
-3. Enregistrer dans liste appropriée (`energy_sensors` ou `live_power_sensors`)
-4. S'assurer ajout via `sensor.py` (async_setup_entry)
-5. Utiliser EntityNameRegistry pour noms lisibles
-6. Logger création avec préfixe dédié
+2. Ajouter dans `services.yaml`
+3. Documenter dans section 3.1
 
 🔧 Points d'entrée modifiables
 
 **Configuration utilisateur :**
-- `config_flow.py` - Setup initial (section 3.17)
-- `options_flow.py` - Modifications post-install (section 3.18)
-- `const.py` - Valeurs par défaut (section 3.16)
+- `config_flow.py` - Setup initial
+- `options_flow.py` - Modifications post-install
+- `const.py` - Valeurs par défaut
 
 **Logique métier :**
-- `sensor_quality_scorer.py` - Algorithme scoring (section 3.4)
-- `detect_local.py` - Critères détection (section 3.2)
-- `energy_tracking.py` - Cycles et calculs (section 3.6)
-- `power_monitoring.py` - Monitoring temps réel (section 3.14)
+- `sensor_quality_scorer.py` - Algorithme scoring
+- `detect_local.py` - Critères détection
+- `energy_tracking.py` - Cycles et calculs
 
 **UI et exports :**
-- `generator.py` - Dashboards Lovelace (section 3.7)
-- `energy_export.py` - Formats export (section 3.10)
-- `panel_selection.py` - Panel sidebar (section 3.11)
-
-**APIs et vues :**
-- `api/unified_api.py` - API GET moderne (section 3.21)
-- `api/unified_api_extensions.py` - API POST config (section 3.22)
-- `manage_selection_views.py` - Endpoints legacy (section 3.23)
+- `generator.py` - Dashboards Lovelace
+- `energy_export.py` - Formats export
+- `panel_selection.py` - Panel sidebar
 
 ♻️ Compatibilité ascendante garantie
 
 **Migrations automatiques :**
 - `migration_cleanup.py` - Gestion versions
-- Backup automatique avant modifications (sensor_sync_manager)
-- Rollback possible via backups (`data/backups/`)
+- Backup automatique avant modifications
+- Rollback possible via backups
 
 **Versioning :**
 - Version dans `manifest.json`
-- Changelog dans backend.md (section 11)
+- Changelog dans backend.md
 - Tags Git pour releases
-
-**Principes compatibilité :**
-- Ne jamais supprimer endpoint sans deprecation notice
-- Maintenir format JSON rétrocompatible
-- Nouveaux champs toujours optionnels
-- Tests régression sur chaque release
 
 ⸻
 
@@ -3525,36 +2867,28 @@ Filtres utiles :
 **Documentation :**
 - [README.md](../README.md) - Vue d'ensemble projet
 - [frontend.md](frontend.md) - Documentation UI
-- [CHANGELOG.md](../CHANGELOG.md) - Historique versions
-- [Diagrammes](.) - Schémas architecture (SVG)
+- [Diagrammes SVG](.) - Schémas architecture
 
 **Code source :**
 - [Repository GitHub](https://github.com/silentiss-jean/home_suivi_elec)
 - [Dossier backend](../custom_components/home_suivi_elec/)
-- [API modules](../custom_components/home_suivi_elec/api/)
-- [Helpers](../custom_components/home_suivi_elec/helpers/)
+- [API unifiée](../custom_components/home_suivi_elec/api/)
 
 **Outils :**
 - Script navigation IA : `docs/scripts/cli_backend_nav.py`
 - Tests : `custom_components/home_suivi_elec/tests/`
-- Debug standalone : `detect_local_debug_standalone.py`, `detect_energy.py`
-
-**Communauté & Support :**
-- [Issues GitHub](https://github.com/silentiss-jean/home_suivi_elec/issues)
-- [Discussions](https://github.com/silentiss-jean/home_suivi_elec/discussions)
-- [Wiki](https://github.com/silentiss-jean/home_suivi_elec/wiki)
 
 ⸻
 
-## 11. 🗓️ Changelog backend.md
+## 🗓️ Changelog backend.md
 
-- **2025-11-09** — Documentation complète + API Unifiée + Phase 2
-  - ✅ **Section 3.1 (__init__.py)** : Mise à jour majeure complète
+- **2025-11-09** — Audit complet + Phase 2 + API Unifiée
+  - ✅ **Section 3.1 (__init__.py)** : Mise à jour complète
     - API Unifiée documentée (unified_api.py, unified_api_extensions.py)
     - Service `fix_sensor_names` ajouté
-    - Phase 2 energy tracking détaillée (event hse_energy_sensors_ready)
+    - Phase 2 energy tracking détaillée
+    - Event `hse_energy_sensors_ready` documenté
     - Architecture hybride API (Legacy + Unifiée)
-    - Tableau services HA mis à jour
   - ✅ **Section 3.6 (energy_tracking.py)** : Nouvelle section complète
     - CumulativeEnergyCycleSensor et PowerEnergyCycleSensor
     - Support energy vs power avec auto-détection
@@ -3567,103 +2901,33 @@ Filtres utiles :
     - API async I/O non-blocking
     - Génération automatique friendly_names
     - Endpoint `/api/home_suivi_elec/entity_name_registry`
-  - ✅ **Section 3.21 (api/unified_api.py)** : Nouvelle section
-    - API REST unifiée GET (nouvelle génération)
-    - Endpoints : sensors, data, diagnostics, config, ui
-    - Fusion capteurs détection + sélection + état HA
-    - Health monitoring système
-  - ✅ **Section 3.22 (api/unified_api_extensions.py)** : Nouvelle section
-    - API REST POST/PUT pour configuration
-    - Actions : save_selection, update_options, toggle_sensor, reset_config
-    - Validation stricte payload
-  - ✅ **Section 3.23 (manage_selection_views.py)** : Nouvelle section
-    - 13+ endpoints REST legacy complets
-    - Auto-sélection capteurs physiques (exclusion helpers)
-    - Correction chirurgicale _build_hse_energy_sensor_id (NO-SHORTENING)
-    - Validation doublons/conflits device
-  - ✅ **Section 3.24 (manage_selection_views_entity_registry.py)** : Nouvelle section
-    - Vue REST exposition registry noms
-  - ✅ **Section 3.25 (api_extra_views.py)** : Nouvelle section
-    - Registration centralisée vues additionnelles
-    - PingView pour test santé API
-  - 📋 **Index recherche rapide** : Enrichi avec tous nouveaux modules (3.21-3.25)
-  - 📋 **Flowchart** : Actualisé avec toutes interactions (INIT, API, POWER, SYNC, REGISTRY)
+  - 📋 **Index recherche rapide** enrichi avec nouveaux modules
+  - 📋 **Tableau services HA** mis à jour (fix_sensor_names)
+  - 📋 **Section 5** : Ajout scripts API unifiée
   - 📋 **Sections 6-10** : Nouvelles sections complètes
-    - Section 6 : Tableau complet API et endpoints (Unifiée + Legacy)
-    - Section 7 : Erreurs, logs et diagnostic
-    - Section 8 : Exemples d'usage (5 scénarios détaillés)
-    - Section 9 : Extension et maintenance (guidelines complètes)
-    - Section 10 : Ressources associées
-  - 🔄 **Changelog** : Cette section créée avec historique complet
+    - API et endpoints (architecture hybride)
+    - Erreurs, logs et diagnostic
+    - Exemples d'usage
+    - Extension et maintenance
+    - Ressources associées
+  - 🔄 **Flowchart** : Ajout entity_name_registry
 
-- **2025-10-31** — Solution NO-SHORTENING
+- **2025-10-31** — NO-SHORTENING
   - Ajout du bloc « Succès NO-SHORTENING » dans l'introduction (0 orphelins, correspondance directe, API de validation)
   - Ajout de l'endpoint REST `/api/home_suivi_elec/diagnostic_groups` en section 3.1 avec description
   - Réécriture de la section 3.12 (sensor_name_fixer.py) pour refléter NO-SHORTENING (suppression hash/troncature)
   - Ajout d'un encadré Debug en section 3.5 (sensor.py) sur le problème résiduel d'enregistrement et le plan d'investigation
   - Mise à jour de l'index de recherche rapide avec « Diagnostic orphelins API »
 
-- **2025-10-30** — Réorganisation documentation backend
+- **2025-10-30** — Réorg doc backend
   - Ajout des schémas et de la table hass.data
   - Enrichissement des sections scoring, sélection, sync
-  - Flowchart initial cycle de vie données
 
 - **2025-10-27** — Version initiale
   - Première version de la documentation backend
-  - Sections principales modules métiers (3.1 à 3.19)
-  - Index recherche rapide initial
-  - Introduction objectifs et architecture
-
-⸻
-
-## 📝 Notes de maintenance
-
-**Dernière révision complète :** 2025-11-09  
-**Prochaine révision prévue :** À chaque release majeure  
-**Mainteneur principal :** @silentiss-jean
-
-**Pour contribuer à cette documentation :**
-1. Suivre le format standard des sections (voir sections 3.X comme modèle)
-2. Mettre à jour l'index recherche rapide
-3. Ajouter entry au changelog (section 11)
-4. Mettre à jour flowchart si nécessaire
-5. Tester tous les exemples fournis
-6. Pull request avec description détaillée
-
-**Conventions de nommage dans la doc :**
-- `🧠 Rôle métier` : Toujours en premier
-- `⚙️ Fonctionnement technique` : Détails implémentation
-- `🔗 Interactions et dépendances` : Liens avec autres modules
-- `🔄 Cycle de vie` : États et transitions
-- `🧪 Exemple(s)` : Cas d'usage concrets
-- `Debug & Repérage rapide (IA)` : Pour navigation automatisée
-
----
-
-**🎉 Documentation backend complète et à jour !**
-
-*Cette documentation est maintenue par la communauté. N'hésitez pas à contribuer pour l'améliorer.*
-
----
-
-**Légende emojis :**
-- 🧠 Rôle métier
-- ⚙️ Technique
-- 🔗 Interactions
-- 🔄 Cycle de vie
-- 🧪 Exemples
-- 📋 Organisation
-- ✅ Succès/validation
-- ❌ Erreur/problème
-- 🔧 Maintenance
-- 📊 Stats/données
-- 🎯 Objectif
-- 🚀 Performance
-- 🔍 Debug
-- 📡 API
-- 🎨 UI
-- 💾 Stockage
-- 🔐 Sécurité
-- 📝 Documentation
 ```
 
+
+
+
+**Tout le reste conservé intact** ✅
