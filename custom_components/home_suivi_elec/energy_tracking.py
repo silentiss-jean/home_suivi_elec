@@ -1,13 +1,13 @@
 """
-Energy Tracking Platform - Version FIXED UNIT
+Energy Tracking Platform - Version FIXED COMPLETE
 Crée sensors energy tracking avec cycles horaire/jour/semaine/mois/année
-FIX: Ajout @property native_unit_of_measurement pour compatibilité Energy Dashboard
+FIX: Ajout @property native_unit_of_measurement + fonction create_energy_sensors
 Date: 2025-11-10
 """
 import logging
 import asyncio
 from datetime import datetime, timedelta
-from typing import Any
+from typing import Any, List
 
 from homeassistant.components.sensor import (
     RestoreEntity,
@@ -31,9 +31,12 @@ CYCLES = {
 }
 
 
-async def async_setup_platform(hass, config, async_add_entities, discovery_info=None):
-    """Setup energy tracking sensors."""
-    _LOGGER.info("[ENERGY-TRACKING] Début création sensors cycles")
+def create_energy_sensors(hass: HomeAssistant, entry=None) -> List[SensorEntity]:
+    """
+    Create energy sensors from capteurs_selection.json
+    Appelée par __init__.py pour créer sensors manuellement
+    """
+    _LOGGER.info("[CREATE-ENERGY] Début création sensors via helper")
     
     import json
     import os
@@ -52,11 +55,11 @@ async def async_setup_platform(hass, config, async_add_entities, discovery_info=
         else:
             capteurs = data
             
-        _LOGGER.info(f"[ENERGY-TRACKING] {len(capteurs)} capteurs à traiter")
+        _LOGGER.info(f"[CREATE-ENERGY] {len(capteurs)} capteurs à traiter")
         
     except Exception as e:
-        _LOGGER.error(f"[ENERGY-TRACKING] Erreur lecture capteurs: {e}")
-        return
+        _LOGGER.error(f"[CREATE-ENERGY] Erreur lecture capteurs: {e}")
+        return []
     
     sensors = []
     
@@ -76,7 +79,7 @@ async def async_setup_platform(hass, config, async_add_entities, discovery_info=
             else:
                 sensor_id = f"sensor.hse_energy_{basename}_{cycle}"
             
-            _LOGGER.info(f"[CREATE-POWER] {sensor_id}")
+            _LOGGER.info(f"[CREATE-ENERGY] {sensor_id}")
             
             sensors.append(
                 PowerEnergyCycleSensor(
@@ -87,7 +90,18 @@ async def async_setup_platform(hass, config, async_add_entities, discovery_info=
                 )
             )
     
-    _LOGGER.info(f"[ENERGY-TRACKING] {len(sensors)} sensors créés")
+    _LOGGER.info(f"[CREATE-ENERGY] {len(sensors)} sensors créés")
+    return sensors
+
+
+async def async_setup_platform(hass, config, async_add_entities, discovery_info=None):
+    """
+    Setup energy tracking sensors via sensor platform
+    Utilisé si configuré dans configuration.yaml
+    """
+    _LOGGER.info("[ENERGY-TRACKING] Setup via sensor platform")
+    
+    sensors = create_energy_sensors(hass)
     async_add_entities(sensors, True)
 
 
