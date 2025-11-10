@@ -1,11 +1,9 @@
 """
-Energy Tracking - Version ULTRA-Compatible
-Accepte TOUS les paramètres: source, source_entity, unique_id, etc.
-Filtres anti-doublon inclus
+Energy Tracking - ULTRA-Compatible + CORRECTION entity_id
 """
 
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime
 from pathlib import Path
 import hashlib
 from typing import Dict, List, Any, Optional
@@ -19,7 +17,6 @@ from homeassistant.components.sensor import (
 from homeassistant.const import UnitOfEnergy, UnitOfPower
 from homeassistant.helpers.event import async_track_state_change_event, async_track_utc_time_change
 from homeassistant.helpers.restore_state import RestoreEntity
-from homeassistant.helpers import entity_registry as er
 import homeassistant.util.dt as dt_util
 
 from .const import DOMAIN
@@ -40,7 +37,7 @@ async def create_energy_sensors(
     hass: HomeAssistant,
     capteurs_selection: List[Dict[str, Any]]
 ) -> List[SensorEntity]:
-    """Crée sensors energy cycles pour sources sélectionnées."""
+    """Crée sensors energy cycles."""
     sensors = []
 
     data_dir = hass.config.path(f"custom_components/{DOMAIN}/data")
@@ -55,12 +52,12 @@ async def create_energy_sensors(
         if not entity_id:
             continue
 
-        # ✅ FILTRE 1: Exclure sensors live internes
+        # ✅ FILTRE 1: Exclure sensors live
         if entity_id.startswith("sensor.hse_live_"):
             _LOGGER.debug(f"[SKIP-LIVE] {entity_id}")
             continue
 
-        # ✅ FILTRE 2: Exclure sensors energy déjà créés
+        # ✅ FILTRE 2: Exclure sensors energy créés
         if entity_id.startswith("sensor.hse_energy_"):
             _LOGGER.debug(f"[SKIP-ENERGY] {entity_id}")
             continue
@@ -127,7 +124,9 @@ class CumulativeEnergyCycleSensor(RestoreEntity, SensorEntity):
 
         basename = self._source_entity.replace("sensor.", "").replace("_today_energy", "")
         self._attr_name = f"HSE {basename} Energy {cycle.title()}"
-        self._entity_id = f"sensor.hse_{basename}_{cycle}"
+
+        # ✅ CORRECTION: Utiliser suggested_object_id au lieu de entity_id
+        self._attr_suggested_object_id = f"hse_{basename}_{cycle}"
 
         hash_source = hashlib.md5(self._source_entity.encode()).hexdigest()[:4]
         self._attr_unique_id = f"hse_energy_{hash_source}_{cycle}"
@@ -141,9 +140,7 @@ class CumulativeEnergyCycleSensor(RestoreEntity, SensorEntity):
         self._last_source_value = None
         self._cycle_start = datetime.now()
 
-    @property
-    def entity_id(self):
-        return self._entity_id
+    # ✅ SUPPRIMÉ: @property entity_id (causait AttributeError)
 
     @property
     def extra_state_attributes(self):
@@ -218,11 +215,7 @@ class CumulativeEnergyCycleSensor(RestoreEntity, SensorEntity):
 
 
 class PowerEnergyCycleSensor(RestoreEntity, SensorEntity):
-    """
-    Sensor energy pour sources POWER avec intégration trapézoïdale.
-
-    ✅ ULTRA-COMPATIBLE: Accepte TOUS les paramètres possibles
-    """
+    """Sensor energy pour sources POWER."""
 
     def __init__(
         self,
@@ -230,56 +223,37 @@ class PowerEnergyCycleSensor(RestoreEntity, SensorEntity):
         source: Optional[Dict[str, Any]] = None,
         cycle: Optional[str] = None,
         metadata: Optional[Dict[str, Any]] = None,
-        # ✅ Paramètres legacy (powermonitoring.py)
         source_entity: Optional[str] = None,
         unique_id: Optional[str] = None,
-        **kwargs  # ✅ Accepte TOUT autre paramètre inconnu
+        **kwargs
     ):
-        """
-        Initialisation ULTRA-compatible.
-
-        Appels supportés:
-        1. Nouveau (energy_tracking.py):
-           PowerEnergyCycleSensor(hass, source={...}, cycle=..., metadata=...)
-
-        2. Legacy (powermonitoring.py):
-           PowerEnergyCycleSensor(hass, source_entity=..., cycle=..., unique_id=..., metadata=...)
-
-        3. Tout autre combinaison de paramètres
-        """
         self.hass = hass
         self._cycle = cycle
         self._metadata = metadata or {}
 
-        # ✅ Extraction source_entity (plusieurs sources possibles)
         if source_entity:
-            # Ancien appel direct avec source_entity
             self._source_entity = source_entity
             _LOGGER.debug(f"[COMPAT-LEGACY] source_entity={source_entity}")
         elif source and isinstance(source, dict):
-            # Nouvel appel avec Dict
             self._source_entity = source.get("entity_id")
             _LOGGER.debug(f"[COMPAT-NEW] source Dict")
         elif source and isinstance(source, str):
-            # Cas alternatif: source est directement une string
             self._source_entity = source
             _LOGGER.debug(f"[COMPAT-ALT] source string={source}")
         else:
-            raise ValueError("Aucune source fournie (source, source_entity)")
+            raise ValueError("Aucune source fournie")
 
-        # ✅ Unique ID (généré ou fourni)
         if unique_id:
-            # Unique ID fourni par powermonitoring.py
             self._attr_unique_id = unique_id
         else:
-            # Généré automatiquement
             hash_source = hashlib.md5(self._source_entity.encode()).hexdigest()[:4]
             self._attr_unique_id = f"hse_power_energy_{hash_source}_{cycle}"
 
-        # Noms
         basename = self._source_entity.replace("sensor.", "")
         self._attr_name = f"HSE {basename} Energy {cycle.title()}"
-        self._entity_id = f"sensor.hse_energy_{basename}_{cycle}"
+
+        # ✅ CORRECTION: Utiliser suggested_object_id
+        self._attr_suggested_object_id = f"hse_energy_{basename}_{cycle}"
 
         self._attr_device_class = SensorDeviceClass.ENERGY
         self._attr_state_class = SensorStateClass.TOTAL_INCREASING
@@ -291,15 +265,12 @@ class PowerEnergyCycleSensor(RestoreEntity, SensorEntity):
         self._last_time = None
         self._cycle_start = datetime.now()
 
-        # ✅ Log paramètres ignorés (debug)
         if kwargs:
             _LOGGER.debug(f"[COMPAT-KWARGS] Paramètres ignorés: {list(kwargs.keys())}")
 
-        _LOGGER.debug(f"[CREATE-POWER] {self._entity_id}")
+        _LOGGER.debug(f"[CREATE-POWER] {self._attr_suggested_object_id}")
 
-    @property
-    def entity_id(self):
-        return self._entity_id
+    # ✅ SUPPRIMÉ: @property entity_id
 
     @property
     def extra_state_attributes(self):
@@ -345,7 +316,7 @@ class PowerEnergyCycleSensor(RestoreEntity, SensorEntity):
                     self.async_write_ha_state()
                 else:
                     _LOGGER.warning(
-                        f"[POWER-INT] {self._entity_id}: Aberration ignorée ({energy_kwh:.2f} kWh)"
+                        f"[POWER-INT] Aberration ignorée ({energy_kwh:.2f} kWh)"
                     )
 
             self._last_power_w = new_power
