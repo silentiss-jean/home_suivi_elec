@@ -1,6 +1,8 @@
 """
-Power Monitoring - Version NETTOYÉE v2
-Correction: load_power_sensors() gère format capteurs_selection.json
+Power Monitoring - Version v3 FINALE
+✅ Correction: Async I/O pour éviter blocking calls
+✅ Lit capteurs_selection.json
+✅ Crée SEULEMENT sensors LIVE
 """
 
 import logging
@@ -25,38 +27,40 @@ from .const import DOMAIN
 _LOGGER = logging.getLogger(__name__)
 
 
-def load_power_sensors(hass: HomeAssistant) -> List[Dict[str, Any]]:
+async def async_load_power_sensors(hass: HomeAssistant) -> List[Dict[str, Any]]:
     """
     Charge liste capteurs power depuis capteurs_selection.json.
-
-    Gère 2 formats:
-    - Format dict: {"power_sources": [...]}
-    - Format list: [...]
+    Version ASYNC pour éviter blocking call.
     """
     data_dir = hass.config.path(f"custom_components/{DOMAIN}/data")
     capteurs_file = os.path.join(data_dir, "capteurs_selection.json")
 
+    # Vérification existence (synchrone OK car rapide)
     if not os.path.exists(capteurs_file):
         _LOGGER.warning(f"[POWER MONITORING] Fichier {capteurs_file} introuvable")
         return []
 
     try:
-        with open(capteurs_file, 'r', encoding='utf-8') as f:
-            data = json.load(f)
+        # ✅ Lecture async avec executor
+        def _load_json():
+            with open(capteurs_file, 'r', encoding='utf-8') as f:
+                return json.load(f)
 
-            # Gérer les 2 formats possibles
-            if isinstance(data, dict):
-                # Format: {"power_sources": [...], "energy_sources": [...]}
-                power_sensors = data.get("power_sources", [])
-            elif isinstance(data, list):
-                # Format: [...]
-                power_sensors = data
-            else:
-                _LOGGER.error(f"[POWER MONITORING] Format JSON invalide: {type(data)}")
-                return []
+        data = await hass.async_add_executor_job(_load_json)
 
-            _LOGGER.info(f"[POWER MONITORING] {len(power_sensors)} capteurs power chargés")
-            return power_sensors
+        # Gérer les 2 formats possibles
+        if isinstance(data, dict):
+            # Format: {"power_sources": [...], "energy_sources": [...]}
+            power_sensors = data.get("power_sources", [])
+        elif isinstance(data, list):
+            # Format: [...]
+            power_sensors = data
+        else:
+            _LOGGER.error(f"[POWER MONITORING] Format JSON invalide: {type(data)}")
+            return []
+
+        _LOGGER.info(f"[POWER MONITORING] {len(power_sensors)} capteurs power chargés")
+        return power_sensors
 
     except json.JSONDecodeError as e:
         _LOGGER.error(f"[POWER MONITORING] Erreur JSON: {e}")
@@ -194,8 +198,8 @@ async def async_setup_power_monitoring(hass: HomeAssistant, entry) -> bool:
     ❌ Ne crée PLUS de cycles energy (géré par energy_tracking.py)
     """
     try:
-        # Charger capteurs power
-        power_sensors = load_power_sensors(hass)
+        # ✅ Charger capteurs power (ASYNC)
+        power_sensors = await async_load_power_sensors(hass)
 
         if not power_sensors:
             _LOGGER.warning("[POWER MONITORING] Aucun capteur power trouvé")
