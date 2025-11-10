@@ -4,6 +4,7 @@ Enregistre aussi les noms complets dans le registry universel.
 ✅ FIX: unique_id collision-proof avec hash source
 ✅ BUGFIX CRITIQUE: Ajout du return sensors manquant
 ✅ BUGFIX TRACKING: Fix async_track_time_change() API deprecated
+✅ FIX MAJEUR: Support complet energy ET power avec sélection dynamique de classe
 """
 from __future__ import annotations
 
@@ -37,11 +38,11 @@ CYCLES = {
 class CumulativeEnergyCycleSensor(RestoreEntity, SensorEntity):
     """
     Sensor HSE pour capteurs energy cumulatifs (kWh).
-    
+
     Tracking par delta : suit les variations d'un compteur kWh existant,
     remet à zero à chaque cycle (hourly, daily, etc.).
     """
-    
+
     def __init__(
         self,
         hass: HomeAssistant,
@@ -57,27 +58,30 @@ class CumulativeEnergyCycleSensor(RestoreEntity, SensorEntity):
         self._unique_id = unique_id
         self._name = name
         self.metadata = metadata or {}
-        
+
         self._state: Optional[float] = 0.0
         self._last_source_value: Optional[float] = None
         self._cycle_start_time: Optional[datetime] = None
-        
+
         self._cycle_config = CYCLES[cycle]
-        
+
     async def async_added_to_hass(self) -> None:
         """Setup initial du sensor."""
         await super().async_added_to_hass()
-        
+
         # Restaurer l'état précédent
         if (restored := await self.async_get_last_state()):
             try:
                 self._state = float(restored.state)
             except (ValueError, TypeError):
                 self._state = 0.0
-        
+
+        # ✅ Initialiser cycle_start si restauré
+        self._cycle_start_time = datetime.now()
+
         # Démarrer le tracking
         self._setup_tracking()
-        
+
     def _setup_tracking(self):
         """Configure le tracking des changements et cycles."""
         # Écouter changements du capteur source
@@ -86,7 +90,7 @@ class CumulativeEnergyCycleSensor(RestoreEntity, SensorEntity):
             [self.source_entity], 
             self._on_source_changed
         )
-        
+
         # ✅ FIX: API moderne pour reset cyclique
         if self.cycle in ["hourly", "daily"]:
             # Reset direct pour hourly/daily
@@ -102,78 +106,84 @@ class CumulativeEnergyCycleSensor(RestoreEntity, SensorEntity):
                 self._on_conditional_reset,
                 **self._cycle_config
             )
-    
+
     @callback
     async def _on_source_changed(self, event: Event):
         """Callback sur changement du capteur source."""
         new_state = event.data.get("new_state")
         if not new_state or new_state.state in ("unknown", "unavailable"):
             return
-            
+
         try:
             new_value = float(new_state.state)
         except (ValueError, TypeError):
             return
-            
+
         if self._last_source_value is not None:
             # Calculer delta
             delta = new_value - self._last_source_value
             if delta > 0:  # Seulement increments positifs
                 self._state = (self._state or 0) + delta
                 self.async_write_ha_state()
-        
+                _LOGGER.debug(
+                    f"📊 [ENERGY-DELTA] {self.entity_id}: "
+                    f"+{delta:.3f} kWh → Total: {self._state:.3f} kWh"
+                )
+
         self._last_source_value = new_value
-    
+
     @callback
     async def _on_cycle_reset(self, *args):
         """Reset du compteur à chaque cycle (hourly/daily)."""
-        _LOGGER.debug(f"🔄 Reset cycle {self.cycle} pour {self.entity_id}")
+        _LOGGER.info(f"🔄 [RESET-{self.cycle.upper()}] {self.entity_id}: {self._state:.3f} kWh → 0")
         self._state = 0.0
         self._cycle_start_time = datetime.now()
+        self._last_source_value = None
         self.async_write_ha_state()
-    
+
     @callback
     async def _on_conditional_reset(self, now, *args):
         """Reset conditionnel pour weekly/monthly/yearly."""
         should_reset = False
-        
+
         if self.cycle == "weekly" and now.weekday() == 0:  # Lundi
             should_reset = True
         elif self.cycle == "monthly" and now.day == 1:  # 1er du mois
             should_reset = True
         elif self.cycle == "yearly" and now.month == 1 and now.day == 1:  # 1er janvier
             should_reset = True
-        
+
         if should_reset:
-            _LOGGER.debug(f"🔄 Reset cycle {self.cycle} pour {self.entity_id}")
+            _LOGGER.info(f"🔄 [RESET-{self.cycle.upper()}] {self.entity_id}: {self._state:.3f} kWh → 0")
             self._state = 0.0
             self._cycle_start_time = now
+            self._last_source_value = None
             self.async_write_ha_state()
-    
+
     @property
     def unique_id(self) -> str:
         return self._unique_id
-    
+
     @property
     def name(self) -> str:
         return self._name
-    
+
     @property
     def state(self) -> float:
         return round(self._state or 0, 3)
-    
+
     @property
     def unit_of_measurement(self) -> str:
         return UnitOfEnergy.KILO_WATT_HOUR
-    
+
     @property
     def device_class(self) -> str:
         return SensorDeviceClass.ENERGY
-    
+
     @property
     def state_class(self) -> str:
         return SensorStateClass.TOTAL_INCREASING
-    
+
     @property
     def extra_state_attributes(self) -> Dict[str, Any]:
         attrs = {
@@ -181,6 +191,7 @@ class CumulativeEnergyCycleSensor(RestoreEntity, SensorEntity):
             "cycle": self.cycle,
             "source_type": "energy",
             "last_source_value": self._last_source_value,
+            "cycle_start": self._cycle_start_time.isoformat() if self._cycle_start_time else None,
         }
         # Ajouter métadonnées
         if self.metadata:
@@ -195,11 +206,11 @@ class CumulativeEnergyCycleSensor(RestoreEntity, SensorEntity):
 class PowerEnergyCycleSensor(RestoreEntity, SensorEntity):
     """
     Sensor HSE pour capteurs power instantané (W).
-    
+
     Intégration trapézoïdale : W → kWh via calcul temporel,
     remet à zero à chaque cycle.
     """
-    
+
     def __init__(
         self,
         hass: HomeAssistant,
@@ -215,28 +226,31 @@ class PowerEnergyCycleSensor(RestoreEntity, SensorEntity):
         self._unique_id = unique_id
         self._name = name
         self.metadata = metadata or {}
-        
+
         self._state: Optional[float] = 0.0
         self._last_power_value: Optional[float] = None
         self._last_update_time: Optional[datetime] = None
         self._cycle_start_time: Optional[datetime] = None
-        
+
         self._cycle_config = CYCLES[cycle]
-        
+
     async def async_added_to_hass(self) -> None:
         """Setup initial du sensor."""
         await super().async_added_to_hass()
-        
+
         # Restaurer l'état précédent
         if (restored := await self.async_get_last_state()):
             try:
                 self._state = float(restored.state)
             except (ValueError, TypeError):
                 self._state = 0.0
-        
+
+        # ✅ Initialiser cycle_start
+        self._cycle_start_time = datetime.now()
+
         # Démarrer le tracking
         self._setup_tracking()
-        
+
     def _setup_tracking(self):
         """Configure le tracking des changements et cycles."""
         # Écouter changements du capteur source
@@ -245,7 +259,7 @@ class PowerEnergyCycleSensor(RestoreEntity, SensorEntity):
             [self.source_entity], 
             self._on_source_changed
         )
-        
+
         # ✅ FIX: API moderne pour reset cyclique  
         if self.cycle in ["hourly", "daily"]:
             # Reset direct pour hourly/daily
@@ -261,97 +275,102 @@ class PowerEnergyCycleSensor(RestoreEntity, SensorEntity):
                 self._on_conditional_reset,
                 **self._cycle_config
             )
-    
+
     @callback
     async def _on_source_changed(self, event: Event):
         """Callback sur changement du capteur power source."""
         new_state = event.data.get("new_state")
         if not new_state or new_state.state in ("unknown", "unavailable"):
             return
-            
+
         try:
             power_w = float(new_state.state)
         except (ValueError, TypeError):
             return
-            
+
         now = datetime.now()
-        
+
         # Intégration trapézoïdale si on a une valeur précédente
         if self._last_power_value is not None and self._last_update_time is not None:
             # Temps écoulé en heures
             time_diff = (now - self._last_update_time).total_seconds() / 3600.0
-            
+
             # Puissance moyenne et énergie
             avg_power = (self._last_power_value + power_w) / 2.0
             energy_kwh = (avg_power / 1000.0) * time_diff
-            
+
             # Sécurité: ignorer les aberrations
             if 0 <= energy_kwh <= 10.0:  # Max 10 kWh par update
                 self._state = (self._state or 0) + energy_kwh
                 self.async_write_ha_state()
+                _LOGGER.debug(
+                    f"📊 [POWER-INT] {self.entity_id}: "
+                    f"+{energy_kwh*1000:.2f} Wh (Δt={time_diff*3600:.0f}s, P_avg={avg_power:.1f}W) "
+                    f"→ Total: {self._state:.3f} kWh"
+                )
             else:
                 _LOGGER.warning(
                     f"⚠️ [POWER-INT] Énergie aberrante ignorée {self.entity_id}: "
                     f"{energy_kwh:.3f} kWh (Δt={time_diff*3600:.1f}s, P_avg={avg_power:.1f}W)"
                 )
-        
+
         # Mettre à jour les références
         self._last_power_value = power_w
         self._last_update_time = now
-    
+
     @callback
     async def _on_cycle_reset(self, *args):
         """Reset standard (hourly, daily)."""
         self._reset_counter()
-    
+
     @callback
     async def _on_conditional_reset(self, now, *args):
         """Reset conditionnel pour weekly/monthly/yearly."""
         should_reset = False
-        
+
         if self.cycle == "weekly" and now.weekday() == 0:  # Lundi
             should_reset = True
         elif self.cycle == "monthly" and now.day == 1:  # 1er du mois
             should_reset = True
         elif self.cycle == "yearly" and now.month == 1 and now.day == 1:  # 1er janvier
             should_reset = True
-        
+
         if should_reset:
             self._reset_counter()
-    
+
     def _reset_counter(self):
         """Reset du compteur."""
-        _LOGGER.debug(f"🔄 Reset {self.cycle} pour {self.entity_id}: {self._state:.3f} kWh → 0")
+        _LOGGER.info(f"🔄 [RESET-{self.cycle.upper()}] {self.entity_id}: {self._state:.3f} kWh → 0")
         self._state = 0.0
         self._cycle_start_time = datetime.now()
         self._last_power_value = None
         self._last_update_time = None
         self.async_write_ha_state()
-    
+
     @property
     def unique_id(self) -> str:
         return self._unique_id
-    
+
     @property
     def name(self) -> str:
         return self._name
-    
+
     @property
     def state(self) -> float:
         return round(self._state or 0, 3)
-    
+
     @property
     def unit_of_measurement(self) -> str:
         return UnitOfEnergy.KILO_WATT_HOUR
-    
+
     @property
     def device_class(self) -> str:
         return SensorDeviceClass.ENERGY
-    
+
     @property
     def state_class(self) -> str:
         return SensorStateClass.TOTAL_INCREASING
-    
+
     @property
     def extra_state_attributes(self) -> Dict[str, Any]:
         attrs = {
@@ -380,7 +399,7 @@ def _shorten_entity_name(name: str, max_length: int = 63) -> str:
     Fonction de raccourcissement robuste avec fallback spécial _today_energy_*
     """
     available = max_length - 25  # Plus de marge pour hash
-    
+
     # ✅ FIX: Fallback spécial _today_energy_* -> suppression complète suffixes
     if "_today_energy_" in name:
         # Exemple: chambre_ordinateur_prise_connectee_today_energy_hourly
@@ -388,16 +407,16 @@ def _shorten_entity_name(name: str, max_length: int = 63) -> str:
         name = re.sub(r'_today_energy_(hourly|daily|weekly|monthly|yearly)$', '', name)
         name = name.replace("_today_energy", "")
         _LOGGER.debug(f"[HSE-FIXER] Clean today_energy: {name}")
-    
+
     # Autres nettoyages classiques
     name = name.replace("_puissance", "_pwr")
     name = name.replace("_consommation_actuelle", "_cur")
     name = name.replace("_prise_connectee", "_plug")
     name = name.replace("_prise_intelligente", "_smart")
-    
+
     if len(name) <= available:
         return name
-    
+
     # Abréviations multi-mots
     def abbreviate_chain(match):
         parts = match.group(0).split('_')
@@ -405,20 +424,20 @@ def _shorten_entity_name(name: str, max_length: int = 63) -> str:
             return ''.join(p[0] for p in parts)
         return match.group(0)
     name = re.sub(r'\b\w+(?:_\w+){3,}', abbreviate_chain, name)
-    
+
     if len(name) <= available:
         return name
-    
+
     # Réduction mots longs
     parts = name.split('_')
     for i in range(len(parts)):
         if len(parts[i]) > 6 and len(name) > available:
             parts[i] = parts[i][:4]
             name = '_'.join(parts)
-    
+
     if len(name) <= available:
         return name
-    
+
     # Hash en dernier recours
     keep_length = available - 5
     hash_suffix = hashlib.md5(name.encode()).hexdigest()[:4]
@@ -426,7 +445,7 @@ def _shorten_entity_name(name: str, max_length: int = 63) -> str:
 
 
 # ============================================================================
-# API PUBLIQUE - Création des sensors (Phase 2)
+# API PUBLIQUE - Création des sensors (Phase 2 CORRIGÉE)
 # ============================================================================
 
 async def create_energy_sensors(
@@ -436,7 +455,7 @@ async def create_energy_sensors(
     """
     Crée les sensors de tracking d'énergie selon le type de source.
 
-    Phase 2 : Support energy vs power + propagation fiabilité
+    ✅ Phase 2 CORRIGÉE : Support COMPLET energy ET power avec sélection dynamique
 
     Args:
         hass: Instance Home Assistant
@@ -454,7 +473,7 @@ async def create_energy_sensors(
             ]
 
     Returns:
-        Liste des sensors créés (5 cycles × N capteurs)
+        Liste des sensors créés (5 cycles × N capteurs energy + M capteurs power)
     """
     sensors = []
     data_dir = Path(__file__).parent / "data"
@@ -465,20 +484,18 @@ async def create_energy_sensors(
         source_id = capteur.get("entity_id")
         if not source_id:
             continue
-        
-        # ✅ FIX COLLISION: Détection intelligente energy vs power
+
+        # ✅ Détection intelligente energy vs power
         source_type = capteur.get("type", "power")
 
+        # Auto-fix pour sources Tapo "today_energy"
         if "today_energy" in source_id and source_type != "energy":
             _LOGGER.warning(f"🔧 [AUTO-FIX] {source_id} mal typé '{source_type}' → 'energy'")
             source_type = "energy"
 
-        if source_type != "energy":
-            _LOGGER.debug(f"⏭️ [SKIP-ENERGY] {source_id} n'est pas energy (type: {source_type})")
-            continue
+        _LOGGER.debug(f"✅ [PROCESS] {source_id} (type: {source_type})")
 
-        _LOGGER.debug(f"✅ [PROCESS-ENERGY] {source_id} (type: {source_type})")
-        
+        # Métadonnées
         metadata = {
             "is_virtual": capteur.get("is_virtual"),
             "reliability_score": capteur.get("reliability_score"),
@@ -486,49 +503,63 @@ async def create_energy_sensors(
             "tags": capteur.get("tags", []),
         }
 
-
-        # ✅ NOUVEAU: Nom complet préservé (plus de shortening)
+        # Nom et hash
         entity_base = source_id.replace("sensor.", "")
-        
-        # Plus de shortening du tout ! HA supporte noms longs
-        # _shorten_entity_name maintenant retourne tel quel
-        base_name = _shorten_entity_name(entity_base)  # = entity_base maintenant
-        
-        # Hash pour unique_id collision-proof
+        base_name = _shorten_entity_name(entity_base)
         source_hash = hashlib.md5(source_id.encode()).hexdigest()[:4]
-        
+
+        # ✅ CORRECTION MAJEURE: Créer les sensors selon le TYPE
         for cycle in CYCLES.keys():
             cycle_short = cycle[0]  # h, d, w, m, y
-            
-            # ✅ SIMPLE : tous les sensors ici sont energy (grâce au filtre)
+
+            # Construction entity_id et unique_id
             if "today_energy" in source_id:
-                # Source Tapo energy native → préfixe simple
+                # Sources Tapo energy natives
                 entity_id = f"sensor.hse_{base_name}_{cycle}"
                 unique_id = f"hse_{source_hash}_{cycle_short}"
             else:
-                # Autres sources energy → préfixe energy
+                # Autres sources
                 entity_id = f"sensor.hse_energy_{base_name}_{cycle}"
                 unique_id = f"hse_energy_{source_hash}_{cycle_short}"
 
             name = f"HSE {entity_base} {cycle.capitalize()}"
-            
-            # ✅ TOUJOURS CumulativeEnergyCycleSensor (sensors energy seulement)
-            created_sensor = CumulativeEnergyCycleSensor(
-                hass=hass,
-                source_entity=source_id,
-                cycle=cycle,
-                unique_id=unique_id,
-                name=name,
-                metadata=metadata,
-            )
 
-            # ✅ Enregistrer dans registry pour friendly names
+            # ✅ FIX MAJEUR: Sélection de la BONNE classe selon le type
+            if source_type == "energy":
+                # Sources kWh cumulatives → Tracking par delta
+                created_sensor = CumulativeEnergyCycleSensor(
+                    hass=hass,
+                    source_entity=source_id,
+                    cycle=cycle,
+                    unique_id=unique_id,
+                    name=name,
+                    metadata=metadata,
+                )
+                _LOGGER.debug(f"✅ [CREATE-ENERGY] {entity_id} → CumulativeEnergyCycleSensor")
+
+            elif source_type == "power":
+                # Sources W → Intégration trapézoïdale
+                created_sensor = PowerEnergyCycleSensor(
+                    hass=hass,
+                    source_entity=source_id,
+                    cycle=cycle,
+                    unique_id=unique_id,
+                    name=name,
+                    metadata=metadata,
+                )
+                _LOGGER.debug(f"✅ [CREATE-POWER] {entity_id} → PowerEnergyCycleSensor")
+
+            else:
+                _LOGGER.warning(f"⚠️ [SKIP] {source_id} type inconnu: {source_type}")
+                continue
+
+            # Enregistrer dans registry pour friendly names
             registry.register_sync(entity_id, entity_base)
-            
             sensors.append(created_sensor)
-            _LOGGER.debug(f"✅ [CREATE-SENSOR] {entity_id} → {name}")
 
-    # 🚨 BUGFIX CRITIQUE: Ajout du return manquant !
-    _LOGGER.info(f"✅ [CREATE-SENSORS] {len(sensors)} sensors créés au total")
- 
+    _LOGGER.info(
+        f"✅ [CREATE-SENSORS-COMPLETE] {len(sensors)} sensors créés "
+        f"(energy + power avec sélection dynamique de classe)"
+    )
+
     return sensors
