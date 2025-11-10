@@ -1,12 +1,13 @@
 """
-Power Monitoring - Version NETTOYÉE
-Crée SEULEMENT sensors LIVE (sensor.hse_live_*)
-Les cycles energy sont gérés par energy_tracking.py
+Power Monitoring - Version NETTOYÉE v2
+Correction: load_power_sensors() gère format capteurs_selection.json
 """
 
 import logging
 from datetime import datetime
 from typing import Dict, List, Any, Optional
+import json
+import os
 
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.components.sensor import (
@@ -18,7 +19,6 @@ from homeassistant.const import UnitOfPower
 from homeassistant.helpers.event import async_track_state_change_event
 from homeassistant.helpers.restore_state import RestoreEntity
 from homeassistant.helpers import entity_registry as er, device_registry as dr
-import json
 
 from .const import DOMAIN
 
@@ -26,11 +26,15 @@ _LOGGER = logging.getLogger(__name__)
 
 
 def load_power_sensors(hass: HomeAssistant) -> List[Dict[str, Any]]:
-    """Charge liste capteurs power depuis JSON."""
-    import os
+    """
+    Charge liste capteurs power depuis capteurs_selection.json.
 
+    Gère 2 formats:
+    - Format dict: {"power_sources": [...]}
+    - Format list: [...]
+    """
     data_dir = hass.config.path(f"custom_components/{DOMAIN}/data")
-    capteurs_file = os.path.join(data_dir, "capteurs_power.json")
+    capteurs_file = os.path.join(data_dir, "capteurs_selection.json")
 
     if not os.path.exists(capteurs_file):
         _LOGGER.warning(f"[POWER MONITORING] Fichier {capteurs_file} introuvable")
@@ -39,25 +43,39 @@ def load_power_sensors(hass: HomeAssistant) -> List[Dict[str, Any]]:
     try:
         with open(capteurs_file, 'r', encoding='utf-8') as f:
             data = json.load(f)
-            power_sensors = data.get("power_sensors", [])
+
+            # Gérer les 2 formats possibles
+            if isinstance(data, dict):
+                # Format: {"power_sources": [...], "energy_sources": [...]}
+                power_sensors = data.get("power_sources", [])
+            elif isinstance(data, list):
+                # Format: [...]
+                power_sensors = data
+            else:
+                _LOGGER.error(f"[POWER MONITORING] Format JSON invalide: {type(data)}")
+                return []
+
             _LOGGER.info(f"[POWER MONITORING] {len(power_sensors)} capteurs power chargés")
             return power_sensors
+
+    except json.JSONDecodeError as e:
+        _LOGGER.error(f"[POWER MONITORING] Erreur JSON: {e}")
+        return []
     except Exception as e:
         _LOGGER.error(f"[POWER MONITORING] Erreur chargement capteurs: {e}")
+        import traceback
+        _LOGGER.error(traceback.format_exc())
         return []
 
 
 def create_live_sensors(hass: HomeAssistant, power_sensors: List[Dict[str, Any]]) -> List[SensorEntity]:
-    """
-    Crée sensors LIVE pour monitoring temps réel puissance.
-
-    Format: sensor.hse_live_{basename}
-    """
+    """Crée sensors LIVE pour monitoring temps réel puissance."""
     live_sensors = []
 
     for sensor_data in power_sensors:
         entity_id = sensor_data.get("entity_id")
         if not entity_id:
+            _LOGGER.warning(f"[POWER MONITORING] Capteur sans entity_id: {sensor_data}")
             continue
 
         try:
@@ -183,7 +201,7 @@ async def async_setup_power_monitoring(hass: HomeAssistant, entry) -> bool:
             _LOGGER.warning("[POWER MONITORING] Aucun capteur power trouvé")
             return True
 
-        # ✅ Créer SEULEMENT sensors LIVE
+        # Créer SEULEMENT sensors LIVE
         live_sensors = create_live_sensors(hass, power_sensors)
 
         # Enregistrer dans hass.data
@@ -191,16 +209,6 @@ async def async_setup_power_monitoring(hass: HomeAssistant, entry) -> bool:
             hass.data[DOMAIN] = {}
 
         hass.data[DOMAIN]["live_power_sensors"] = live_sensors
-
-        # Ajouter entities à Home Assistant
-        from homeassistant.helpers.entity_platform import async_get_current_platform
-
-        platform = async_get_current_platform()
-        platform.async_register_entity_service(
-            "update_live_power",
-            {},
-            "async_update"
-        )
 
         _LOGGER.info(
             f"[POWER MONITORING] ✅ {len(live_sensors)} sensors live créés. "
@@ -211,9 +219,6 @@ async def async_setup_power_monitoring(hass: HomeAssistant, entry) -> bool:
 
     except Exception as e:
         _LOGGER.error(f"[POWER MONITORING] ❌ Erreur setup: {e}")
+        import traceback
+        _LOGGER.error(traceback.format_exc())
         return False
-
-
-# ✅ FONCTION SUPPRIMÉE: create_energy_sensors_from_power()
-# → Géré maintenant par energy_tracking.py
-# → Évite doublons et conflits de signature
