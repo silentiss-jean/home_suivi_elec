@@ -1,11 +1,12 @@
 """
-Energy Tracking - FINAL VERSION (CORRIGÉ)
-Support complet ENERGY + POWER avec filtres anti-doublon
+Energy Tracking - Patch Minimal Anti-Doublon
+AJOUT: Filtres hse_live_* et hse_energy_*
+AUCUN changement aux classes (compatibilité powermonitoring.py)
 """
 
 import logging
 from datetime import datetime, timedelta
-from pathlib import Path  # ✅ AJOUT
+from pathlib import Path
 import hashlib
 from typing import Dict, List, Any, Optional
 
@@ -40,10 +41,14 @@ async def create_energy_sensors(
     hass: HomeAssistant,
     capteurs_selection: List[Dict[str, Any]]
 ) -> List[SensorEntity]:
-    """Crée sensors energy cycles pour sources sélectionnées."""
+    """
+    Crée sensors energy cycles pour sources sélectionnées.
+
+    ✅ PATCH MINIMAL: Ajout filtres anti-doublon
+    """
     sensors = []
 
-    # ✅ CORRECTION: Conversion en Path
+    # Registry pour noms lisibles
     data_dir = hass.config.path(f"custom_components/{DOMAIN}/data")
     registry = EntityNameRegistry(Path(data_dir))
     await registry.async_load(hass)
@@ -56,12 +61,12 @@ async def create_energy_sensors(
         if not entity_id:
             continue
 
-        # ✅ Exclure nos sensors live internes
+        # ✅ PATCH 1: Exclure nos sensors live internes
         if entity_id.startswith("sensor.hse_live_"):
             _LOGGER.debug(f"[SKIP-LIVE] {entity_id}")
             continue
 
-        # ✅ Exclure sensors energy déjà créés
+        # ✅ PATCH 2: Exclure sensors energy déjà créés
         if entity_id.startswith("sensor.hse_energy_"):
             _LOGGER.debug(f"[SKIP-ENERGY] {entity_id}")
             continue
@@ -113,6 +118,9 @@ async def create_energy_sensors(
 
     return sensors
 
+
+# ✅ CLASSES INCHANGÉES - Gardées telles quelles pour compatibilité
+# (Copier depuis votre fichier energy_tracking.py actuel)
 
 class CumulativeEnergyCycleSensor(RestoreEntity, SensorEntity):
     """Sensor energy pour sources kWh cumulatives (Tapo)."""
