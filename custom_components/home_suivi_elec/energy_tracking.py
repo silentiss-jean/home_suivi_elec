@@ -1,6 +1,6 @@
 """
-Energy Tracking - Version Rétro-Compatible
-Support ANCIEN (source_entity) ET NOUVEAU (source Dict) appels
+Energy Tracking - Version ULTRA-Compatible
+Accepte TOUS les paramètres: source, source_entity, unique_id, etc.
 Filtres anti-doublon inclus
 """
 
@@ -221,50 +221,65 @@ class PowerEnergyCycleSensor(RestoreEntity, SensorEntity):
     """
     Sensor energy pour sources POWER avec intégration trapézoïdale.
 
-    ✅ RÉTRO-COMPATIBLE:
-    Accepte ANCIEN (source_entity) ET NOUVEAU (source Dict) formats.
+    ✅ ULTRA-COMPATIBLE: Accepte TOUS les paramètres possibles
     """
 
     def __init__(
         self,
         hass: HomeAssistant,
         source: Optional[Dict[str, Any]] = None,
-        cycle: str = None,
+        cycle: Optional[str] = None,
         metadata: Optional[Dict[str, Any]] = None,
-        source_entity: Optional[str] = None  # ✅ Paramètre ancien (rétro-compat)
+        # ✅ Paramètres legacy (powermonitoring.py)
+        source_entity: Optional[str] = None,
+        unique_id: Optional[str] = None,
+        **kwargs  # ✅ Accepte TOUT autre paramètre inconnu
     ):
         """
-        Initialisation rétro-compatible.
+        Initialisation ULTRA-compatible.
 
-        Appel ANCIEN (powermonitoring.py):
-            PowerEnergyCycleSensor(hass, source_entity='sensor...', cycle=..., metadata=...)
+        Appels supportés:
+        1. Nouveau (energy_tracking.py):
+           PowerEnergyCycleSensor(hass, source={...}, cycle=..., metadata=...)
 
-        Appel NOUVEAU (energy_tracking.py):
-            PowerEnergyCycleSensor(hass, source={'entity_id': ...}, cycle=..., metadata=...)
+        2. Legacy (powermonitoring.py):
+           PowerEnergyCycleSensor(hass, source_entity=..., cycle=..., unique_id=..., metadata=...)
+
+        3. Tout autre combinaison de paramètres
         """
         self.hass = hass
         self._cycle = cycle
         self._metadata = metadata or {}
 
-        # ✅ RÉTRO-COMPATIBILITÉ: Support ANCIEN et NOUVEAU formats
+        # ✅ Extraction source_entity (plusieurs sources possibles)
         if source_entity:
-            # Ancien appel (powermonitoring.py)
+            # Ancien appel direct avec source_entity
             self._source_entity = source_entity
-            _LOGGER.debug(f"[COMPAT-OLD] PowerEnergyCycleSensor créé avec source_entity={source_entity}")
-        elif source:
-            # Nouvel appel (energy_tracking.py)
+            _LOGGER.debug(f"[COMPAT-LEGACY] source_entity={source_entity}")
+        elif source and isinstance(source, dict):
+            # Nouvel appel avec Dict
             self._source_entity = source.get("entity_id")
-            _LOGGER.debug(f"[COMPAT-NEW] PowerEnergyCycleSensor créé avec source Dict")
+            _LOGGER.debug(f"[COMPAT-NEW] source Dict")
+        elif source and isinstance(source, str):
+            # Cas alternatif: source est directement une string
+            self._source_entity = source
+            _LOGGER.debug(f"[COMPAT-ALT] source string={source}")
         else:
-            raise ValueError("Ni 'source' ni 'source_entity' fourni")
+            raise ValueError("Aucune source fournie (source, source_entity)")
+
+        # ✅ Unique ID (généré ou fourni)
+        if unique_id:
+            # Unique ID fourni par powermonitoring.py
+            self._attr_unique_id = unique_id
+        else:
+            # Généré automatiquement
+            hash_source = hashlib.md5(self._source_entity.encode()).hexdigest()[:4]
+            self._attr_unique_id = f"hse_power_energy_{hash_source}_{cycle}"
 
         # Noms
         basename = self._source_entity.replace("sensor.", "")
         self._attr_name = f"HSE {basename} Energy {cycle.title()}"
         self._entity_id = f"sensor.hse_energy_{basename}_{cycle}"
-
-        hash_source = hashlib.md5(self._source_entity.encode()).hexdigest()[:4]
-        self._attr_unique_id = f"hse_power_energy_{hash_source}_{cycle}"
 
         self._attr_device_class = SensorDeviceClass.ENERGY
         self._attr_state_class = SensorStateClass.TOTAL_INCREASING
@@ -275,6 +290,10 @@ class PowerEnergyCycleSensor(RestoreEntity, SensorEntity):
         self._last_power_w = None
         self._last_time = None
         self._cycle_start = datetime.now()
+
+        # ✅ Log paramètres ignorés (debug)
+        if kwargs:
+            _LOGGER.debug(f"[COMPAT-KWARGS] Paramètres ignorés: {list(kwargs.keys())}")
 
         _LOGGER.debug(f"[CREATE-POWER] {self._entity_id}")
 
