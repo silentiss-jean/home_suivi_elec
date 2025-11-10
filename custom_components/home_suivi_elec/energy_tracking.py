@@ -1,7 +1,7 @@
 """
-Energy Tracking - Patch Minimal Anti-Doublon
-AJOUT: Filtres hse_live_* et hse_energy_*
-AUCUN changement aux classes (compatibilité powermonitoring.py)
+Energy Tracking - Version Rétro-Compatible
+Support ANCIEN (source_entity) ET NOUVEAU (source Dict) appels
+Filtres anti-doublon inclus
 """
 
 import logging
@@ -27,7 +27,6 @@ from .entity_name_registry import EntityNameRegistry
 
 _LOGGER = logging.getLogger(__name__)
 
-# Cycles de tracking
 CYCLES = {
     "hourly": {"minute": 0, "second": 5},
     "daily": {"hour": 0, "minute": 0, "second": 5},
@@ -41,14 +40,9 @@ async def create_energy_sensors(
     hass: HomeAssistant,
     capteurs_selection: List[Dict[str, Any]]
 ) -> List[SensorEntity]:
-    """
-    Crée sensors energy cycles pour sources sélectionnées.
-
-    ✅ PATCH MINIMAL: Ajout filtres anti-doublon
-    """
+    """Crée sensors energy cycles pour sources sélectionnées."""
     sensors = []
 
-    # Registry pour noms lisibles
     data_dir = hass.config.path(f"custom_components/{DOMAIN}/data")
     registry = EntityNameRegistry(Path(data_dir))
     await registry.async_load(hass)
@@ -61,20 +55,18 @@ async def create_energy_sensors(
         if not entity_id:
             continue
 
-        # ✅ PATCH 1: Exclure nos sensors live internes
+        # ✅ FILTRE 1: Exclure sensors live internes
         if entity_id.startswith("sensor.hse_live_"):
             _LOGGER.debug(f"[SKIP-LIVE] {entity_id}")
             continue
 
-        # ✅ PATCH 2: Exclure sensors energy déjà créés
+        # ✅ FILTRE 2: Exclure sensors energy déjà créés
         if entity_id.startswith("sensor.hse_energy_"):
             _LOGGER.debug(f"[SKIP-ENERGY] {entity_id}")
             continue
 
-        # Détection type source
         is_energy = "today_energy" in entity_id
 
-        # Métadonnées enrichies
         metadata = {
             "is_virtual": capteur.get("is_virtual", False),
             "reliability_score": capteur.get("reliability_score", 100),
@@ -99,7 +91,6 @@ async def create_energy_sensors(
                 )
                 sensors.append(sensor)
 
-        # Enregistrer noms dans registry
         basename = entity_id.replace("sensor.", "").replace("_today_energy", "")
         for cycle in CYCLES.keys():
             if is_energy:
@@ -112,18 +103,15 @@ async def create_energy_sensors(
     await registry.async_save()
 
     _LOGGER.info(
-        f"[CREATE-SENSOR] {len(sensors)} sensors energy créés "
+        f"[CREATE-SENSOR] {len(sensors)} sensors créés "
         f"(filtres: hse_live_*, hse_energy_*)"
     )
 
     return sensors
 
 
-# ✅ CLASSES INCHANGÉES - Gardées telles quelles pour compatibilité
-# (Copier depuis votre fichier energy_tracking.py actuel)
-
 class CumulativeEnergyCycleSensor(RestoreEntity, SensorEntity):
-    """Sensor energy pour sources kWh cumulatives (Tapo)."""
+    """Sensor energy pour sources kWh cumulatives."""
 
     def __init__(
         self,
@@ -132,7 +120,6 @@ class CumulativeEnergyCycleSensor(RestoreEntity, SensorEntity):
         cycle: str,
         metadata: Dict[str, Any]
     ):
-        """Initialisation."""
         self.hass = hass
         self._source_entity = source.get("entity_id")
         self._cycle = cycle
@@ -154,8 +141,6 @@ class CumulativeEnergyCycleSensor(RestoreEntity, SensorEntity):
         self._last_source_value = None
         self._cycle_start = datetime.now()
 
-        _LOGGER.debug(f"[CREATE-ENERGY] {self._entity_id}")
-
     @property
     def entity_id(self):
         return self._entity_id
@@ -175,7 +160,6 @@ class CumulativeEnergyCycleSensor(RestoreEntity, SensorEntity):
         if last_state:
             try:
                 self._attr_native_value = float(last_state.state)
-                _LOGGER.debug(f"[RESTORE] {self._entity_id}: {self._attr_native_value} kWh")
             except (ValueError, TypeError):
                 pass
 
@@ -200,8 +184,8 @@ class CumulativeEnergyCycleSensor(RestoreEntity, SensorEntity):
                     self.async_write_ha_state()
 
             self._last_source_value = new_value
-        except (ValueError, TypeError) as e:
-            _LOGGER.warning(f"[ENERGY-ERROR] {self._entity_id}: {e}")
+        except (ValueError, TypeError):
+            pass
 
     def _setup_cycle_reset(self):
         config = CYCLES[self._cycle]
@@ -217,7 +201,6 @@ class CumulativeEnergyCycleSensor(RestoreEntity, SensorEntity):
         self._last_source_value = None
         self._cycle_start = now
         self.async_write_ha_state()
-        _LOGGER.debug(f"[RESET] {self._entity_id} → 0 kWh")
 
     @callback
     def _on_conditional_reset(self, now):
@@ -235,21 +218,47 @@ class CumulativeEnergyCycleSensor(RestoreEntity, SensorEntity):
 
 
 class PowerEnergyCycleSensor(RestoreEntity, SensorEntity):
-    """Sensor energy pour sources POWER (W) avec intégration trapézoïdale."""
+    """
+    Sensor energy pour sources POWER avec intégration trapézoïdale.
+
+    ✅ RÉTRO-COMPATIBLE:
+    Accepte ANCIEN (source_entity) ET NOUVEAU (source Dict) formats.
+    """
 
     def __init__(
         self,
         hass: HomeAssistant,
-        source: Dict[str, Any],
-        cycle: str,
-        metadata: Dict[str, Any]
+        source: Optional[Dict[str, Any]] = None,
+        cycle: str = None,
+        metadata: Optional[Dict[str, Any]] = None,
+        source_entity: Optional[str] = None  # ✅ Paramètre ancien (rétro-compat)
     ):
-        """Initialisation."""
-        self.hass = hass
-        self._source_entity = source.get("entity_id")
-        self._cycle = cycle
-        self._metadata = metadata
+        """
+        Initialisation rétro-compatible.
 
+        Appel ANCIEN (powermonitoring.py):
+            PowerEnergyCycleSensor(hass, source_entity='sensor...', cycle=..., metadata=...)
+
+        Appel NOUVEAU (energy_tracking.py):
+            PowerEnergyCycleSensor(hass, source={'entity_id': ...}, cycle=..., metadata=...)
+        """
+        self.hass = hass
+        self._cycle = cycle
+        self._metadata = metadata or {}
+
+        # ✅ RÉTRO-COMPATIBILITÉ: Support ANCIEN et NOUVEAU formats
+        if source_entity:
+            # Ancien appel (powermonitoring.py)
+            self._source_entity = source_entity
+            _LOGGER.debug(f"[COMPAT-OLD] PowerEnergyCycleSensor créé avec source_entity={source_entity}")
+        elif source:
+            # Nouvel appel (energy_tracking.py)
+            self._source_entity = source.get("entity_id")
+            _LOGGER.debug(f"[COMPAT-NEW] PowerEnergyCycleSensor créé avec source Dict")
+        else:
+            raise ValueError("Ni 'source' ni 'source_entity' fourni")
+
+        # Noms
         basename = self._source_entity.replace("sensor.", "")
         self._attr_name = f"HSE {basename} Energy {cycle.title()}"
         self._entity_id = f"sensor.hse_energy_{basename}_{cycle}"
@@ -289,7 +298,6 @@ class PowerEnergyCycleSensor(RestoreEntity, SensorEntity):
         if last_state:
             try:
                 self._attr_native_value = float(last_state.state)
-                _LOGGER.debug(f"[RESTORE] {self._entity_id}: {self._attr_native_value} kWh")
             except (ValueError, TypeError):
                 pass
 
@@ -323,8 +331,8 @@ class PowerEnergyCycleSensor(RestoreEntity, SensorEntity):
 
             self._last_power_w = new_power
             self._last_time = now
-        except (ValueError, TypeError) as e:
-            _LOGGER.warning(f"[POWER-ERROR] {self._entity_id}: {e}")
+        except (ValueError, TypeError):
+            pass
 
     def _setup_cycle_reset(self):
         config = CYCLES[self._cycle]
@@ -341,7 +349,6 @@ class PowerEnergyCycleSensor(RestoreEntity, SensorEntity):
         self._last_time = None
         self._cycle_start = now
         self.async_write_ha_state()
-        _LOGGER.debug(f"[RESET] {self._entity_id} → 0 kWh")
 
     @callback
     def _on_conditional_reset(self, now):
