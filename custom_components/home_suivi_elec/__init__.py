@@ -32,6 +32,7 @@ from .proxy_api import SuiviElecProxyView
 # ✅ AJOUT : Import du correcteur automatique de noms
 from .sensor_name_fixer import async_setup_sensor_name_fixer, async_fix_all_long_sensors
 from .manage_selection_views import HSESensorsPublicView
+from .api.unified_api_extensions import ValidationActionView, HomeElecUnifiedConfigAPIView
 
 _LOGGER = logging.getLogger(__name__)
 
