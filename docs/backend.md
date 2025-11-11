@@ -3207,6 +3207,736 @@ GET /api/home_suivi_elec/ping
 4. Vérifier imports modules externes
 5. Analyser erreurs registration
 
+#### 3.26 storage_manager.py — Résumé et accès rapide
+Rôle métier : Gestionnaire centralisé Storage API - abstraction unifiée pour persistance des données métier (sélection capteurs, config utilisateur, entités ignorées).
+
+Fichier Python : custom_components/home_suivi_elec/storage_manager.py
+
+Classe(s) principale(s) : StorageManager
+
+Fonctions critiques :
+
+async_load_selection, async_save_selection
+
+async_load_user_config, async_save_user_config
+
+async_load_ignored_entities, async_save_ignored_entities
+
+async_export_backup, async_import_backup
+
+async_get_storage_info
+
+Services HA :
+
+home_suivi_elec.get_storage_stats (via init.py)
+
+Endpoints REST : N/A (utilisé en interne backend)
+
+Clés hass.data : storage_manager
+
+Logs/caractéristiques :
+
+[STORAGE], [MIGRATION], [BACKUP]
+
+Logs chargement/sauvegarde/erreur
+
+Métriques taille/temps
+
+Exemples d'usage :
+
+Chargement sélection capteurs au démarrage
+
+Sauvegarde automatique après modification UI
+
+Export backup avant migration
+
+Rollback d'urgence vers legacy
+
+Pour debuguer :
+
+Vérifier fichiers .storage/home_suivi_elec_*
+
+Analyser logs [STORAGE] pour erreurs I/O
+
+Utiliser get_storage_stats pour diagnostic
+
+Contrôler permissions fichiers .storage/
+
+🧠 Rôle métier
+
+Migration Storage API - Objectif stratégique :
+
+✅ Persistance native HA : Utilise Home Assistant Storage API pour garantir la survie des données lors des mises à jour HACS
+
+✅ Protection contre effacement : Plus de perte de sélection/config lors des updates (problème résolu définitivement)
+
+✅ Rétrocompatibilité garantie : Migration automatique depuis fichiers JSON legacy sans perte de données
+
+✅ Rollback d'urgence : Possibilité de revenir aux fichiers legacy en cas de problème
+
+Abstraction Storage unifiée :
+
+Centralise toutes les opérations de lecture/écriture vers Storage API
+
+Gère automatiquement la migration des fichiers legacy (custom_components/home_suivi_elec/data/*.json)
+
+Expose une interface simple et cohérente pour tous les modules backend
+
+Garantit l'intégrité des données avec validation et backup automatique
+
+Données gérées :
+
+Type	Clé Storage	Fichier Legacy	Description
+Sélection capteurs	home_suivi_elec_selection	capteurs_selection.json	Liste capteurs actifs utilisateur
+Config utilisateur	home_suivi_elec_user_config	user_config.json	Préférences et paramètres personnalisés
+Entités ignorées	home_suivi_elec_ignored	ignored_entities.json	Liste capteurs exclus manuellement
+⚙️ Fonctionnement technique
+
+Classe StorageManager :
+
+
+manager = StorageManager(hass)
+await manager.async_load_selection()  # Charge sélection (Storage → fallback legacy)
+await manager.async_save_selection(data)  # Sauvegarde (Storage + backup legacy)
+Architecture Storage API :
+
+Stockage : .storage/home_suivi_elec_*.json (géré nativement par HA)
+
+Protection HACS : Dossier .storage/ ignoré par HACS lors des updates
+
+Atomic writes : Écriture atomique garantie par HA Storage API
+
+Version tracking : Chaque fichier Storage inclut métadonnées de version
+
+Méthodes principales :
+
+Méthode	Type	Description
+async_load_selection()	Async	Charge sélection capteurs (Storage → fallback legacy)
+async_save_selection(data)	Async	Sauvegarde sélection (Storage + backup legacy)
+async_load_user_config()	Async	Charge config utilisateur
+async_save_user_config(data)	Async	Sauvegarde config utilisateur
+async_load_ignored_entities()	Async	Charge liste entités ignorées
+async_save_ignored_entities(data)	Async	Sauvegarde entités ignorées
+async_export_backup()	Async	Export JSON complet pour backup externe
+async_import_backup(backup_data)	Async	Restauration depuis backup JSON
+async_get_storage_info()	Async	Statistiques et diagnostic Storage
+Stratégie de migration :
+
+
+1. Détection fichier legacy existant (capteurs_selection.json)
+2. Lecture donnée legacy
+3. Validation + conversion format Storage
+4. Écriture Storage API
+5. Backup fichier legacy (.bak)
+6. Log succès migration
+Fallback automatique :
+
+Si Storage API indisponible → lecture legacy
+
+Si fichier legacy corrompu → création fichier vide Storage
+
+Si Storage corrompu → tentative restauration depuis legacy backup
+
+Format Storage :
+
+json
+{
+  "version": 1,
+  "key": "home_suivi_elec_selection",
+  "data": {
+    "sensors": [...],
+    "metadata": {
+      "last_update": "2025-11-11T19:30:00Z",
+      "source": "migration_from_legacy",
+      "version": "1.0.0"
+    }
+  }
+}
+🔗 Interactions et dépendances
+
+Appelé par :
+
+init.py (setup - chargement initial Storage)
+
+manage_selection.py (sauvegarde sélection après modification)
+
+manage_selection_views.py (endpoints REST sauvegarde)
+
+migration_storage.py (orchestration migration complète)
+
+Dépend de :
+
+Home Assistant Storage API (hass.helpers.storage.Store)
+
+Fichiers JSON legacy pour migration initiale
+
+migration_storage.py pour orchestration migration
+
+Remplace progressivement :
+
+Accès direct fichiers JSON dans custom_components/home_suivi_elec/data/
+
+Logique de lecture/écriture manuelle éparpillée dans modules backend
+
+Services exposés :
+
+get_storage_stats : Diagnostic taille/état fichiers Storage
+
+🔄 Cycle de vie
+
+Phase	Action
+Init	Création instance StorageManager(hass)
+Setup	Chargement initial depuis Storage (ou migration legacy)
+Runtime	Lecture/écriture transparente via API unifiée
+Save	Sauvegarde atomique Storage + backup legacy optionnel
+Migration	Détection + conversion automatique legacy→Storage
+Rollback	Restauration legacy si nécessaire (service dédié)
+🧪 Exemple(s)
+
+Exemple 1 - Chargement avec fallback automatique :
+
+
+manager = StorageManager(hass)
+
+# Tentative chargement Storage API
+selection = await manager.async_load_selection()
+
+# Si Storage vide → fallback legacy automatique
+# → Lecture capteurs_selection.json
+# → Migration automatique vers Storage
+# → Backup .bak du fichier legacy
+Exemple 2 - Sauvegarde avec backup legacy :
+
+
+new_selection = {
+    "sensors": [
+        {"entity_id": "sensor.tapo_salon", "enabled": True},
+        {"entity_id": "sensor.tplink_chambre", "enabled": False}
+    ]
+}
+
+# Sauvegarde Storage + backup legacy
+await manager.async_save_selection(new_selection)
+# → .storage/home_suivi_elec_selection.json (Storage API)
+# → data/capteurs_selection.json.bak (backup legacy)
+Exemple 3 - Export backup pour migration manuelle :
+
+
+# Export complet toutes données Storage
+backup_data = await manager.async_export_backup()
+
+# Format export :
+# {
+#   "selection": {...},
+#   "user_config": {...},
+#   "ignored_entities": [...],
+#   "metadata": {
+#     "export_date": "2025-11-11T19:30:00Z",
+#     "version": "1.0.0"
+#   }
+# }
+
+# Sauvegarde fichier externe
+with open("/backup/hse_backup.json", "w") as f:
+    json.dump(backup_data, f)
+Exemple 4 - Diagnostic Storage :
+
+
+info = await manager.async_get_storage_info()
+# Retourne :
+# {
+#   "storage_available": True,
+#   "files": {
+#     "selection": {"size": 2048, "exists": True},
+#     "user_config": {"size": 512, "exists": True},
+#     "ignored": {"size": 128, "exists": False}
+#   },
+#   "migration_status": "completed",
+#   "last_backup": "2025-11-11T18:00:00Z"
+# }
+Debug & Repérage rapide (IA) :
+
+Classe principale :
+
+StorageManager
+
+Méthodes critiques :
+
+async_load_selection() : Chargement sélection
+
+async_save_selection(data) : Sauvegarde sélection
+
+async_load_user_config() : Config utilisateur
+
+async_export_backup() : Export backup complet
+
+async_get_storage_info() : Diagnostic Storage
+
+Fichiers Storage :
+
+.storage/home_suivi_elec_selection.json (sélection capteurs)
+
+.storage/home_suivi_elec_user_config.json (config utilisateur)
+
+.storage/home_suivi_elec_ignored.json (entités ignorées)
+
+Fichiers legacy (migration) :
+
+custom_components/home_suivi_elec/data/capteurs_selection.json
+
+custom_components/home_suivi_elec/data/user_config.json
+
+custom_components/home_suivi_elec/data/ignored_entities.json
+
+Logs caractéristiques :
+
+✅ [STORAGE] Sélection chargée : N capteurs
+
+✅ [STORAGE] Config sauvegardée : Storage + backup legacy
+
+🔄 [MIGRATION] Migration legacy→Storage : capteurs_selection.json
+
+💾 [BACKUP] Backup legacy créé : data/capteurs_selection.json.bak
+
+⚠️ [STORAGE] Fallback legacy : Storage indisponible
+
+❌ [STORAGE] Erreur lecture Storage : {error}
+
+Pour debuguer :
+
+Vérifier fichiers Storage : .storage/home_suivi_elec_*.json existent ?
+
+Contrôler permissions : Dossier .storage/ accessible en écriture ?
+
+Analyser logs [STORAGE] : Migration réussie ? Fallback legacy ?
+
+Utiliser get_storage_stats : État complet fichiers Storage
+
+Vérifier migration : Fichiers .bak créés dans data/ ?
+
+Tester fallback : Supprimer fichier Storage → fallback legacy OK ?
+
+Export backup : Service export_storage_backup fonctionne ?
+
+Rollback test : Service rollback_to_legacy restaure correctement ?
+
+#### 3.27 migration_storage.py — Résumé et accès rapide
+Rôle métier : Orchestrateur migration automatique/manuelle fichiers legacy → Storage API lors du setup, avec export backup et rollback d'urgence.
+
+Fichier Python : custom_components/home_suivi_elec/migration_storage.py
+
+Classe(s) principale(s) : N/A (fonctions asynchrones)
+
+Fonctions critiques :
+
+async_migrate_storage (migration auto/manuelle)
+
+async_export_storage_backup (export JSON complet)
+
+async_rollback_to_legacy (restauration urgence)
+
+Services HA :
+
+home_suivi_elec.export_storage_backup
+
+home_suivi_elec.rollback_to_legacy
+
+home_suivi_elec.get_storage_stats
+
+Endpoints REST : N/A (services HA uniquement)
+
+Clés hass.data : storage_manager
+
+Logs/caractéristiques :
+
+[MIGRATION], [STORAGE], [ROLLBACK]
+
+Logs étapes migration détaillées
+
+Statistiques migration (fichiers, taille, durée)
+
+Exemples d'usage :
+
+Migration automatique au premier démarrage post-update
+
+Export backup avant migration manuelle
+
+Rollback urgence si problème Storage API
+
+Diagnostic complet état migration
+
+Pour debuguer :
+
+Vérifier logs [MIGRATION] pour étapes
+
+Contrôler fichiers .bak créés
+
+Utiliser get_storage_stats pour état
+
+Tester rollback sur instance test
+
+🧠 Rôle métier
+
+Orchestration migration complète :
+
+Migration automatique : Détectée et exécutée au setup si fichiers legacy présents
+
+Migration manuelle : Service HA pour forcer migration ou re-migration
+
+Export backup : Sauvegarde JSON complète avant toute opération destructive
+
+Rollback d'urgence : Restauration rapide fichiers legacy en cas de problème
+
+Protection des données :
+
+Backup automatique : Fichiers .bak créés avant migration
+
+Validation pré-migration : Vérification intégrité données legacy
+
+Transaction atomique : Tout ou rien pour éviter états intermédiaires
+
+Logs détaillés : Traçabilité complète migration pour audit
+
+Cas d'usage couverts :
+
+Scénario	Action	Résultat
+Premier démarrage post-update	Migration auto	Storage créé + backup legacy
+Migration échouée	Retry manuel	Tentative avec logs détaillés
+Storage corrompu	Rollback	Restauration fichiers legacy
+Backup avant modif majeure	Export backup	JSON complet exporté
+Changement stratégie	Rollback manuel	Retour fichiers legacy
+⚙️ Fonctionnement technique
+
+Fonction async_migrate_storage :
+
+
+await async_migrate_storage(
+    hass,
+    force=False,  # Force migration même si déjà faite
+    backup_legacy=True  # Crée backup .bak fichiers legacy
+)
+Workflow migration :
+
+
+1. [DETECTION] Fichiers legacy présents ?
+   ├─ Oui → Migration nécessaire
+   └─ Non → Vérifier Storage existe
+
+2. [VALIDATION] Intégrité fichiers legacy
+   ├─ capteurs_selection.json : format valide ?
+   ├─ user_config.json : structure OK ?
+   └─ ignored_entities.json : syntaxe correcte ?
+
+3. [BACKUP] Création backups .bak
+   ├─ capteurs_selection.json.bak
+   ├─ user_config.json.bak
+   └─ ignored_entities.json.bak
+
+4. [MIGRATION] Transfert vers Storage API
+   ├─ StorageManager.async_save_selection(data)
+   ├─ StorageManager.async_save_user_config(data)
+   └─ StorageManager.async_save_ignored_entities(data)
+
+5. [VERIFICATION] Contrôle migration réussie
+   ├─ Lecture Storage → données identiques ?
+   ├─ Fichiers .storage/ créés ?
+   └─ Permissions OK ?
+
+6. [CLEANUP] Optionnel (si force_cleanup=True)
+   ├─ Suppression fichiers legacy
+   └─ Conservation backups .bak
+
+7. [LOG] Statistiques finales
+   ├─ Nombre fichiers migrés
+   ├─ Taille totale données
+   └─ Durée migration
+Fonction async_export_storage_backup :
+
+
+backup_data = await async_export_storage_backup(
+    hass,
+    output_file="/config/backups/hse_backup_2025-11-11.json"
+)
+Format export backup :
+
+json
+{
+  "version": "1.0.0",
+  "export_date": "2025-11-11T19:30:00Z",
+  "source": "storage_api",
+  "data": {
+    "selection": {
+      "sensors": [...],
+      "metadata": {...}
+    },
+    "user_config": {
+      "preferences": {...},
+      "options": {...}
+    },
+    "ignored_entities": [...],
+    "storage_info": {
+      "files": {...},
+      "sizes": {...}
+    }
+  }
+}
+Fonction async_rollback_to_legacy :
+
+
+await async_rollback_to_legacy(
+    hass,
+    restore_from_backup=True,  # Utilise fichiers .bak
+    cleanup_storage=False  # Supprime fichiers Storage après rollback
+)
+Workflow rollback :
+
+
+1. [DETECTION] Backups .bak disponibles ?
+   ├─ Oui → Restauration depuis .bak
+   └─ Non → Erreur : backups requis
+
+2. [RESTORATION] Copie .bak → fichiers legacy
+   ├─ capteurs_selection.json ← .bak
+   ├─ user_config.json ← .bak
+   └─ ignored_entities.json ← .bak
+
+3. [CLEANUP] Optionnel Storage
+   ├─ Si cleanup_storage=True
+   └─ Suppression fichiers .storage/
+
+4. [VERIFICATION] Validation restauration
+   ├─ Fichiers legacy lisibles ?
+   └─ Données cohérentes ?
+
+5. [LOG] Confirmation rollback
+Services HA exposés :
+
+Service	Description	Paramètres
+export_storage_backup	Export JSON complet	output_file (optionnel)
+rollback_to_legacy	Restauration fichiers legacy	cleanup_storage (bool)
+get_storage_stats	Diagnostic complet Storage	Aucun
+🔗 Interactions et dépendances
+
+Appelé par :
+
+init.py (async_setup_entry - migration auto au boot)
+
+Services HA (migration/export/rollback manuels)
+
+Dépend de :
+
+storage_manager.py (StorageManager pour I/O Storage API)
+
+Fichiers legacy custom_components/home_suivi_elec/data/*.json
+
+Produit :
+
+Fichiers Storage .storage/home_suivi_elec_*.json
+
+Backups legacy data/*.json.bak
+
+Exports JSON backup /config/backups/hse_backup_*.json
+
+Expose services :
+
+home_suivi_elec.export_storage_backup
+
+home_suivi_elec.rollback_to_legacy
+
+home_suivi_elec.get_storage_stats
+
+🔄 Cycle de vie
+
+Phase	Action
+Setup initial	Migration auto si legacy détecté
+Post-update HACS	Re-migration si Storage manquant
+Avant modif majeure	Export backup préventif
+Problème Storage	Rollback d'urgence
+Maintenance	Export backup régulier
+🧪 Exemple(s)
+
+Exemple 1 - Migration automatique au boot :
+
+
+# Dans __init__.py async_setup_entry
+from .migration_storage import async_migrate_storage
+
+# Détection + migration automatique
+migration_result = await async_migrate_storage(
+    hass,
+    force=False,  # Migration uniquement si nécessaire
+    backup_legacy=True  # Backup .bak obligatoire
+)
+
+# Logs migration :
+# ✅ [MIGRATION] Fichiers legacy détectés : 3 fichiers
+# 🔄 [MIGRATION] Backup legacy : capteurs_selection.json.bak
+# ✅ [MIGRATION] Migration Storage : capteurs_selection.json → .storage/
+# ✅ [MIGRATION] Migration complète : 3/3 fichiers (1.2 KB, 0.15s)
+Exemple 2 - Export backup avant migration manuelle :
+
+
+# Service HA depuis UI ou automation
+service: home_suivi_elec.export_storage_backup
+data:
+  output_file: "/config/backups/hse_backup_pre_migration.json"
+
+# Résultat :
+# ✅ [BACKUP] Export Storage : /config/backups/hse_backup_pre_migration.json
+# 💾 [BACKUP] Données exportées : 3 fichiers, 1.5 KB
+Exemple 3 - Rollback d'urgence :
+
+
+# Service HA en cas de problème Storage
+service: home_suivi_elec.rollback_to_legacy
+data:
+  cleanup_storage: false  # Conserver Storage pour debug
+
+# Logs rollback :
+# 🔄 [ROLLBACK] Restauration depuis backups .bak
+# ✅ [ROLLBACK] capteurs_selection.json restauré
+# ✅ [ROLLBACK] user_config.json restauré
+# ✅ [ROLLBACK] Rollback terminé : 3/3 fichiers
+# ⚠️ [ROLLBACK] Redémarrage HA requis pour prise en compte
+Exemple 4 - Diagnostic complet :
+
+
+# Service HA diagnostic
+service: home_suivi_elec.get_storage_stats
+
+# Réponse :
+# {
+#   "storage_available": true,
+#   "migration_status": "completed",
+#   "last_migration": "2025-11-11T18:00:00Z",
+#   "files": {
+#     "selection": {
+#       "storage_size": 2048,
+#       "legacy_backup_size": 1980,
+#       "last_update": "2025-11-11T19:30:00Z"
+#     },
+#     "user_config": {...},
+#     "ignored_entities": {...}
+#   },
+#   "backup_available": true,
+#   "rollback_possible": true
+# }
+Exemple 5 - Migration forcée (re-migration) :
+
+
+# Force migration même si déjà faite
+await async_migrate_storage(
+    hass,
+    force=True,  # Force re-migration
+    backup_legacy=True  # Nouveau backup .bak
+)
+
+# Use case : 
+# - Corruption fichier Storage détectée
+# - Restauration depuis backup legacy
+# - Test migration après modification code
+Debug & Repérage rapide (IA) :
+
+Fonctions principales :
+
+async_migrate_storage(hass, force, backup_legacy) : Orchestrateur migration
+
+async_export_storage_backup(hass, output_file) : Export backup JSON
+
+async_rollback_to_legacy(hass, cleanup_storage) : Rollback urgence
+
+Services HA :
+
+home_suivi_elec.export_storage_backup : Export manuel backup
+
+home_suivi_elec.rollback_to_legacy : Rollback manuel
+
+home_suivi_elec.get_storage_stats : Diagnostic Storage
+
+Fichiers impliqués :
+
+Legacy (avant migration) :
+
+custom_components/home_suivi_elec/data/capteurs_selection.json
+
+custom_components/home_suivi_elec/data/user_config.json
+
+custom_components/home_suivi_elec/data/ignored_entities.json
+
+Backups (.bak) :
+
+custom_components/home_suivi_elec/data/capteurs_selection.json.bak
+
+custom_components/home_suivi_elec/data/user_config.json.bak
+
+custom_components/home_suivi_elec/data/ignored_entities.json.bak
+
+Storage API :
+
+.storage/home_suivi_elec_selection.json
+
+.storage/home_suivi_elec_user_config.json
+
+.storage/home_suivi_elec_ignored.json
+
+Exports backup :
+
+/config/backups/hse_backup_*.json
+
+Logs caractéristiques :
+
+✅ [MIGRATION] Fichiers legacy détectés : N fichiers
+
+🔄 [MIGRATION] Backup legacy : fichier.json.bak
+
+✅ [MIGRATION] Migration Storage : fichier.json → .storage/
+
+✅ [MIGRATION] Migration complète : N/N fichiers (X KB, Y s)
+
+⚠️ [MIGRATION] Échec migration : {error}
+
+💾 [BACKUP] Export Storage : /path/to/backup.json
+
+🔄 [ROLLBACK] Restauration depuis backups .bak
+
+✅ [ROLLBACK] Rollback terminé : N/N fichiers
+
+❌ [ROLLBACK] Échec rollback : backups .bak introuvables
+
+Pour debuguer :
+
+Vérifier détection migration : Logs [MIGRATION] Fichiers legacy détectés ?
+
+Contrôler backups .bak : Fichiers créés dans data/ ?
+
+Analyser erreurs migration : Logs [MIGRATION] Échec avec détails error ?
+
+Valider Storage créé : Fichiers .storage/home_suivi_elec_*.json existent ?
+
+Tester export backup : Service export_storage_backup fonctionne ?
+
+Vérifier rollback possible : get_storage_stats → rollback_possible: true ?
+
+Simuler rollback : Test sur instance de dev avant production
+
+Permissions fichiers : Dossiers .storage/ et data/ accessibles ?
+
+Intégrité données : Comparaison legacy vs Storage après migration
+
+Logs détaillés : Activer debug logging pour traçabilité complète
+
+⚠️ Précautions :
+
+Toujours backup avant rollback : Export JSON de sécurité
+
+Test sur instance dev : Valider migration/rollback avant production
+
+Redémarrage HA requis : Après rollback pour prise en compte
+
+Permissions .storage/ : Vérifier accès écriture avant migration
+
+Cleanup prudent : Ne supprimer legacy qu'après validation Storage OK
+
 ⸻
 
 ## 4. Flows et interactions
