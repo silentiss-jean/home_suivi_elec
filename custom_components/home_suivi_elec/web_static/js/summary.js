@@ -46,12 +46,12 @@ export async function loadSummary() {
   const deltaTable = deltaTableEl ? deltaTableEl.querySelector("tbody") : null;
 
   try {
-    const [sensorsResp, selectionResp, optionsResp, instantResp, consResp] = await Promise.all([
+    const [sensorsResp, selectionResp, optionsResp, instantResp, mappingResp] = await Promise.all([
       fetch("/api/home_suivi_elec/get_sensors"),
       fetch("/api/home_suivi_elec/get_selection"),
       fetch("/api/home_suivi_elec/get_user_options"),
       fetch("/api/home_suivi_elec/get_instant_puissance"),
-      fetch("/api/home_suivi_elec/get_consumptions")
+      fetch("/api/home_suivi_elec/sensor_mapping")
     ]);
     if (!sensorsResp.ok) throw new Error("Aucune détection de capteurs disponible");
 
@@ -59,7 +59,22 @@ export async function loadSummary() {
     const selectionData = selectionResp.ok ? await selectionResp.json() : {};
     const userData = optionsResp.ok ? await optionsResp.json() : {};
     const instantMap = instantResp.ok ? await instantResp.json() : {};
-    const cons = consResp.ok ? await consResp.json() : {};
+
+
+    // ✅ Extraire mapping depuis réponse API unifiée
+    let cons = {};
+    if (mappingResp.ok) {
+      const result = await mappingResp.json();
+      console.log("[summary] Réponse API mapping:", result);
+      if (result.data && result.data.mapping) {
+        cons = result.data.mapping;
+        console.log("[summary] ✅ Mapping extrait:", cons);
+        console.log("[summary] Total sources:", result.data.total_sources);
+      }
+    } else {
+      console.warn("[summary] ⚠️ API mapping non disponible");
+    }
+
 
     console.log("[summary] userData:", userData);
 

@@ -46,10 +46,12 @@ class HomeElecUnifiedAPIView(HomeAssistantView):
                 return await self._handle_integrations_status()
             elif resource == "get_logs":
                 return await self._handle_logs()
+            elif resource == 'sensor_mapping':
+            	return await self.handle_sensor_mapping()
             else:
                 return self._success({
                     "message": f"API Unifiée opérationnelle - resource: {resource}",
-                    "available_endpoints": ["sensors", "data", "diagnostics", "config", "ui"],
+                    "available_endpoints": ["sensors", "data", "diagnostics", "config", "ui", "get_sensors_health", "get_integrations_status", "get_logs","sensor_mapping"],
                     "version": "unified-v1.0.42-final",
                     "status": "connected_to_backend"
                 })
@@ -581,3 +583,83 @@ class HomeElecUnifiedAPIView(HomeAssistantView):
                 "function": "unknown",
                 "line": 0
             }
+    async def handle_sensor_mapping(self):
+        """
+        Endpoint sensor_mapping - Mapping sensors source → HSE energy cycles
+        
+        Retourne pour chaque sensor source:
+        {
+          "sensor.source_1": {
+            "hourly": 0.0,
+            "hourly_entity": "sensor.hse_source_1_energy_hourly",
+            "daily": 1.234,
+            "daily_entity": "sensor.hse_source_1_energy_daily",
+            ...
+          }
+        }
+        """
+        try:
+            _LOGGER.info('[API-MAPPING] Récupération mapping sensors source → HSE')
+            
+            # 1. Récupérer tous sensors HSE energy
+            hse_sensors = {}
+            for state in self.hass.states.async_all("sensor"):
+                entity_id = state.entity_id
+                if entity_id.startswith('sensor.hse_') and '_energy_' in entity_id:
+                    hse_sensors[entity_id] = state
+            
+            _LOGGER.info(f'[API-MAPPING] {len(hse_sensors)} sensors HSE trouvés')
+            
+            # 2. Grouper par source_entity
+            sources = {}
+            for entity_id, state in hse_sensors.items():
+                source_entity = state.attributes.get('source_entity')
+                cycle = state.attributes.get('cycle')
+                
+                if source_entity and cycle:
+                    if source_entity not in sources:
+                        sources[source_entity] = {}
+                    
+                    # Stocker state + metadata
+                    sources[source_entity][cycle] = {
+                        'entity_id': entity_id,
+                        'state': state.state,
+                        'unit': state.attributes.get('unit_of_measurement'),
+                        'cycle_start': state.attributes.get('cycle_start'),
+                        'last_power_w': state.attributes.get('last_power_w')
+                    }
+            
+            _LOGGER.info(f'[API-MAPPING] {len(sources)} sources mappées')
+            
+            # 3. Format final pour frontend
+            mapping = {}
+            for source, cycles in sources.items():
+                mapping[source] = {}
+                
+                for cycle, data in cycles.items():
+                    # Entity ID HSE
+                    mapping[source][f'{cycle}_entity'] = data['entity_id']
+                    
+                    # Valeur float pour calculs
+                    try:
+                        mapping[source][cycle] = float(data['state'])
+                    except (ValueError, TypeError):
+                        mapping[source][cycle] = 0.0
+                    
+                    # Métadonnées optionnelles
+                    mapping[source][f'{cycle}_unit'] = data['unit']
+                    mapping[source][f'{cycle}_last_power'] = data['last_power_w']
+            
+            _LOGGER.info(f'[API-MAPPING] ✅ Mapping généré pour {len(mapping)} sources')
+            
+            return self.success({
+                'mapping': mapping,
+                'total_sources': len(sources),
+                'total_hse_sensors': len(hse_sensors),
+                'type': 'sensor_mapping',
+                'timestamp': self.get_timestamp()
+            })
+            
+        except Exception as e:
+            _LOGGER.exception(f'[API-MAPPING] ❌ Erreur: {e}')
+            return self.error(500, f'Erreur mapping sensors: {e}')
