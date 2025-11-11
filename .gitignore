@@ -4,3 +4,49 @@ releaseonmac.sh
 *.sh
 *.py
 doc/
+# ========================================
+# HOME SUIVI ÉLEC - PROTECTION DONNÉES
+# ========================================
+
+# Fichiers de données utilisateur (migration Storage API)
+custom_components/home_suivi_elec/data/user_config.json
+custom_components/home_suivi_elec/data/capteurs_selection.json
+custom_components/home_suivi_elec/data/*.migrated
+
+# Backups automatiques
+custom_components/home_suivi_elec/data/*.backup
+custom_components/home_suivi_elec/data/*.bak
+
+# Logs de debug
+custom_components/home_suivi_elec/data/*.log
+
+# Fichiers temporaires Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Environnements virtuels
+venv/
+env/
+ENV/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# ========================================
+# GARDER EN GIT (templates, schemas)
+# ========================================
+!custom_components/home_suivi_elec/data/integration_quality.yaml
+!custom_components/home_suivi_elec/data/capteurs_power.json
+!custom_components/home_suivi_elec/data/README.md
+

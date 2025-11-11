@@ -107,3 +107,16 @@ def is_hse_sensor(entity_id: str) -> bool:
 HSE_EVENT_SENSORS_READY = "hse_energy_sensors_ready"
 
 # ===== FIN PATTERNS HSE =====
+
+# ===== STORAGE API - PHASE 2.7 =====
+
+# Clés de stockage Home Assistant Storage API (versionnées)
+STORAGE_VERSION = 2
+STORE_USER_CONFIG = "home_suivi_elec_user_config_v2"
+STORE_CAPTEURS_SELECTION = "home_suivi_elec_capteurs_selection_v2"
+STORE_IGNORED_ENTITIES = "home_suivi_elec_ignored_entities_v1"
+
+# Event émis après migration Storage API réussie
+HSE_EVENT_STORAGE_MIGRATED = "hse_storage_migrated"
+
+# ===== FIN STORAGE API =====

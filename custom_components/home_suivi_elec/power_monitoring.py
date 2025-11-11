@@ -29,19 +29,58 @@ _LOGGER = logging.getLogger(__name__)
 
 async def async_load_power_sensors(hass: HomeAssistant) -> List[Dict[str, Any]]:
     """
-    Charge liste capteurs power depuis capteurs_selection.json.
-    Version ASYNC pour éviter blocking call.
+    Charge liste capteurs power depuis StorageManager (Storage API).
+    
+    PHASE 2.7: Utilise StorageManager au lieu de capteurs_selection.json.
+    Rétrocompatibilité: Fallback sur fichier JSON si Storage API indisponible.
     """
+    # ✅ PHASE 2.7: Tentative via StorageManager
+    storage_manager = hass.data.get(DOMAIN, {}).get("storage_manager")
+    
+    if storage_manager:
+        try:
+            _LOGGER.debug("[POWER MONITORING] Chargement depuis Storage API...")
+            
+            # Récupérer sélection depuis Storage API
+            selection_data = await storage_manager.get_capteurs_selection()
+            
+            if not selection_data:
+                _LOGGER.warning("[POWER MONITORING] Aucune sélection dans Storage API")
+                return []
+            
+            # Extraire les capteurs activés de toutes les zones
+            power_sensors = []
+            for zone, sensors in selection_data.items():
+                if isinstance(sensors, list):
+                    # Ne garder que les capteurs activés
+                    enabled_sensors = [s for s in sensors if s.get("enabled", False)]
+                    power_sensors.extend(enabled_sensors)
+            
+            _LOGGER.info(f"[POWER MONITORING] {len(power_sensors)} capteurs power chargés depuis Storage API")
+            return power_sensors
+            
+        except Exception as e:
+            _LOGGER.error(f"[POWER MONITORING] Erreur lecture Storage API: {e}")
+            _LOGGER.warning("[POWER MONITORING] Fallback sur fichier JSON legacy...")
+    else:
+        _LOGGER.warning("[POWER MONITORING] StorageManager non disponible, tentative fichier JSON legacy...")
+    
+    # ========================================
+    # FALLBACK: Ancien système fichier JSON
+    # ========================================
     data_dir = hass.config.path(f"custom_components/{DOMAIN}/data")
     capteurs_file = os.path.join(data_dir, "capteurs_selection.json")
 
-    # Vérification existence (synchrone OK car rapide)
+    # Vérification existence
     if not os.path.exists(capteurs_file):
-        _LOGGER.warning(f"[POWER MONITORING] Fichier {capteurs_file} introuvable")
+        _LOGGER.error(
+            f"[POWER MONITORING] Aucune source de données disponible: "
+            f"StorageManager absent ET fichier {capteurs_file} introuvable"
+        )
         return []
 
     try:
-        # ✅ Lecture async avec executor
+        # Lecture async avec executor
         def _load_json():
             with open(capteurs_file, 'r', encoding='utf-8') as f:
                 return json.load(f)
@@ -50,16 +89,20 @@ async def async_load_power_sensors(hass: HomeAssistant) -> List[Dict[str, Any]]:
 
         # Gérer les 2 formats possibles
         if isinstance(data, dict):
-            # Format: {"power_sources": [...], "energy_sources": [...]}
-            power_sensors = data.get("power_sources", [])
+            # Format zone-based: {"zone1": [...], "zone2": [...]}
+            power_sensors = []
+            for zone, sensors in data.items():
+                if isinstance(sensors, list):
+                    enabled_sensors = [s for s in sensors if s.get("enabled", False)]
+                    power_sensors.extend(enabled_sensors)
         elif isinstance(data, list):
-            # Format: [...]
-            power_sensors = data
+            # Format legacy: [...]
+            power_sensors = [s for s in data if s.get("enabled", False)]
         else:
             _LOGGER.error(f"[POWER MONITORING] Format JSON invalide: {type(data)}")
             return []
 
-        _LOGGER.info(f"[POWER MONITORING] {len(power_sensors)} capteurs power chargés")
+        _LOGGER.info(f"[POWER MONITORING] {len(power_sensors)} capteurs power chargés depuis fichier JSON legacy")
         return power_sensors
 
     except json.JSONDecodeError as e:
@@ -70,6 +113,7 @@ async def async_load_power_sensors(hass: HomeAssistant) -> List[Dict[str, Any]]:
         import traceback
         _LOGGER.error(traceback.format_exc())
         return []
+
 
 
 def create_live_sensors(hass: HomeAssistant, power_sensors: List[Dict[str, Any]]) -> List[SensorEntity]:
@@ -196,17 +240,30 @@ async def async_setup_power_monitoring(hass: HomeAssistant, entry) -> bool:
 
     ✅ Crée SEULEMENT sensors LIVE (sensor.hse_live_*)
     ❌ Ne crée PLUS de cycles energy (géré par energy_tracking.py)
+    
+    PHASE 2.7: Compatible StorageManager avec fallback fichier JSON.
     """
     try:
-        # ✅ Charger capteurs power (ASYNC)
+        _LOGGER.info("[POWER MONITORING] Démarrage setup power monitoring...")
+        
+        # ✅ Charger capteurs power (ASYNC - supporte Storage API + fallback JSON)
         power_sensors = await async_load_power_sensors(hass)
 
         if not power_sensors:
-            _LOGGER.warning("[POWER MONITORING] Aucun capteur power trouvé")
+            _LOGGER.warning(
+                "[POWER MONITORING] Aucun capteur power trouvé. "
+                "Vérifiez que des capteurs sont activés dans la sélection."
+            )
             return True
 
+        _LOGGER.debug(f"[POWER MONITORING] {len(power_sensors)} capteurs à traiter")
+        
         # Créer SEULEMENT sensors LIVE
         live_sensors = create_live_sensors(hass, power_sensors)
+
+        if not live_sensors:
+            _LOGGER.warning("[POWER MONITORING] Aucun sensor live créé")
+            return True
 
         # Enregistrer dans hass.data
         if DOMAIN not in hass.data:
@@ -214,9 +271,17 @@ async def async_setup_power_monitoring(hass: HomeAssistant, entry) -> bool:
 
         hass.data[DOMAIN]["live_power_sensors"] = live_sensors
 
+        # ✅ Log détaillé des sensors créés
         _LOGGER.info(
-            f"[POWER MONITORING] ✅ {len(live_sensors)} sensors live créés. "
-            f"Energy cycles gérés par energy_tracking.py"
+            f"[POWER MONITORING] ✅ {len(live_sensors)} sensors live créés:"
+        )
+        for sensor in live_sensors[:5]:  # Afficher les 5 premiers
+            _LOGGER.debug(f"  - {sensor.entity_id}")
+        if len(live_sensors) > 5:
+            _LOGGER.debug(f"  ... et {len(live_sensors) - 5} autres")
+        
+        _LOGGER.info(
+            "[POWER MONITORING] Energy cycles gérés par energy_tracking.py"
         )
 
         return True

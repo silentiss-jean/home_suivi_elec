@@ -2,6 +2,8 @@
 """
 Vues REST (HTTP) pour Home Suivi Élec — isolées du métier.
 Conserve les comportements existants et la validation par device_id.
+
+PHASE 2.7: Adapté pour Storage API avec fallback fichier JSON legacy.
 ✅ CORRIGÉ : Support natif des sensors HSE energy (sensor.hse_*_today_energy_{cycle})
 """
 
@@ -108,7 +110,6 @@ def _enrich_device_info(hass: HomeAssistant, caps: List[Dict[str, Any]]) -> List
                     c["area_name"] = area.name
     return caps
 
-# ✅ CORRECTION CHIRURGICALE : Alignement parfait avec energy_tracking.py
 def _build_hse_energy_sensor_id(source_entity_id: str, cycle: str) -> str:
     """
     ✅ ALIGNEMENT COMPLET avec energy_tracking.py
@@ -121,7 +122,6 @@ def _build_hse_energy_sensor_id(source_entity_id: str, cycle: str) -> str:
     """
     base_name = source_entity_id.replace("sensor.", "")
     
-    # ✅ MÊME logique exacte que energy_tracking.py
     if "today_energy" in source_entity_id:
         return f"sensor.hse_{base_name}_{cycle}"
     else:
@@ -137,21 +137,32 @@ class GetSensorsView(HomeAssistantView):
         self.hass = hass
 
     async def get(self, request):
+        """✅ PHASE 2.7: Utilise StorageManager pour récupérer sélection et user_config."""
         try:
             loop = asyncio.get_running_loop()
 
+            # Charger capteurs détectés (toujours en fichier JSON)
             data = []
             if os.path.exists(CAPTEURS_POWER_PATH):
                 data = await loop.run_in_executor(None, lambda: _load_json(CAPTEURS_POWER_PATH))
 
-            selection_data = {}
-            if os.path.exists(CAPTEURS_SELECTION_PATH):
-                selection_data = await loop.run_in_executor(None, lambda: _load_json(CAPTEURS_SELECTION_PATH))
+            # ✅ Charger sélection via StorageManager
+            storage_manager = self.hass.data.get("home_suivi_elec", {}).get("storage_manager")
+            
+            if storage_manager:
+                selection_data = await storage_manager.get_capteurs_selection()
+                user_config = await storage_manager.get_user_config()
+            else:
+                # Fallback fichiers JSON
+                selection_data = {}
+                if os.path.exists(CAPTEURS_SELECTION_PATH):
+                    selection_data = await loop.run_in_executor(None, lambda: _load_json(CAPTEURS_SELECTION_PATH))
+                
+                user_config = {}
+                if os.path.exists(USER_CONFIG_PATH):
+                    user_config = await loop.run_in_executor(None, lambda: _load_json(USER_CONFIG_PATH))
 
-            reference_id = None
-            if os.path.exists(USER_CONFIG_PATH):
-                user_config = await loop.run_in_executor(None, lambda: _load_json(USER_CONFIG_PATH))
-                reference_id = (user_config or {}).get("externalCapteur")
+            reference_id = user_config.get("externalCapteur")
 
             quality_map = await loop.run_in_executor(None, lambda: _load_quality_map_sync(self.hass))
             data = _enrich_device_info(self.hass, data or [])
@@ -196,9 +207,9 @@ class SaveSelectionView(HomeAssistantView):
         self.hass = hass
 
     async def post(self, request):
+        """✅ PHASE 2.7: Sauvegarde via StorageManager."""
         try:
             body = await request.json()
-            os.makedirs(os.path.dirname(CAPTEURS_SELECTION_PATH), exist_ok=True)
             loop = asyncio.get_running_loop()
 
             detected = []
@@ -261,7 +272,17 @@ class SaveSelectionView(HomeAssistantView):
                     "device_conflicts": device_conflicts
                 })
 
-            _save_json(CAPTEURS_SELECTION_PATH, body)
+            # ✅ PHASE 2.7: Sauvegarder via StorageManager
+            storage_manager = self.hass.data.get("home_suivi_elec", {}).get("storage_manager")
+            
+            if storage_manager:
+                await storage_manager.save_capteurs_selection(body)
+                _LOGGER.info("[SAVE_SELECTION] Sauvegardé via Storage API")
+            else:
+                # Fallback fichier JSON legacy
+                os.makedirs(os.path.dirname(CAPTEURS_SELECTION_PATH), exist_ok=True)
+                _save_json(CAPTEURS_SELECTION_PATH, body)
+                _LOGGER.warning("[SAVE_SELECTION] Sauvegardé via fichier JSON (fallback)")
 
             selected_ids: Set[str] = set()
             for integ, lst in (body or {}).items():
@@ -284,12 +305,22 @@ class GetSelectionView(HomeAssistantView):
         self.hass = hass
 
     async def get(self, request):
+        """✅ PHASE 2.7: Utilise StorageManager au lieu du fichier JSON."""
         try:
-            if not os.path.exists(CAPTEURS_SELECTION_PATH):
+            storage_manager = self.hass.data.get("home_suivi_elec", {}).get("storage_manager")
+            
+            if not storage_manager:
+                _LOGGER.error("[GET_SELECTION] StorageManager non disponible")
+                # Fallback sur fichier JSON legacy
+                if os.path.exists(CAPTEURS_SELECTION_PATH):
+                    loop = asyncio.get_running_loop()
+                    data = await loop.run_in_executor(None, lambda: _load_json(CAPTEURS_SELECTION_PATH))
+                    return self.json(data)
                 return self.json({})
-            loop = asyncio.get_running_loop()
-            data = await loop.run_in_executor(None, lambda: _load_json(CAPTEURS_SELECTION_PATH))
-            return self.json(data)
+            
+            data = await storage_manager.get_capteurs_selection()
+            return self.json(data or {})
+            
         except Exception as e:
             _LOGGER.exception("Erreur get_selection: %s", e)
             return self.json({})
@@ -305,24 +336,31 @@ class GetConsumptionsView(HomeAssistantView):
         self.hass = hass
 
     async def get(self, request):
+        """✅ PHASE 2.7: Charge sélection via StorageManager."""
         try:
-            loop = asyncio.get_running_loop()
+            # ✅ Charger sélection via StorageManager
+            storage_manager = self.hass.data.get("home_suivi_elec", {}).get("storage_manager")
+            
+            if storage_manager:
+                selections = await storage_manager.get_capteurs_selection()
+                user_config = await storage_manager.get_user_config()
+            else:
+                loop = asyncio.get_running_loop()
+                selections = await loop.run_in_executor(
+                    None, lambda: _load_json(CAPTEURS_SELECTION_PATH)
+                ) if os.path.exists(CAPTEURS_SELECTION_PATH) else {}
+                
+                user_config = await loop.run_in_executor(
+                    None, lambda: _load_json(USER_CONFIG_PATH)
+                ) if os.path.exists(USER_CONFIG_PATH) else {}
 
-            selections = await loop.run_in_executor(
-                None, lambda: _load_json(CAPTEURS_SELECTION_PATH)
-            ) if os.path.exists(CAPTEURS_SELECTION_PATH) else {}
-
-            external_id = None
-            use_external = False
-            if os.path.exists(USER_CONFIG_PATH):
-                conf = await loop.run_in_executor(None, lambda: _load_json(USER_CONFIG_PATH))
-                use_external = bool((conf or {}).get("useExternal"))
-                external_id = (conf or {}).get("externalCapteur")
+            external_id = user_config.get("externalCapteur")
+            use_external = bool(user_config.get("useExternal"))
 
             cycles = ["hourly", "daily", "weekly", "monthly", "yearly"]
             result: Dict[str, Dict[str, Optional[float]]] = {}
 
-            # ✅ Nouveau système HSE : sensor.hse_{nom}_today_energy_{cycle}
+            # Sensors HSE
             for integration, capteurs in (selections or {}).items():
                 for c in (capteurs or []):
                     if not (c.get("enabled") and c.get("entity_id")):
@@ -331,7 +369,6 @@ class GetConsumptionsView(HomeAssistantView):
                     result.setdefault(capteur_id, {})
                     
                     for cycle in cycles:
-                        # ✅ Pattern HSE natif avec noms complets
                         hse_sensor_id = _build_hse_energy_sensor_id(capteur_id, cycle)
                         st = self.hass.states.get(hse_sensor_id)
                         
@@ -343,15 +380,8 @@ class GetConsumptionsView(HomeAssistantView):
                                 value = None
                         
                         result[capteur_id][cycle] = value
-                        
-                        # 🐛 Debug si sensor introuvable
-                        if value is None and st is None:
-                            _LOGGER.debug(
-                                f"[GetConsumptions] Sensor introuvable: {hse_sensor_id} "
-                                f"(source: {capteur_id}, cycle: {cycle})"
-                            )
 
-            # ✅ Capteur externe (référence)
+            # Capteur externe (référence)
             if use_external and external_id:
                 result.setdefault(external_id, {})
                 for cycle in cycles:
@@ -382,11 +412,23 @@ class GetInstantPowerView(HomeAssistantView):
         self.hass = hass
 
     async def get(self, request):
+        """✅ PHASE 2.7: Charge sélection via StorageManager."""
         try:
-            loop = asyncio.get_running_loop()
-            selection = await loop.run_in_executor(
-                None, lambda: _load_json(CAPTEURS_SELECTION_PATH)
-            ) if os.path.exists(CAPTEURS_SELECTION_PATH) else {}
+            # ✅ Charger sélection via StorageManager
+            storage_manager = self.hass.data.get("home_suivi_elec", {}).get("storage_manager")
+            
+            if storage_manager:
+                selection = await storage_manager.get_capteurs_selection()
+                user_config = await storage_manager.get_user_config()
+            else:
+                loop = asyncio.get_running_loop()
+                selection = await loop.run_in_executor(
+                    None, lambda: _load_json(CAPTEURS_SELECTION_PATH)
+                ) if os.path.exists(CAPTEURS_SELECTION_PATH) else {}
+                
+                user_config = await loop.run_in_executor(
+                    None, lambda: _load_json(USER_CONFIG_PATH)
+                ) if os.path.exists(USER_CONFIG_PATH) else {}
 
             entity_ids: List[str] = []
             for capteurs in (selection or {}).values():
@@ -394,12 +436,9 @@ class GetInstantPowerView(HomeAssistantView):
                     if c.get("enabled") and c.get("entity_id"):
                         entity_ids.append(c["entity_id"])
 
-            use_external = False
-            ext_id = None
-            if os.path.exists(USER_CONFIG_PATH):
-                conf = await loop.run_in_executor(None, lambda: _load_json(USER_CONFIG_PATH))
-                use_external = bool((conf or {}).get("useExternal"))
-                ext_id = (conf or {}).get("externalCapteur")
+            use_external = bool(user_config.get("useExternal"))
+            ext_id = user_config.get("externalCapteur")
+            
             if use_external and ext_id and ext_id not in entity_ids:
                 entity_ids.append(ext_id)
 
@@ -429,12 +468,22 @@ class GetUserConfigView(HomeAssistantView):
         self.hass = hass
 
     async def get(self, request):
+        """✅ PHASE 2.7: Utilise StorageManager."""
         try:
-            if not os.path.exists(USER_CONFIG_PATH):
+            storage_manager = self.hass.data.get("home_suivi_elec", {}).get("storage_manager")
+            
+            if not storage_manager:
+                _LOGGER.error("[GET_USER_CONFIG] StorageManager non disponible")
+                # Fallback fichier JSON
+                if os.path.exists(USER_CONFIG_PATH):
+                    loop = asyncio.get_running_loop()
+                    data = await loop.run_in_executor(None, lambda: _load_json(USER_CONFIG_PATH))
+                    return self.json(data)
                 return self.json({})
-            loop = asyncio.get_running_loop()
-            data = await loop.run_in_executor(None, lambda: _load_json(USER_CONFIG_PATH))
-            return self.json(data)
+            
+            data = await storage_manager.get_user_config()
+            return self.json(data or {})
+            
         except Exception as e:
             _LOGGER.exception("Erreur get_user_config: %s", e)
             return self.json({})
@@ -449,10 +498,22 @@ class SaveUserConfigView(HomeAssistantView):
         self.hass = hass
 
     async def post(self, request):
+        """✅ PHASE 2.7: Utilise StorageManager."""
         try:
             body = await request.json()
-            _save_json(USER_CONFIG_PATH, body)
+            
+            storage_manager = self.hass.data.get("home_suivi_elec", {}).get("storage_manager")
+            
+            if storage_manager:
+                await storage_manager.save_user_config(body)
+                _LOGGER.info("[SAVE_USER_CONFIG] Sauvegardé via Storage API")
+            else:
+                # Fallback fichier JSON
+                _save_json(USER_CONFIG_PATH, body)
+                _LOGGER.warning("[SAVE_USER_CONFIG] Sauvegardé via fichier JSON (fallback)")
+            
             return self.json({"success": True})
+            
         except Exception as e:
             _LOGGER.exception("Erreur save_user_config: %s", e)
             return self.json({"success": False})
@@ -468,11 +529,18 @@ class GetUserOptionsView(HomeAssistantView):
         self._store: Optional[Store] = None
 
     async def _load_ignored(self) -> List[str]:
+        """✅ PHASE 2.7: Charge ignored depuis StorageManager."""
         try:
-            if self._store is None:
-                self._store = Store(self.hass, 1, USER_STORE_KEY)
-            cfg = await self._store.async_load() or {}
-            return [str(x) for x in (cfg.get("ignored_entities") or []) if x]
+            storage_manager = self.hass.data.get("home_suivi_elec", {}).get("storage_manager")
+            
+            if storage_manager:
+                return await storage_manager.get_ignored_entities()
+            else:
+                # Fallback Store legacy
+                if self._store is None:
+                    self._store = Store(self.hass, 1, USER_STORE_KEY)
+                cfg = await self._store.async_load() or {}
+                return [str(x) for x in (cfg.get("ignored_entities") or []) if x]
         except Exception as e:
             _LOGGER.debug("GetUserOptionsView: ignored_entities load failed: %s", e)
             return []
@@ -555,10 +623,23 @@ class GetSummaryView(HomeAssistantView):
         self.hass = hass
 
     async def get(self, request):
+        """✅ PHASE 2.7: Charge sélection via StorageManager."""
         try:
             loop = asyncio.get_running_loop()
-            power = await loop.run_in_executor(None, lambda: _load_json(CAPTEURS_POWER_PATH)) if os.path.exists(CAPTEURS_POWER_PATH) else []
-            selection = await loop.run_in_executor(None, lambda: _load_json(CAPTEURS_SELECTION_PATH)) if os.path.exists(CAPTEURS_SELECTION_PATH) else {}
+            
+            power = await loop.run_in_executor(
+                None, lambda: _load_json(CAPTEURS_POWER_PATH)
+            ) if os.path.exists(CAPTEURS_POWER_PATH) else []
+            
+            # ✅ Charger sélection via StorageManager
+            storage_manager = self.hass.data.get("home_suivi_elec", {}).get("storage_manager")
+            
+            if storage_manager:
+                selection = await storage_manager.get_capteurs_selection()
+            else:
+                selection = await loop.run_in_executor(
+                    None, lambda: _load_json(CAPTEURS_SELECTION_PATH)
+                ) if os.path.exists(CAPTEURS_SELECTION_PATH) else {}
                              
             total = len(power or [])
             enabled_ids: Set[str] = set()
@@ -623,11 +704,7 @@ class ForceSyncView(HomeAssistantView):
 
 
 class AutoSelectBestSensorsView(HomeAssistantView):
-    """
-    API pour sélectionner automatiquement les meilleurs capteurs.
-    
-    ✅ ÉTAPE 2/4 : Filtre les helpers (min_max, template, etc.) en utilisant is_physical_sensor()
-    """
+    """API pour sélectionner automatiquement les meilleurs capteurs."""
     url = "/api/home_suivi_elec/auto_select_best_sensors"
     name = "api:home_suivi_elec:auto_select_best_sensors"
     requires_auth = False
@@ -639,26 +716,21 @@ class AutoSelectBestSensorsView(HomeAssistantView):
     async def post(self, request):
         """Sélection automatique intelligente (capteurs physiques uniquement)."""
         try:
-            # ✅ Importer les fonctions de scoring
             from .sensor_quality_scorer import (
                 auto_select_best_sensors,
                 enrich_sensors_with_quality,
-                is_physical_sensor  # ✅ NOUVEAU
+                is_physical_sensor
             )
             
             loop = asyncio.get_running_loop()
             
-            # Charger les capteurs détectés
             detected = []
             if os.path.exists(CAPTEURS_POWER_PATH):
                 detected = await loop.run_in_executor(None, lambda: _load_json(CAPTEURS_POWER_PATH))
             
             _LOGGER.info(f"[AUTO_SELECT] Total capteurs chargés : {len(detected)}")
             
-            # Enrichir avec device_id, area, etc.
             detected = _enrich_device_info(self.hass, detected or [])
-            
-            # ✅ ÉTAPE 2/4 : Filtrer les capteurs physiques AVANT enrichissement
             physical_only = [s for s in detected if is_physical_sensor(s)]
             helpers_count = len(detected) - len(physical_only)
             
@@ -667,13 +739,9 @@ class AutoSelectBestSensorsView(HomeAssistantView):
                 f"Helpers exclus : {helpers_count}"
             )
             
-            # Enrichir avec scores de qualité (UNIQUEMENT les physiques)
             physical_only = enrich_sensors_with_quality(physical_only)
-            
-            # Auto-sélectionner les meilleurs
             selected = auto_select_best_sensors(physical_only)
             
-            # Formater pour sauvegarder
             selection_by_integration = {}
             for sensor in selected:
                 integration = sensor.get("integration", "unknown")
@@ -687,8 +755,13 @@ class AutoSelectBestSensorsView(HomeAssistantView):
                     "quality_score": sensor["quality_score"]
                 })
             
-            # Sauvegarder
-            _save_json(CAPTEURS_SELECTION_PATH, selection_by_integration)
+            # ✅ PHASE 2.7: Sauvegarder via StorageManager
+            storage_manager = self.hass.data.get("home_suivi_elec", {}).get("storage_manager")
+            
+            if storage_manager:
+                await storage_manager.save_capteurs_selection(selection_by_integration)
+            else:
+                _save_json(CAPTEURS_SELECTION_PATH, selection_by_integration)
             
             _LOGGER.info(
                 f"[AUTO_SELECT] ✅ {len(selected)} capteurs physiques sélectionnés "
@@ -713,11 +786,7 @@ class AutoSelectBestSensorsView(HomeAssistantView):
 
 
 class GetSensorQualityScoresView(HomeAssistantView):
-    """
-    API pour obtenir les scores de qualité de tous les capteurs.
-    
-    ✅ ÉTAPE 2/4 : Ajoute le flag is_helper dans la réponse
-    """
+    """API pour obtenir les scores de qualité de tous les capteurs."""
     url = "/api/home_suivi_elec/get_sensor_quality_scores"
     name = "api:home_suivi_elec:get_sensor_quality_scores"
     requires_auth = False
@@ -733,21 +802,16 @@ class GetSensorQualityScoresView(HomeAssistantView):
             
             loop = asyncio.get_running_loop()
             
-            # Charger capteurs
             detected = []
             if os.path.exists(CAPTEURS_POWER_PATH):
                 detected = await loop.run_in_executor(None, lambda: _load_json(CAPTEURS_POWER_PATH))
             
             detected = _enrich_device_info(self.hass, detected or [])
-            
-            # ✅ Enrichir avec scores (contient maintenant le flag is_helper)
             detected = enrich_sensors_with_quality(detected)
             
-            # Séparer physiques vs helpers
             physical = [s for s in detected if not s.get("is_helper")]
             helpers = [s for s in detected if s.get("is_helper")]
             
-            # Grouper par device (physiques uniquement)
             by_device = {}
             for sensor in physical:
                 device_id = sensor.get("device_id", "no_device")
@@ -765,18 +829,19 @@ class GetSensorQualityScoresView(HomeAssistantView):
                 "total": len(detected),
                 "physical_count": len(physical),
                 "helpers_count": len(helpers),
-                "sensors": detected,  # Tous les capteurs (avec flag is_helper)
-                "physical": physical,  # Seulement les physiques
-                "helpers": helpers,    # Seulement les helpers
-                "by_device": by_device # Groupement par appareil (physiques uniquement)
+                "sensors": detected,
+                "physical": physical,
+                "helpers": helpers,
+                "by_device": by_device
             })
             
         except Exception as e:
             _LOGGER.exception("Erreur get_sensor_quality_scores: %s", e)
             return self.json({"success": False, "error": str(e)}, status_code=500)
 
+
 class HSESensorsPublicView(HomeAssistantView):
-    """GET /api/home_suivi_elec/lovelace_sensors - Liste tous les sensors HSE exposés, NON AUTH (usage local !)."""
+    """GET /api/home_suivi_elec/lovelace_sensors - Liste tous les sensors HSE exposés."""
     url = "/api/home_suivi_elec/lovelace_sensors"
     name = "api:home_suivi_elec:lovelace_sensors"
     requires_auth = False
@@ -797,9 +862,5 @@ class HSESensorsPublicView(HomeAssistantView):
                     })
             return self.json(sensors)
         except Exception as e:
-            import logging
-            logging.getLogger(__name__).error(f"Erreur HSESensorsPublicView: {e}")
+            _LOGGER.error(f"Erreur HSESensorsPublicView: {e}")
             return self.json([])
-
-# Enregistre la vue dans async_setup ou async_setup_entry (__init__.py) :
-# hass.http.register_view(HSESensorsPublicView(hass))
