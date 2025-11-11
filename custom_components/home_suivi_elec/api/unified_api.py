@@ -583,6 +583,7 @@ class HomeElecUnifiedAPIView(HomeAssistantView):
                 "function": "unknown",
                 "line": 0
             }
+
     async def handle_sensor_mapping(self):
         """
         Endpoint sensor_mapping - Mapping sensors source → HSE energy cycles
@@ -652,14 +653,14 @@ class HomeElecUnifiedAPIView(HomeAssistantView):
             
             _LOGGER.info(f'[API-MAPPING] ✅ Mapping généré pour {len(mapping)} sources')
             
-            return self.success({
+            return self._success({
                 'mapping': mapping,
                 'total_sources': len(sources),
                 'total_hse_sensors': len(hse_sensors),
                 'type': 'sensor_mapping',
-                'timestamp': self.get_timestamp()
+                'timestamp': self._get_timestamp()
             })
             
         except Exception as e:
             _LOGGER.exception(f'[API-MAPPING] ❌ Erreur: {e}')
-            return self.error(500, f'Erreur mapping sensors: {e}')
+            return self._error(500, f'Erreur mapping sensors: {e}')

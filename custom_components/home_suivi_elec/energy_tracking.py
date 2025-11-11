@@ -1,11 +1,17 @@
 """
-Energy Tracking Platform - Version FIXED COMPLETE
+Energy Tracking Platform - Version COMPLETE FIXED
 Crée sensors energy tracking avec cycles horaire/jour/semaine/mois/année
-FIX: Ajout @property native_unit_of_measurement + fonction create_energy_sensors
+FIX COMPLET: 
+  - Utilise paramètre capteurs_data passé par __init__.py
+  - Gère toutes catégories (mqtt, tplink, tuya, min_max)
+  - Filtre enabled: true
+  - Async I/O
+  - native_unit_of_measurement pour Energy Dashboard
 Date: 2025-11-10
 """
 import logging
 import asyncio
+import json
 from datetime import datetime, timedelta
 from typing import Any, List
 
@@ -31,55 +37,114 @@ CYCLES = {
 }
 
 
-def create_energy_sensors(hass: HomeAssistant, entry=None) -> List[SensorEntity]:
+async def create_energy_sensors(hass: HomeAssistant, capteurs_data=None) -> List[SensorEntity]:
     """
-    Create energy sensors from capteurs_selection.json
-    Appelée par __init__.py pour créer sensors manuellement
+    Create energy sensors from capteurs data or capteurs_selection.json
+    
+    Args:
+        hass: Home Assistant instance
+        capteurs_data: Données déjà chargées par __init__.py (dict ou list)
+                      Si None, charge depuis capteurs_selection.json
+    
+    Returns:
+        List of energy sensor entities
     """
     _LOGGER.info("[CREATE-ENERGY] Début création sensors via helper")
     
-    import json
     import os
     
-    selection_file = os.path.join(
-        hass.config.config_dir,
-        "custom_components/home_suivi_elec/data/capteurs_selection.json"
-    )
-    
-    try:
-        with open(selection_file, "r") as f:
-            data = json.load(f)
-            
-        if isinstance(data, dict):
-            capteurs = data.get("power_sources", [])
-        else:
-            capteurs = data
-            
-        _LOGGER.info(f"[CREATE-ENERGY] {len(capteurs)} capteurs à traiter")
+    # Si données passées en paramètre, les utiliser
+    if capteurs_data is not None:
+        _LOGGER.info("[CREATE-ENERGY] Utilisation données passées en paramètre")
+        data = capteurs_data
+    else:
+        # Sinon charger depuis fichier
+        _LOGGER.info("[CREATE-ENERGY] Chargement depuis fichier")
+        selection_file = os.path.join(
+            hass.config.config_dir,
+            "custom_components/home_suivi_elec/data/capteurs_selection.json"
+        )
         
-    except Exception as e:
-        _LOGGER.error(f"[CREATE-ENERGY] Erreur lecture capteurs: {e}")
+        def _load_capteurs_selection():
+            try:
+                with open(selection_file, "r") as f:
+                    return json.load(f)
+            except Exception as e:
+                _LOGGER.error(f"[CREATE-ENERGY] Erreur lecture fichier: {e}")
+                return None
+        
+        data = await hass.async_add_executor_job(_load_capteurs_selection)
+        
+        if data is None:
+            return []
+    
+    # Extraire capteurs selon format
+    capteurs = []
+    
+    if isinstance(data, dict):
+        # Format avec catégories: {"mqtt": [...], "tplink": [...], ...}
+        _LOGGER.info("[CREATE-ENERGY] Format dict détecté")
+        
+        # D'abord chercher power_sources (format unifié)
+        if "power_sources" in data:
+            capteurs = data["power_sources"]
+            _LOGGER.info(f"[CREATE-ENERGY] Trouvé power_sources: {len(capteurs)} capteurs")
+        else:
+            # Sinon extraire de toutes les catégories
+            for category in ["mqtt", "tplink", "tuya", "shelly", "min_max", "template"]:
+                if category in data:
+                    category_capteurs = data[category]
+                    _LOGGER.info(f"[CREATE-ENERGY] Catégorie {category}: {len(category_capteurs)} capteurs")
+                    capteurs.extend(category_capteurs)
+    
+    elif isinstance(data, list):
+        # Format liste directe: [{entity_id: ..., enabled: ...}, ...]
+        _LOGGER.info("[CREATE-ENERGY] Format list détecté")
+        capteurs = data
+    
+    else:
+        _LOGGER.error(f"[CREATE-ENERGY] Format données inconnu: {type(data)}")
+        return []
+    
+    _LOGGER.info(f"[CREATE-ENERGY] Total capteurs avant filtrage: {len(capteurs)}")
+    
+    # Filtrer enabled: true
+    enabled_capteurs = [c for c in capteurs if c.get("enabled", False)]
+    _LOGGER.info(f"[CREATE-ENERGY] Capteurs enabled=true: {len(enabled_capteurs)}")
+    
+    if not enabled_capteurs:
+        _LOGGER.warning("[CREATE-ENERGY] ⚠️ AUCUN capteur avec enabled=true !")
+        _LOGGER.warning("[CREATE-ENERGY] Vérifiez capteurs_selection.json")
         return []
     
     sensors = []
     
-    for capteur in capteurs:
+    for capteur in enabled_capteurs:
         entity_id = capteur.get("entity_id", "")
         
+        if not entity_id:
+            _LOGGER.warning(f"[CREATE-ENERGY] Capteur sans entity_id: {capteur}")
+            continue
+        
+        # Skip sensors HSE déjà créés
         if entity_id.startswith("sensor.hse_live_") or entity_id.startswith("sensor.hse_energy_"):
             _LOGGER.debug(f"[SKIP] {entity_id} déjà sensor HSE")
             continue
-            
-        is_energy = ("_energy" in entity_id or "_today_energy" in entity_id)
-        basename = entity_id.replace("sensor.", "").replace("_today_energy", "")
         
+        # Déterminer si sensor energy ou power
+        is_energy = ("_energy" in entity_id or "_today_energy" in entity_id or 
+                     "consommation" in entity_id)
+        
+        basename = entity_id.replace("sensor.", "").replace("_today_energy", "").replace("_consommation_d_aujourd_hui", "")
+        
+        # Créer sensors par cycle
         for cycle in CYCLES.keys():
             if is_energy:
                 sensor_id = f"sensor.hse_{basename}_{cycle}"
             else:
                 sensor_id = f"sensor.hse_energy_{basename}_{cycle}"
             
-            _LOGGER.info(f"[CREATE-ENERGY] {sensor_id}")
+            _LOGGER.info(f"[CREATE-ENERGY] Création {sensor_id}")
             
             sensors.append(
                 PowerEnergyCycleSensor(
@@ -90,7 +155,7 @@ def create_energy_sensors(hass: HomeAssistant, entry=None) -> List[SensorEntity]
                 )
             )
     
-    _LOGGER.info(f"[CREATE-ENERGY] {len(sensors)} sensors créés")
+    _LOGGER.info(f"[CREATE-ENERGY] ✅ {len(sensors)} sensors créés")
     return sensors
 
 
@@ -101,7 +166,7 @@ async def async_setup_platform(hass, config, async_add_entities, discovery_info=
     """
     _LOGGER.info("[ENERGY-TRACKING] Setup via sensor platform")
     
-    sensors = create_energy_sensors(hass)
+    sensors = await create_energy_sensors(hass)
     async_add_entities(sensors, True)
 
 
