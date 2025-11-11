@@ -2,7 +2,9 @@
 releaseonmac.sh
 *.txt
 *.sh
-*.py
+beautify_backendmd_ai.py
+migrate_cleanup_custom_hse.py
+utility_meter_manager.py
 doc/
 # ========================================
 # HOME SUIVI ÉLEC - PROTECTION DONNÉES
