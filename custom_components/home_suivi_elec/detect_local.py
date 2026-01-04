@@ -36,6 +36,7 @@ import logging
 from typing import Any, Dict, List, Optional, Tuple, Set
 from datetime import datetime
 
+
 _LOGGER = logging.getLogger(__name__)
 
 DATA_DIR = os.path.join(os.path.dirname(__file__), "data")
@@ -151,25 +152,35 @@ def __get_energy_platforms_from_registry(entity_reg, hass) -> Set[str]:
 # ============================================================================
 
 def __classify_sensor(state) -> str:
+    """Classe le sensor brut en 'power' ou 'energy' de façon cohérente avec HSE."""
     if not state:
         return "unknown"
+
     attrs = state.attributes or {}
     device_class = str(attrs.get("device_class", "")).lower().strip()
     unit = str(attrs.get("unit_of_measurement", "")).lower().strip()
     state_class = str(attrs.get("state_class", "")).lower().strip()
-    
-    if device_class == "energy":
-        return "energy"
-    if device_class == "power":
+
+    # Capteurs power instantanés
+    if device_class == "power" and state_class == "measurement" and unit in ("w", "kw"):
         return "power"
-    if unit in ("kwh", "wh", "mwh", "gwh"):
+
+    # Capteurs energy directs (compteurs)
+    if device_class == "energy" and state_class == "total_increasing" and unit in ("kwh", "wh"):
         return "energy"
-    if unit in ("w", "watt", "watts", "kw", "kilowatt", "mw", "megawatt"):
+
+    # Fallbacks doux pour compat anciens capteurs
+    if device_class == "power" and unit in ("w", "watt", "watts", "kw", "kilowatt"):
         return "power"
-    if state_class in ("total", "total_increasing") and unit:
-        if any(u in unit for u in ["w", "watt", "kw"]):
-            return "energy"
+
+    if device_class == "energy" and unit in ("kwh", "wh", "mwh", "gwh"):
+        return "energy"
+
+    if state_class in ("total", "total_increasing") and unit in ("kwh", "wh"):
+        return "energy"
+
     return "unknown"
+
 
 def __classify_platform(platform: str, has_device_id: bool, excluded_platforms: Set[str], helper_platforms: Dict[str, Dict]) -> Dict[str, Any]:
     if platform in excluded_platforms:
@@ -686,6 +697,195 @@ async def run_detect_local(*args, **kwargs) -> List[Dict[str, Any]]:
         print(f"[DETECT] capteurs_total={total}, doublons={duplicates}, suggeres={suggested}")
         __write_json_sync(_CAPTEURS_FILE, capteurs_final)
         return capteurs_final
+
+async def detect_hidden_sensors(hass) -> Dict[str, Any]:
+    """
+    Détecte les capteurs power/energy désactivés ou sans unit_of_measurement.
+    Retourne une analyse complète pour aider l'utilisateur à débugger.
+    """
+    try:
+        from homeassistant.helpers import (
+            entity_registry as er,
+            device_registry as dr,
+        )
+    except ImportError:
+        return {"error": "Registry unavailable"}
+
+    entity_reg = er.async_get(hass)
+    device_reg = dr.async_get(hass)
+
+    # Récupérer toutes les intégrations power/energy connues
+    energy_platforms = __get_energy_platforms_from_registry(entity_reg, hass)
+    
+    hidden_sensors = {
+        "disabled_by_user": [],
+        "disabled_by_integration": [],
+        "missing_unit": [],
+        "missing_device_class": [],
+        "unavailable": [],
+        "suspicious_names": [],
+        "inactive_integrations": [],
+    }
+    
+    integration_stats = {}
+    
+    suspicious_keywords = [
+        "power", "energy", "puissance", "consommation", "watt", 
+        "kwh", "current", "courant", "voltage", "tension",
+        "today_energy", "device_energy", "current_power", "device_power"
+    ]
+    
+    for entry in entity_reg.entities.values():
+        if entry.domain != "sensor":
+            continue
+        
+        # ✅ CHANGEMENT 1 : Gérer les entités désactivées
+        state = hass.states.get(entry.entity_id)
+        
+        # Si désactivé, utiliser entry.original_*
+        if entry.disabled:
+            device_class = str(entry.original_device_class or "").lower().strip()
+            unit = str(entry.unit_of_measurement or "").lower().strip()
+            friendly_name = entry.original_name or entry.name or entry.entity_id
+        elif state:
+            attrs = state.attributes
+            device_class = str(attrs.get("device_class", "")).lower().strip()
+            unit = str(attrs.get("unit_of_measurement", "")).lower().strip()
+            friendly_name = str(attrs.get("friendly_name", entry.entity_id))
+        else:
+            # Ni désactivé ni avec state (cas rare)
+            continue
+        
+        entity_id_lower = entry.entity_id.lower()
+        friendly_name_lower = friendly_name.lower()
+        
+        # Vérifier si le nom suggère power/energy
+        has_suspicious_name = any(
+            keyword in friendly_name_lower or keyword in entity_id_lower
+            for keyword in suspicious_keywords
+        )
+        
+        # Ignorer si pas power/energy related ET pas de nom suspect
+        is_energy_related = (
+            device_class in ("power", "energy", "current", "voltage") or
+            any(u in unit for u in ["w", "wh", "kwh", "kw", "a", "v"]) or
+            has_suspicious_name
+        )
+        
+        if not is_energy_related:
+            continue
+        
+        integration = entry.platform
+        
+        # Stats par intégration
+        if integration not in integration_stats:
+            integration_stats[integration] = {"total": 0, "active": 0, "hidden": 0}
+        
+        integration_stats[integration]["total"] += 1
+        
+        # ✅ CHANGEMENT 2 : Traiter les capteurs désactivés
+        if entry.disabled:
+            sensor_info = {
+                "entity_id": entry.entity_id,
+                "friendly_name": friendly_name,
+                "integration": integration,
+                "device_class": device_class or "missing",
+                "unit": unit or "missing",
+                "disabled_by": str(entry.disabled_by),
+                "reason": f"Désactivé par {entry.disabled_by}",
+            }
+            
+            if entry.disabled_by == "user":
+                hidden_sensors["disabled_by_user"].append(sensor_info)
+            else:
+                hidden_sensors["disabled_by_integration"].append(sensor_info)
+            
+            integration_stats[integration]["hidden"] += 1
+            continue
+        
+        # ✅ Pour les capteurs actifs, vérifier problèmes
+        if not state:
+            continue
+            
+        integration_stats[integration]["active"] += 1
+        
+        # Nom suspect mais attributs manquants
+        if has_suspicious_name and not device_class and not unit:
+            hidden_sensors["suspicious_names"].append({
+                "entity_id": entry.entity_id,
+                "friendly_name": friendly_name,
+                "integration": integration,
+                "state": state.state,
+                "reason": "Nom suggère power/energy mais device_class et unit_of_measurement manquants",
+                "action": "Configurer device_class et unit via customize.yaml ou Developer Tools",
+            })
+        
+        # device_class ok mais unit manquant ?
+        elif device_class in ("power", "energy") and not unit:
+            hidden_sensors["missing_unit"].append({
+                "entity_id": entry.entity_id,
+                "friendly_name": friendly_name,
+                "integration": integration,
+                "device_class": device_class,
+                "state": state.state,
+                "reason": f"device_class={device_class} mais unit_of_measurement manquant",
+            })
+        
+        # unit ok mais device_class manquant ?
+        elif unit in ("w", "kw", "kwh", "wh") and not device_class:
+            hidden_sensors["missing_device_class"].append({
+                "entity_id": entry.entity_id,
+                "friendly_name": friendly_name,
+                "integration": integration,
+                "unit": unit,
+                "state": state.state,
+                "reason": f"unit={unit} mais device_class manquant",
+            })
+        
+        # Unavailable ?
+        elif state.state == "unavailable":
+            hidden_sensors["unavailable"].append({
+                "entity_id": entry.entity_id,
+                "friendly_name": friendly_name,
+                "integration": integration,
+                "device_class": device_class or "unknown",
+                "unit": unit or "unknown",
+                "reason": "État 'unavailable' (device peut-être déconnecté)",
+            })
+    
+    # Intégrations installées mais sans capteurs actifs
+    for platform in energy_platforms:
+        stats = integration_stats.get(platform, {"total": 0, "active": 0, "hidden": 0})
+        if stats["active"] == 0 and stats["total"] > 0:
+            hidden_sensors["inactive_integrations"].append({
+                "integration": platform,
+                "total_sensors": stats["total"],
+                "hidden_sensors": stats["hidden"],
+                "reason": f"Intégration installée avec {stats['total']} capteur(s) mais tous désactivés",
+            })
+    
+    # Résumé global
+    summary = {
+        "total_hidden": sum(len(v) for k, v in hidden_sensors.items() if k != "inactive_integrations"),
+        "disabled_by_user_count": len(hidden_sensors["disabled_by_user"]),
+        "disabled_by_integration_count": len(hidden_sensors["disabled_by_integration"]),
+        "suspicious_names_count": len(hidden_sensors["suspicious_names"]),
+        "missing_attributes_count": len(hidden_sensors["missing_unit"]) + len(hidden_sensors["missing_device_class"]),
+        "unavailable_count": len(hidden_sensors["unavailable"]),
+        "inactive_integrations_count": len(hidden_sensors["inactive_integrations"]),
+        "integrations_with_issues": [
+            {"name": k, **v} 
+            for k, v in integration_stats.items() 
+            if v["hidden"] > 0 or v["active"] == 0
+        ],
+    }
+    
+    return {
+        "success": True,
+        "summary": summary,
+        "hidden_sensors": hidden_sensors,
+        "integration_stats": integration_stats,
+    }
 
 if __name__ == "__main__":
     import asyncio

@@ -3,6 +3,7 @@ import logging
 import aiohttp
 from aiohttp import web
 from homeassistant.components.http import HomeAssistantView
+from .utils.json_response import json_response
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -21,7 +22,7 @@ class SuiviElecProxyView(HomeAssistantView):
             method = data.get("method", "GET").upper()
             
             if not endpoint:
-                return web.json_response({"error": "endpoint requis"}, status=400)
+                return json_response({"error": "endpoint requis"}, status=400)
             
             _LOGGER.info(f"[PROXY] {method} {endpoint}")
             
@@ -36,8 +37,8 @@ class SuiviElecProxyView(HomeAssistantView):
                         result = await resp.json()
                     else:
                         result = {"error": await resp.text()}
-                    return web.json_response(result, status=resp.status)
+                    return json_response(result, status=resp.status)
             
         except Exception as e:
             _LOGGER.error(f"[PROXY] Erreur: {e}", exc_info=True)
-            return web.json_response({"error": str(e)}, status=500)
+            return json_response({"error": str(e)}, status=500)

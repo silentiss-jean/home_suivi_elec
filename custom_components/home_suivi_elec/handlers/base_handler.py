@@ -4,6 +4,7 @@ from abc import ABC, abstractmethod
 from typing import Any
 from aiohttp import web
 from homeassistant.core import HomeAssistant
+from ..utils.json_response import json_response
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -20,14 +21,14 @@ class BaseHandler(ABC):
     
     def success(self, data: Any) -> web.Response:
         """Réponse de succès standardisée"""
-        return web.json_response({
+        return json_response({
             "error": False,
             "data": data
         })
     
     def error(self, status: int, message: str) -> web.Response:
         """Réponse d'erreur standardisée"""
-        return web.json_response({
+        return json_response({
             "error": True,
             "status": status,
             "message": message

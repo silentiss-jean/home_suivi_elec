@@ -5,8 +5,20 @@ import os
 from aiohttp import web
 from homeassistant.components.http import HomeAssistantView
 from homeassistant.core import HomeAssistant
+from ..export import ExportService
+from ..cache_manager import get_cache_manager
+from ..calculation_engine import CalculationEngine, PricingProfile
+from ..diagnostics_engine import DiagnosticsEngine
+from datetime import datetime, date
+from ..utils.json_response import json_response
 
 _LOGGER = logging.getLogger(__name__)
+
+def _json_default(obj):
+    """Serializer JSON custom pour gérer datetime/date automatiquement"""
+    if isinstance(obj, (datetime, date)):
+        return obj.isoformat()
+    raise TypeError(f"Type {type(obj)} not serializable")
 
 class HomeElecUnifiedAPIView(HomeAssistantView):
     """API REST unifiée - Données réelles backend"""
@@ -48,10 +60,24 @@ class HomeElecUnifiedAPIView(HomeAssistantView):
                 return await self._handle_logs()
             elif resource == 'sensor_mapping':
             	return await self.handle_sensor_mapping()
+            elif resource == 'get_backend_health':
+            	return await self._handle_backend_health()
+            elif resource == "get_groups":
+                return await self._handle_groups()
+            elif resource == "migration":
+                return await self._handle_migration(request)
+            elif resource == "cache_stats":
+                return await self._handle_cache_stats()
+            elif resource == "summary_metrics":
+                return await self._handle_summary_metrics(request)
+            elif resource == "deep_diagnostics":
+                return await self._handle_deep_diagnostics()
+            elif resource == "costs_overview":
+                return await self._handle_costs_overview()
             else:
                 return self._success({
                     "message": f"API Unifiée opérationnelle - resource: {resource}",
-                    "available_endpoints": ["sensors", "data", "diagnostics", "config", "ui", "get_sensors_health", "get_integrations_status", "get_logs","sensor_mapping"],
+                    "available_endpoints": ["sensors", "data", "diagnostics", "config", "ui", "get_sensors_health", "get_integrations_status", "get_logs","sensor_mapping","get_backend_health","get_groups","migration","cache_stats","summary_metrics", "deep_diagnostics", "costs_overview"],
                     "version": "unified-v1.0.42-final",
                     "status": "connected_to_backend"
                 })
@@ -93,8 +119,10 @@ class HomeElecUnifiedAPIView(HomeAssistantView):
                     
                     # Fusion avec état Home Assistant
                     sensor_info.update({
+                        "state": state_obj.state if state_obj else "unavailable",
                         "current_state": state_obj.state if state_obj else "unavailable",
                         "last_changed": state_obj.last_changed.isoformat() if state_obj else None,
+                        "last_updated": state_obj.last_updated.isoformat() if state_obj else None,
                         "attributes": dict(state_obj.attributes) if state_obj else {}
                     })
                     enriched_sensors.append(sensor_info)
@@ -308,7 +336,7 @@ class HomeElecUnifiedAPIView(HomeAssistantView):
     
     def _get_timestamp(self):
         """Timestamp ISO actuel"""
-        from datetime import datetime
+        from datetime import datetime, date
         return datetime.now().isoformat()
     
     def _get_last_detection_time(self):
@@ -317,13 +345,20 @@ class HomeElecUnifiedAPIView(HomeAssistantView):
         return self._get_timestamp()
     
     def _success(self, data):
-        """Réponse succès avec données"""
-        return web.json_response({"error": False, "data": data})
+        """Réponse succès avec données (gère datetime automatiquement)"""
+        return web.Response(
+            text=json.dumps({"error": False, "data": data}, default=_json_default),
+            content_type="application/json"
+        )
     
     def _error(self, status, message):
-        """Réponse erreur avec statut"""
-        return web.json_response({"error": True, "message": message}, status=status)
-    
+        """Réponse erreur"""
+        return web.Response(
+            text=json.dumps({"error": True, "message": message}, default=_json_default),
+            content_type="application/json",
+            status=status
+        )
+        
     async def handle_sensors_health(self):
         """Endpoint get_sensors_health - Diagnostic capteurs pour capteursSensor.js."""
         try:
@@ -373,7 +408,7 @@ class HomeElecUnifiedAPIView(HomeAssistantView):
             _LOGGER.info(f"🩺 Sensors health: {len(sensors_health)} capteurs analysés")
             
             # ✅ Format SUCCESS pour capteursSensor.js (pas self.success !)
-            return web.json_response({
+            return json_response({
                 "success": True,
                 "sensors": sensors_health,
                 "count": len(sensors_health)
@@ -664,3 +699,425 @@ class HomeElecUnifiedAPIView(HomeAssistantView):
         except Exception as e:
             _LOGGER.exception(f'[API-MAPPING] ❌ Erreur: {e}')
             return self._error(500, f'Erreur mapping sensors: {e}')
+
+    async def _handle_backend_health(self):
+        """Endpoint /get_backend_health - Métriques santé backend pour UI Diagnostics."""
+        try:
+            import time
+            from datetime import datetime, date
+
+            # Uptime basé sur un timestamp stocké en mémoire HA
+            start_time = self.hass.data.get("home_suivi_elec_start_time")
+            if not start_time:
+                start_time = datetime.now()
+                self.hass.data["home_suivi_elec_start_time"] = start_time
+
+            uptime_seconds = (datetime.now() - start_time).total_seconds()
+
+            # Compteur de requêtes simple (optionnel, pour illustrer)
+            req_count = self.hass.data.get("home_suivi_elec_request_count", 0) + 1
+            self.hass.data["home_suivi_elec_request_count"] = req_count
+
+            health_data = {
+                "uptime": int(uptime_seconds),
+                "uptime_percent": 99.5,           # Valeur fictive pour l’instant
+                "requests_per_hour": 120,         # À raffiner plus tard
+                "errors_per_hour": 0,
+                "avg_latency": 45,                # ms (simulé)
+                "memory_used": 52_428_800,        # ~50 Mo (simulé)
+                "memory_percent": 12.0,
+                "version": "unified-v1.0.42-final",
+                "start_time": start_time.isoformat(),
+                "last_request": datetime.now().isoformat(),
+                "total_requests": req_count,
+                "total_errors": 0,
+                "success_rate": 99.8,
+            }
+
+            _LOGGER.info("🩺 Backend health généré")
+            return json_response({
+                "success": True,
+                "health": health_data,
+            })
+
+        except Exception as e:
+            _LOGGER.exception(f"Erreur _handle_backend_health: {e}")
+            return self._error(500, f"Erreur santé backend: {e}")
+
+    async def _handle_migration(self, request):
+        """Endpoint /migration - export YAML (utility_meter, templates, cost)."""
+        try:
+            kind = (request.query.get("type", "utility_meter") or "utility_meter").lower()
+            preview = request.query.get("preview", "0") in ("1", "true", "True")
+
+            export_service = ExportService(self.hass)
+
+            if kind == "utility_meter":
+                yaml_str = await export_service.generate_utility_meter_yaml()
+                filename = "utility_meter.yaml"
+            elif kind == "templates":
+                yaml_str = await export_service.generate_template_sensors_yaml()
+                filename = "template_sensors.yaml"
+            elif kind == "cost":
+                yaml_str = await export_service.generate_cost_sensors_yaml()
+                filename = "cost_sensors.yaml"
+            else:
+                return self._error(400, f"type inconnu pour migration: {kind}")
+
+            # Mode "preview" : juste le YAML brut, sans Content-Disposition
+            if preview:
+                return web.Response(
+                    text=yaml_str,
+                    content_type="text/yaml",
+                )
+
+            # Mode "download" : header Content-Disposition
+            return web.Response(
+                text=yaml_str,
+                content_type="text/yaml",
+                headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+            )
+
+        except Exception as e:
+            _LOGGER.exception(f"Erreur _handle_migration: {e}")
+            return self._error(500, f"Erreur migration: {e}")
+
+    async def _handle_cache_stats(self):
+        """Endpoint /cache/stats - Statistiques du cache"""
+        try:
+            cache = get_cache_manager()    
+            stats = cache.get_stats()
+            
+            _LOGGER.info(f"[cache] Stats: {stats['total_entries']} entrées, {stats['memory_kb']:.1f} KB")
+            
+            return self._success({
+                "stats": stats,
+                "type": "cache_stats",
+                "timestamp": self._get_timestamp()
+            })
+        except Exception as e:
+            _LOGGER.exception(f"Erreur _handle_cache_stats: {e}")
+            return self._error(500, f"Erreur stats cache: {e}")
+
+    async def _handle_groups(self):
+        try:
+            from ..storage_manager import StorageManager
+            from ..const import DOMAIN
+
+            _LOGGER.debug("[get_groups] Début handler")
+
+            data = self.hass.data.get(DOMAIN, {})
+            mgr = data.get("storage_manager")
+            _LOGGER.debug("[get_groups] mgr in hass.data: %r", type(mgr))
+
+            if not isinstance(mgr, StorageManager):
+                _LOGGER.debug("[get_groups] mgr pas StorageManager, on instancie")
+                mgr = StorageManager(self.hass)
+
+            groups = await mgr.get_sensor_groups()
+            _LOGGER.debug("[get_groups] groups chargés: type=%s, len=%s",
+                        type(groups), len(groups) if isinstance(groups, dict) else "n/a")
+
+            if groups is None or not isinstance(groups, dict):
+                _LOGGER.warning("[get_groups] format inattendu, fallback {}: %r", groups)
+                groups = {}
+
+            return self._success({
+                "groups": groups,
+                "count": len(groups),
+                "type": "sensor_groups",
+            })
+
+        except Exception as e:
+            _LOGGER.exception("Erreur _handle_groups: %s", e)
+            return self._error(500, f"Erreur chargement groupes: {e}")
+
+    async def _handle_summary_metrics(self, request):
+        """Endpoint /summary_metrics - métriques internal/external/delta avec cache."""
+        try:
+            data = await request.json() if request.can_read_body else {}
+            # entity_ids internes
+            internal_ids = data.get("internal_ids") or []
+            # capteur externe (kWh déjà agrégé)
+            external_entity = data.get("external_entity")
+            # période demandée: hourly/daily/weekly/monthly/yearly
+            period = data.get("period", "daily")
+
+            # Profil tarifaire depuis les options déjà stockées
+            options = self.hass.data.get("home_suivi_elec", {}).get("options", {}) or {}
+            profile = PricingProfile({
+                "type_contrat": options.get("type_contrat", "fixe"),
+                "prix_ht": options.get("prix_ht") or options.get("prixht") or 0,
+                "prix_ttc": options.get("prix_ttc") or options.get("prixttc") or 0,
+                "abonnement_ht": options.get("abonnement_ht") or options.get("abonnementht") or 0,
+                "abonnement_ttc": options.get("abonnement_ttc") or options.get("abonnementttc") or 0,
+            })
+
+            engine = CalculationEngine(self.hass)
+
+            # INTERNAL
+            internal = await engine.get_group_metrics(
+                "internal", period, profile, internal_ids
+            )
+
+            # EXTERNAL (si capteur défini)
+            external = None
+            if external_entity:
+                external = await engine.get_group_metrics(
+                    "external", period, profile, [external_entity]
+                )
+
+            # DELTA (external - internal) dérivé
+            delta = None
+            if external:
+                delta = {
+                    "energy_kwh": round(external["energy_kwh"] - internal["energy_kwh"], 3),
+                    "cost_ht": round(external["cost_ht"] - internal["cost_ht"], 2),
+                    "cost_ttc": round(external["cost_ttc"] - internal["cost_ttc"], 2),
+                    "total_ht": round(external["total_ht"] - internal["total_ht"], 2),
+                    "total_ttc": round(external["total_ttc"] - internal["total_ttc"], 2),
+                    "timestamp": internal["timestamp"],
+                    "from_cache": internal["from_cache"] and external["from_cache"],
+                    "cached_age": min(internal["cached_age"], external["cached_age"]),
+                }
+
+            return self._success({
+                "internal": internal,
+                "external": external,
+                "delta": delta,
+                "period": period,
+            })
+
+        except Exception as e:
+            _LOGGER.exception("[SUMMARY-METRICS] Erreur: %s", e)
+            return self._error(500, f"Erreur summary metrics: {e}")
+
+    async def _handle_deep_diagnostics(self):
+        """
+        Diagnostic approfondi du système
+        Analyse complète : capteurs, relations, backend, config
+        
+        Returns:
+            Response JSON avec diagnostic complet
+        """
+        try:            
+            # Instancier le moteur
+            engine = DiagnosticsEngine(self.hass)
+            
+            # Lancer le diagnostic
+            results = await engine.run_full_diagnostics()
+            
+            return self._success({
+                **results,
+                "resource": "deep_diagnostics"
+            })
+            
+        except Exception as e:
+            _LOGGER.error(f"❌ Erreur deep_diagnostics: {e}", exc_info=True)
+            return self._error(500, str(e))
+
+    async def _handle_costs_overview(self):
+        """
+        Endpoint /costs_overview - Coûts globaux + par capteur pour Summary
+        
+        Retourne:
+            {
+                "global": {
+                    "day": { energy_kwh, cost_ht, cost_ttc, subscription_ht, subscription_ttc, total_ht, total_ttc },
+                    "week": { ... },
+                    "month": { ... },
+                    "year": { ... }
+                },
+                "per_entity": [
+                    {
+                        "entity_id": "sensor.x",
+                        "display_name": "X",
+                        "integration": "tapo",
+                        "day_kwh": 1.2,
+                        "day_cost_ttc": 0.33,
+                        "week_kwh": 8.5,
+                        "week_cost_ttc": 2.35,
+                        "month_kwh": 35.0,
+                        "month_cost_ttc": 9.66,
+                        "year_kwh": 420.0,
+                        "year_cost_ttc": 115.92
+                    },
+                    ...
+                ]
+            }
+        """
+        # Fonction helper locale pour conversion sûre
+        def _safe_float(value, default=0.0):
+            """Convertit en float, retourne default si None/invalide"""
+            if value is None:
+                return default
+            try:
+                return float(value)
+            except (TypeError, ValueError):
+                return default
+        
+        try:
+            _LOGGER.info("[COSTS-OVERVIEW] 📊 Calcul coûts globaux + par capteur")
+            
+            # 1. Import et récupération du DOMAIN
+            from ..const import DOMAIN
+            from datetime import datetime, date
+            
+            # === EXTRACTION ROBUSTE DES CAPTEURS SÉLECTIONNÉS (normalisée) ===
+            storage_manager = self.hass.data.get(DOMAIN, {}).get("storage_manager")
+            if storage_manager:
+                selection_data = await storage_manager.get_capteurs_selection()
+            else:
+                selection_data = await self._load_selection_data()
+            
+            options = self.hass.data.get(DOMAIN, {}).get("options", {})
+            
+            # 2. Extraire capteurs sélectionnés avec support usage_energy + include_in_summary
+            selected_ids = []
+            for integ, lst in (selection_data or {}).items():
+                if not isinstance(lst, list):
+                    continue
+                for row in lst:
+                    # Doit être enabled
+                    if not row.get("enabled"):
+                        continue
+                    
+                    # Si include_in_summary est explicitement False, on skip
+                    if row.get("include_in_summary") is False:
+                        continue
+                    
+                    # Priorité : usage_energy (normalisé) > entity_id brut
+                    eid = row.get("usage_energy") or row.get("entity_id")
+                    if eid and eid not in selected_ids:
+                        selected_ids.append(eid)
+            
+            selected_ids = sorted(set(selected_ids))
+            _LOGGER.info(f"[COSTS-OVERVIEW] 📊 {len(selected_ids)} capteurs sélectionnés pour calcul")
+            
+            # 3. Profil tarifaire
+            profile = PricingProfile({
+                "type_contrat": options.get("type_contrat", "prix_unique"),
+                "prix_ht": options.get("prix_ht") or options.get("prixht") or 0,
+                "prix_ttc": options.get("prix_ttc") or options.get("prixttc") or 0,
+                "abonnement_ht": options.get("abonnement_ht") or options.get("abonnementht") or 0,
+                "abonnement_ttc": options.get("abonnement_ttc") or options.get("abonnementttc") or 0,
+                "hp": options.get("hp", {}),
+                "hc": options.get("hc", {})
+            })
+            
+            # 4. Calcul global (day/week/month/year)
+            engine = CalculationEngine(self.hass)
+            
+            periods = ["daily", "weekly", "monthly", "yearly"]
+            global_metrics = {}
+            
+            for period in periods:
+                try:
+                    metrics = await engine.get_group_metrics(
+                        "global", period, profile, selected_ids
+                    )
+                    
+                    # Reformater pour frontend (subscription séparé)
+                    period_key = period.replace("ly", "")  # daily → day
+                    global_metrics[period_key] = {
+                        "energy_kwh": _safe_float(metrics.get("energy_kwh")),
+                        "cost_ht": _safe_float(metrics.get("cost_ht")),
+                        "cost_ttc": _safe_float(metrics.get("cost_ttc")),
+                        "subscription_ht": round(_safe_float(metrics.get("total_ht")) - _safe_float(metrics.get("cost_ht")), 2),
+                        "subscription_ttc": round(_safe_float(metrics.get("total_ttc")) - _safe_float(metrics.get("cost_ttc")), 2),
+                        "total_ht": _safe_float(metrics.get("total_ht")),
+                        "total_ttc": _safe_float(metrics.get("total_ttc")),
+                        "from_cache": metrics.get("from_cache", False),
+                        "cached_age": metrics.get("cached_age", 0)
+                    }
+                except Exception as e:
+                    _LOGGER.warning(f"[COSTS-OVERVIEW] ⚠️ Erreur calcul période {period}: {e}")
+                    # Métriques par défaut si erreur
+                    period_key = period.replace("ly", "")
+                    global_metrics[period_key] = {
+                        "energy_kwh": 0.0,
+                        "cost_ht": 0.0,
+                        "cost_ttc": 0.0,
+                        "subscription_ht": 0.0,
+                        "subscription_ttc": 0.0,
+                        "total_ht": 0.0,
+                        "total_ttc": 0.0,
+                        "from_cache": False,
+                        "cached_age": 0
+                    }
+            
+            _LOGGER.debug("[COSTS-OVERVIEW] ✅ Métriques globales calculées")
+            
+            # 5. Calcul par capteur (day/week/month/year)
+            sensor_mapping = await engine._get_sensor_mapping()
+            sensors_data = await self._load_sensors_data()
+            
+            # Index des métadonnées sensors
+            sensors_index = {s.get("entity_id"): s for s in sensors_data if isinstance(s, dict) and s.get("entity_id")}
+            
+            per_entity = []
+            _LOGGER.info(f"[COSTS-OVERVIEW] 🔍 selected_ids ({len(selected_ids)}): {selected_ids[:5]}")
+            _LOGGER.info(f"[COSTS-OVERVIEW] 🔍 sensor_mapping keys ({len(sensor_mapping)}): {list(sensor_mapping.keys())[:5]}")
+            
+            timestamp_now = datetime.now()
+            is_hp = profile.is_hp(timestamp_now)
+            _, prix_ttc = profile.get_tarif_kwh(is_hp)
+            
+            for entity_id in selected_ids:
+                try:
+                    sensor_data = sensor_mapping.get(entity_id, {})
+                    sensor_meta = sensors_index.get(entity_id, {})
+                    
+                    # Récupérer friendly_name depuis HA
+                    state_obj = self.hass.states.get(entity_id)
+                    display_name = (
+                        state_obj.attributes.get("friendly_name", entity_id) 
+                        if state_obj 
+                        else sensor_meta.get("friendly_name", entity_id)
+                    )
+                    
+                    # Conversion sécurisée pour chaque période
+                    day_kwh = _safe_float(sensor_data.get("daily"))
+                    week_kwh = _safe_float(sensor_data.get("weekly"))
+                    month_kwh = _safe_float(sensor_data.get("monthly"))
+                    year_kwh = _safe_float(sensor_data.get("yearly"))
+                    
+                    # Skip si aucune donnée
+                    if day_kwh == 0 and week_kwh == 0 and month_kwh == 0 and year_kwh == 0:
+                        _LOGGER.debug(f"[COSTS-OVERVIEW] ⏭️ Skip {entity_id} (aucune donnée)")
+                        continue
+                    
+                    per_entity.append({
+                        "entity_id": entity_id,
+                        "display_name": display_name,
+                        "integration": sensor_meta.get("integration", "unknown"),
+                        "day_kwh": round(day_kwh, 3),
+                        "day_cost_ttc": round(day_kwh * prix_ttc, 2),
+                        "week_kwh": round(week_kwh, 3),
+                        "week_cost_ttc": round(week_kwh * prix_ttc, 2),
+                        "month_kwh": round(month_kwh, 3),
+                        "month_cost_ttc": round(month_kwh * prix_ttc, 2),
+                        "year_kwh": round(year_kwh, 3),
+                        "year_cost_ttc": round(year_kwh * prix_ttc, 2)
+                    })
+                
+                except Exception as e:
+                    _LOGGER.warning(f"[COSTS-OVERVIEW] ⚠️ Erreur traitement {entity_id}: {e}")
+                    continue
+            
+            # Tri par coût jour décroissant
+            per_entity.sort(key=lambda x: x.get("day_cost_ttc", 0), reverse=True)
+            
+            _LOGGER.info(f"[COSTS-OVERVIEW] ✅ {len(per_entity)} capteurs traités sur {len(selected_ids)} sélectionnés")
+            
+            return self._success({
+                "global": global_metrics,
+                "per_entity": per_entity,
+                "total_entities": len(per_entity),
+                "timestamp": datetime.now().isoformat(),
+                "type": "costs_overview"
+            })
+            
+        except Exception as e:
+            _LOGGER.exception(f"[COSTS-OVERVIEW] ❌ Erreur critique: {e}")
+            return self._error(500, f"Erreur calcul costs_overview: {e}")

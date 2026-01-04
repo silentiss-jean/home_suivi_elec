@@ -12,7 +12,18 @@ from .const import (
     CONF_HC_START, CONF_HC_END,
     CONF_ABONNEMENT_MENSUEL_HT, CONF_ABONNEMENT_MENSUEL_TTC
 )
+
 from .options_flow import HomeSuiviElecOptionsFlow
+
+def _normalize_type_contrat(value: str | None) -> str:
+    """Normalise type_contrat vers valeurs canon: prix_unique | heures_creuses."""
+    v = (value or "").strip().lower()
+    if v in ("hp-hc", "hphc", "heurescreuses", "heures_creuses"):
+        return "heures_creuses"
+    if v in ("fixe", "prixunique", "prix_unique"):
+        return "prix_unique"
+    # fallback safe
+    return v or "prix_unique"
 
 class HomeSuiviElecFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Config flow pour Home Suivi Élec avec nom du hub et tarifs."""
@@ -23,12 +34,17 @@ class HomeSuiviElecFlow(config_entries.ConfigFlow, domain=DOMAIN):
         """Formulaire principal pour nom, type de contrat et option auto_generate."""
         if user_input is not None:
             self._user_data = user_input
-
+            
+            # Normaliser le type_contrat (robustesse / rétro-compat)
+            self._user_data[CONF_TYPE_CONTRAT] = _normalize_type_contrat(
+                self._user_data.get(CONF_TYPE_CONTRAT)
+            )
+            
             # Vérifier doublons
             for entry in self._async_current_entries():
-                if entry.data.get(CONF_NAME) == user_input[CONF_NAME]:
+                if entry.data.get(CONF_NAME) == self._user_data[CONF_NAME]:
                     return self.async_abort(reason="hub_exists")
-
+            
             return await self.async_step_tarifs()
 
         schema = vol.Schema({
@@ -44,7 +60,9 @@ class HomeSuiviElecFlow(config_entries.ConfigFlow, domain=DOMAIN):
             self._user_data.update(user_input)
             return self.async_create_entry(title=self._user_data[CONF_NAME], data=self._user_data)
 
-        contrat = getattr(self, "_user_data", {}).get(CONF_TYPE_CONTRAT, "prix_unique")
+        contrat = _normalize_type_contrat(
+            getattr(self, "_user_data", {}).get(CONF_TYPE_CONTRAT, "prix_unique")
+        )
 
         if contrat == "prix_unique":
             schema = vol.Schema({
@@ -64,11 +82,13 @@ class HomeSuiviElecFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 vol.Optional(CONF_ABONNEMENT_MENSUEL_HT, default=DEFAULTS["heures_creuses"][CONF_ABONNEMENT_MENSUEL_HT]): cv.positive_float,
                 vol.Optional(CONF_ABONNEMENT_MENSUEL_TTC, default=DEFAULTS["heures_creuses"][CONF_ABONNEMENT_MENSUEL_TTC]): cv.positive_float,
             })
+
         return self.async_show_form(step_id="tarifs", data_schema=schema)
 
-    # --- Liaison OptionsFlow pour la roue
+    # --- Liaison OptionsFlow pour la roue crantée
     @staticmethod
     @callback
     def async_get_options_flow(config_entry: config_entries.ConfigEntry):
-        """Retourne l’OptionsFlow associé à cette ConfigEntry."""
-        return HomeSuiviElecOptionsFlow(config_entry)
+        """Retourne l'OptionsFlow associé à cette ConfigEntry."""
+        # ✅ CORRECTION : Ne pas passer config_entry en argument
+        return HomeSuiviElecOptionsFlow()

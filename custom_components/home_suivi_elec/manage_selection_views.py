@@ -1,9 +1,12 @@
 # -*- coding: utf-8 -*-
+from __future__ import annotations
+
 """
 Vues REST (HTTP) pour Home Suivi Élec — isolées du métier.
-Conserve les comportements existants et la validation par device_id.
 
+Conserve les comportements existants et la validation par device_id.
 PHASE 2.7: Adapté pour Storage API avec fallback fichier JSON legacy.
+
 ✅ CORRIGÉ : Support natif des sensors HSE energy (sensor.hse_*_today_energy_{cycle})
 """
 
@@ -12,15 +15,27 @@ import json
 import logging
 import asyncio
 from typing import Any, Dict, List, Set, Optional, Tuple
+from datetime import datetime
 
 from homeassistant.core import HomeAssistant
 from homeassistant.components.http import HomeAssistantView
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.helpers.storage import Store
+from homeassistant.util import dt as dt_util
+
+# ✅ DEC-005: Définir les chemins directement pour éviter import circulaire
+BASE_DIR = os.path.dirname(__file__)
+DATA_DIR = os.path.join(BASE_DIR, "data")
+CAPTEURS_POWER_PATH = os.path.join(DATA_DIR, "capteurs_power.json")
+CAPTEURS_SELECTION_PATH = os.path.join(DATA_DIR, "capteurs_selection.json")
+USER_CONFIG_PATH = os.path.join(DATA_DIR, "user_config.json")
 
 from .manage_selection import (
-    CAPTEURS_POWER_PATH, CAPTEURS_SELECTION_PATH, USER_CONFIG_PATH,
+    _enrich_base,
+    _enrich_device_info,
+    _load_quality_map_sync,
 )
+
 from .const import (
     DOMAIN, DEFAULTS,
     CONF_PRIX_HT, CONF_PRIX_TTC,
@@ -32,8 +47,27 @@ from .const import (
 
 _LOGGER = logging.getLogger(__name__)
 
-USER_STORE_KEY = f"{DOMAIN}_user_config_v1"
+DOMAIN = "home_suivi_elec"
 
+from datetime import time
+
+def _parse_datetime_flexible(value):
+    """Parse datetime ISO ou date YYYY-MM-DD"""
+    if not value:
+        return None
+    # Essaie datetime ISO complet
+    dt = dt_util.parse_datetime(value)
+    if dt:
+        return dt
+    # Fallback : parse date seule YYYY-MM-DD
+    try:
+        d = dt_util.parse_date(value)
+        if d:
+            from datetime import datetime
+            return datetime.combine(d, time.min).replace(tzinfo=dt_util.DEFAULT_TIME_ZONE)
+    except Exception:
+        pass
+    return None
 
 def _normalize(v: Optional[str]) -> str:
     return (v or "").strip().lower()
@@ -52,81 +86,146 @@ def _save_json(path: str, data: Any) -> None:
     with open(path, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2, ensure_ascii=False)
 
-def _load_quality_map_sync(hass: HomeAssistant) -> Dict[str, str]:
-    yaml_path = os.path.join(os.path.dirname(__file__), "data", "integration_quality.yaml")
-    if not os.path.exists(yaml_path):
-        return {}
-    try:
-        import yaml as _yaml
-    except Exception:
-        return {}
-    with open(yaml_path, "r", encoding="utf-8") as f:
-        data = _yaml.safe_load(f) or {}
-        return {str(k): str(v) for k, v in data.items()}
-
-def _is_premium(scale: str) -> bool:
-    return scale in ("platinum", "gold")
-
-def _enrich_base(c: Dict[str, Any], quality_map: Dict[str, str], reference_id: Optional[str]) -> Dict[str, Any]:
-    c = dict(c)
-    integ = c.get("integration")
-    if "quality_scale" not in c:
-        q = quality_map.get(integ, "custom")
-        c["quality_scale"] = q
-        c["is_premium"] = _is_premium(q)
-    c["is_reference"] = (c.get("entity_id") == reference_id)
-    return c
-
-def _enrich_device_info(hass: HomeAssistant, caps: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-    from homeassistant.helpers import entity_registry as er, device_registry as dr, area_registry as ar
-    ent_reg = er.async_get(hass)
-    dev_reg = dr.async_get(hass)
-    area_reg = ar.async_get(hass)
-
-    for c in caps:
-        eid = c.get("entity_id")
-        if not eid:
-            continue
-        entry = ent_reg.async_get(eid)
-        if not entry:
-            continue
-
-        c["device_id"] = entry.device_id
-        c["area_id"] = entry.area_id
-                             
-        dev = dev_reg.async_get(entry.device_id) if entry.device_id else None
-        if dev:
-            if not c.get("area_id"):
-                c["area_id"] = dev.area_id
-            c["device_identifiers"] = list(dev.identifiers) if dev.identifiers else []
-            c["device_connections"] = list(dev.connections) if dev.connections else []
-            c["device_name"] = dev.name_by_user or dev.name or ""
-            c["manufacturer"] = dev.manufacturer or ""
-            c["model"] = dev.model or ""
-
-            if c.get("area_id"):
-                area = area_reg.async_get_area(c["area_id"])
-                if area:
-                    c["area_name"] = area.name
-    return caps
-
 def _build_hse_energy_sensor_id(source_entity_id: str, cycle: str) -> str:
     """
-    ✅ ALIGNEMENT COMPLET avec energy_tracking.py
-    
-    Logique identique à energy_tracking.py lignes 183-189 :
-    - today_energy → sensor.hse_{base_name}_{cycle}
-    - autres → sensor.hse_energy_{base_name}_{cycle}
-    - Noms complets préservés (plus de shortening)
-    - Cycles complets (hourly, daily, etc.)
+    Construit l'entity_id du sensor HSE associé à un capteur source.
+
+    - Si la source est déjà un sensor "energy" (today_energy, consommation, etc.),
+      on génère sensor.hse_<base_name>_<cycle>
+    - Sinon, on génère sensor.hse_<base_name>_energy_<cycle>
     """
-    base_name = source_entity_id.replace("sensor.", "")
-    
-    if "today_energy" in source_entity_id:
+    base_name = (
+        source_entity_id
+        .replace("sensor.", "")
+        .replace("_today_energy", "")
+        .replace("_consommation_d_aujourd_hui", "")
+    )
+
+    is_energy = (
+        "_energy" in source_entity_id
+        or "_today_energy" in source_entity_id
+        or "consommation" in source_entity_id
+    )
+
+    if is_energy:
         return f"sensor.hse_{base_name}_{cycle}"
     else:
-        return f"sensor.hse_energy_{base_name}_{cycle}"
+        return f"sensor.hse_{base_name}_energy_{cycle}"
 
+def _normalize_selection_entry(
+    row: Dict[str, Any],
+    cap: Dict[str, Any] | None,
+) -> Dict[str, Any]:
+    """Normalise une entrée de sélection (usage_* + méta source) en restant rétro-compatible."""
+    row = dict(row)
+    eid = row.get("entity_id") or ""
+    cap = cap or {}
+
+    source_type = (
+        cap.get("source_type")
+        or cap.get("type")
+        or row.get("source_type")
+        or row.get("type")
+        or ""
+    )
+
+    # Si déjà présents, ne pas toucher (nouveau frontend)
+    if "usage_power" in row or "usage_energy" in row:
+        # On peut tout de même refléter le typage source si absent
+        row.setdefault("source_type", source_type)
+        row.setdefault("is_power", source_type == "power")
+        row.setdefault(
+            "is_energy",
+            source_type in ("energy_direct", "energy_utility", "hse_energy", "energy"),
+        )
+        return row
+
+    # Cas simple : si on sait déjà que c'est un power / energy
+    if source_type == "power":
+        row.setdefault("usage_power", eid)
+        row.setdefault("usage_energy", None)
+    elif source_type in ("energy_direct", "energy_utility", "hse_energy", "energy"):
+        row.setdefault("usage_energy", eid)
+        row.setdefault("usage_power", None)
+    else:
+        # Inconnu → on laisse vide, le frontend ou une passe ultérieure décidera
+        row.setdefault("usage_power", None)
+        row.setdefault("usage_energy", None)
+
+    # Exposer aussi le typage source au frontend
+    row.setdefault("source_type", source_type)
+    row.setdefault("is_power", source_type == "power")
+    row.setdefault(
+        "is_energy",
+        source_type in ("energy_direct", "energy_utility", "hse_energy", "energy"),
+    )
+
+    return row
+
+def _normalize_selection_payload(
+    raw: Dict[str, Any],
+    by_id: Dict[str, Dict[str, Any]],
+) -> Dict[str, Any]:
+    """Applique _normalize_selection_entry à tout le payload de sélection."""
+    result: Dict[str, Any] = {}
+    for integ, lst in (raw or {}).items():
+        out_lst: List[Dict[str, Any]] = []
+        for row in lst or []:
+            eid = row.get("entity_id") or ""
+            cap = by_id.get(eid)
+            out_lst.append(_normalize_selection_entry(row, cap))
+        result[integ] = out_lst
+    return result
+
+async def _get_cost_ha_map(hass: HomeAssistant) -> dict:
+    """Retourne {entity_id: {enabled, cost_entity_id}} depuis le store cost_ha."""
+    data = hass.data.get(DOMAIN, {})
+    mgr = data.get("storage_manager") or StorageManager(hass)
+
+    if not hasattr(mgr, "get_cost_ha_config"):
+        _LOGGER.warning("[COST-HA] StorageManager sans get_cost_ha_config")
+        return {}
+
+    store = await mgr.get_cost_ha_config()
+    _LOGGER.info("[COST-HA] map=%s", store)
+    return store or {}
+
+def _flatten_selection(normalized: dict) -> dict:
+    """Retourne un dict {entity_id: entry} à partir du payload normalisé."""
+    out = {}
+    for _, lst in (normalized or {}).items():
+        if not isinstance(lst, list):
+            continue
+        for entry in lst:
+            eid = (entry or {}).get("entity_id")
+            if eid:
+                out[eid] = entry
+    return out
+
+def _compute_need_restart(old_norm: dict, new_norm: dict) -> bool:
+    """
+    Restart uniquement si changement 'hard' (sources / type),
+    pas si c'est juste enabled/include_in_summary.
+    """
+    old_map = _flatten_selection(old_norm)
+    new_map = _flatten_selection(new_norm)
+
+    # Ajout/suppression d'entités
+    if set(old_map.keys()) != set(new_map.keys()):
+        return True
+
+    soft_keys = {"enabled", "include_in_summary"}
+    hard_keys = {"usage_power", "usage_energy"}
+
+    for eid, new_entry in new_map.items():
+        old_entry = old_map.get(eid) or {}
+
+        # Si une clé "hard" change => restart
+        for k in hard_keys:
+            if (old_entry.get(k) != new_entry.get(k)):
+                return True
+                
+    return False
 
 class GetSensorsView(HomeAssistantView):
     url = "/api/home_suivi_elec/get_sensors"
@@ -144,29 +243,45 @@ class GetSensorsView(HomeAssistantView):
             # Charger capteurs détectés (toujours en fichier JSON)
             data = []
             if os.path.exists(CAPTEURS_POWER_PATH):
-                data = await loop.run_in_executor(None, lambda: _load_json(CAPTEURS_POWER_PATH))
+                data = await loop.run_in_executor(
+                    None, lambda: _load_json(CAPTEURS_POWER_PATH)
+                )
 
-            # ✅ Charger sélection via StorageManager
-            storage_manager = self.hass.data.get("home_suivi_elec", {}).get("storage_manager")
-            
+            # ✅ Charger sélection + user_config via StorageManager (ou fallback JSON)
+            storage_manager = self.hass.data.get("home_suivi_elec", {}).get(
+                "storage_manager"
+            )
             if storage_manager:
                 selection_data = await storage_manager.get_capteurs_selection()
                 user_config = await storage_manager.get_user_config()
+                cost_ha_map = await storage_manager.get_cost_ha_config()
             else:
-                # Fallback fichiers JSON
                 selection_data = {}
                 if os.path.exists(CAPTEURS_SELECTION_PATH):
-                    selection_data = await loop.run_in_executor(None, lambda: _load_json(CAPTEURS_SELECTION_PATH))
-                
+                    selection_data = await loop.run_in_executor(
+                        None, lambda: _load_json(CAPTEURS_SELECTION_PATH)
+                    )
                 user_config = {}
                 if os.path.exists(USER_CONFIG_PATH):
-                    user_config = await loop.run_in_executor(None, lambda: _load_json(USER_CONFIG_PATH))
+                    user_config = await loop.run_in_executor(
+                        None, lambda: _load_json(USER_CONFIG_PATH)
+                    )
+                cost_ha_map = {}
 
-            reference_id = user_config.get("externalCapteur")
+            # ✅ Ne considérer le capteur de référence que si use_external est actif
+            use_external = bool(user_config.get("use_external"))
+            mode = user_config.get("mode", "sensor")
+            reference_id = None
+            if use_external and mode != "manual":
+                reference_id = user_config.get("external_capteur")
 
-            quality_map = await loop.run_in_executor(None, lambda: _load_quality_map_sync(self.hass))
+            # ✅ Charger la quality_map (comme dans manage_selection.py)
+            quality_map = await loop.run_in_executor(None, _load_quality_map_sync)
+
+            # Enrichir device info
             data = _enrich_device_info(self.hass, data or [])
 
+            # Index des capteurs activés
             enabled_ids: Set[str] = set()
             for integ, lst in (selection_data or {}).items():
                 for row in lst or []:
@@ -177,26 +292,88 @@ class GetSensorsView(HomeAssistantView):
             alternatives: Dict[str, List[Dict[str, Any]]] = {}
             reference_sensor: Dict[str, Any] = {}
 
+            def _attach_ha_state(cap: Dict[str, Any]) -> None:
+                """Ajoute ha_state/ha_unit (safe) sans casser la rétro-compatibilité."""
+                eid = cap.get("entity_id")
+                if not eid:
+                    cap["ha_state"] = "unknown"
+                    cap["ha_unit"] = None
+                    return
+                st = self.hass.states.get(eid)
+                cap["ha_state"] = st.state if st else "unknown"
+                cap["ha_unit"] = (
+                    st.attributes.get("unit_of_measurement") if st else None
+                )
+
             for c in data or []:
                 integ = c.get("integration", "unknown")
                 eid = c.get("entity_id")
+
+                # Retrouver la ligne de sélection associée
+                sel_row = None
+                for row in (selection_data.get(integ) or []):
+                    if row.get("entity_id") == eid:
+                        sel_row = row
+                        break
+
+                if sel_row:
+                    # refléter l'état sélection + summary dans le capteur brut
+                    c["selected"] = bool(sel_row.get("enabled"))
+                    if "include_in_summary" in sel_row:
+                        c["include_in_summary"] = bool(
+                            sel_row.get("include_in_summary")
+                        )
+
+                # 🔹 fusionner la config coût depuis cost_ha_map (store dédié)
+                if isinstance(cost_ha_map, dict):
+                    cost_entry = cost_ha_map.get(eid)
+                    if isinstance(cost_entry, dict):
+                        c["cost_ha_enabled"] = bool(cost_entry.get("enabled", False))
+                        c["cost_ha_entity_id"] = cost_entry.get("cost_entity_id")
+
                 cap = _enrich_base(c, quality_map, reference_id)
+                _attach_ha_state(cap)
+
                 if eid in enabled_ids:
                     selections.setdefault(integ, []).append(cap)
                 else:
                     alternatives.setdefault(integ, []).append(cap)
+
                 if cap.get("is_reference"):
                     reference_sensor = cap
 
-            return self.json({
-                "selected": selections,
-                "alternatives": alternatives,
-                "reference_sensor": reference_sensor or {},
-            })
+            # Fallback: exposer un reference_sensor exploitable même si external_capteur
+            # n'est pas présent dans capteurs_power.json.
+            if use_external and reference_id and not reference_sensor:
+                st = self.hass.states.get(reference_id)
+                reference_sensor = {
+                    "entity_id": reference_id,
+                    "friendly_name": (
+                        st.attributes.get("friendly_name") if st else reference_id
+                    ),
+                    "integration": (
+                        reference_id.split(".", 1)[0]
+                        if "." in reference_id
+                        else "unknown"
+                    ),
+                    "is_reference": True,
+                    "source_origin": "external_reference",
+                }
+                _attach_ha_state(reference_sensor)
+
+            return self.json(
+                {
+                    "selected": selections,
+                    "alternatives": alternatives,
+                    "reference_sensor": reference_sensor or {},
+                }
+            )
+
         except Exception as e:
             _LOGGER.exception("Erreur get_sensors: %s", e)
-            return self.json({"selected": {}, "alternatives": {}, "reference_sensor": {}})
-
+            return self.json(
+                {"selected": {}, "alternatives": {}, "reference_sensor": {}}
+            )
 
 class SaveSelectionView(HomeAssistantView):
     url = "/api/home_suivi_elec/save_selection"
@@ -215,12 +392,14 @@ class SaveSelectionView(HomeAssistantView):
             detected = []
             if os.path.exists(CAPTEURS_POWER_PATH):
                 detected = await loop.run_in_executor(None, lambda: _load_json(CAPTEURS_POWER_PATH))
-            detected = _enrich_device_info(self.hass, detected or [])
 
+            detected = _enrich_device_info(self.hass, detected or [])
             by_id: Dict[str, Dict[str, Any]] = {c.get("entity_id"): c for c in detected if c.get("entity_id")}
+
             seen_signatures: Set[str] = set()
             conflicts: List[Dict[str, Any]] = []
 
+            # 1) Conflits de signature (inchangé)
             for integ, lst in (body or {}).items():
                 for row in lst or []:
                     if not row.get("enabled"):
@@ -237,11 +416,12 @@ class SaveSelectionView(HomeAssistantView):
                             "friendly_name": cap.get("friendly_name"),
                             "area": cap.get("area") or cap.get("zone"),
                             "signature": sig,
-                            "type": "signature"
+                            "type": "signature",
                         })
                     else:
                         seen_signatures.add(sig)
 
+            # 2) Conflits par device_id, avec exception 1 power + 1 energy
             device_to_entities: Dict[str, List[Tuple[str, str]]] = {}
             for integ, lst in (body or {}).items():
                 for row in lst or []:
@@ -258,43 +438,99 @@ class SaveSelectionView(HomeAssistantView):
 
             device_conflicts: List[Dict[str, Any]] = []
             for did, items in device_to_entities.items():
-                if len(items) > 1:
-                    device_conflicts.append({
-                        "device_id": did,
-                        "entities": [{"entity_id": e, "integration": i} for e, i in items]
-                    })
+                if len(items) <= 1:
+                    continue
+
+                # Récupérer les types (source_type) pour ce device
+                types: List[str] = []
+                for eid, _ in items:
+                    cap = by_id.get(eid) or {}
+                    st = (cap.get("source_type") or cap.get("type") or "").lower()
+                    types.append(st)
+
+                # Normaliser les types "energy-like"
+                norm_types = []
+                for t in types:
+                    if t.replace("_", "") in ("energydirect", "energyutility", "hseenergy"):
+                        norm_types.append("energy")
+                    else:
+                        norm_types.append(t)
+
+                # Cas autorisé : exactement 2 entités, 1 power + 1 energy -> pas de conflit
+                if len(items) == 2 and set(norm_types) == {"power", "energy"}:
+                    continue
+
+                # Sinon, vrai conflit de device
+                device_conflicts.append({
+                    "device_id": did,
+                    "entities": [{"entity_id": e, "integration": i} for e, i in items],
+                })
 
             if conflicts or device_conflicts:
                 return self.json({
                     "success": False,
                     "error": "Conflits détectés (doublon ou même appareil).",
                     "conflicts": conflicts,
-                    "device_conflicts": device_conflicts
+                    "device_conflicts": device_conflicts,
                 })
+
+            # 🔹 Nouvelle étape : normaliser usage_power / usage_energy
+            normalized_body: Dict[str, List[Dict[str, Any]]] = {}
+            for integ, lst in (body or {}).items():
+                out_lst: List[Dict[str, Any]] = []
+                for row in lst or []:
+                    eid = row.get("entity_id") or ""
+                    cap = by_id.get(eid)
+                    out_lst.append(_normalize_selection_entry(row, cap))
+                normalized_body[integ] = out_lst
+
+            # Charger l'ancienne sélection + normaliser comme GetSelectionView
+            old_data = {}
+            storage_manager = self.hass.data.get("home_suivi_elec", {}).get("storage_manager")
+            if storage_manager:
+                old_data = await storage_manager.get_capteurs_selection()
+            elif os.path.exists(CAPTEURS_SELECTION_PATH):
+                old_data = await loop.run_in_executor(None, lambda: _load_json(CAPTEURS_SELECTION_PATH))
+
+            old_normalized = _normalize_selection_payload(old_data or {}, by_id)
+
+            # Normaliser aussi la nouvelle sélection (même format que GetSelectionView)
+            new_normalized = _normalize_selection_payload(normalized_body or {}, by_id)
+
+            need_restart = _compute_need_restart(old_normalized, new_normalized)
 
             # ✅ PHASE 2.7: Sauvegarder via StorageManager
             storage_manager = self.hass.data.get("home_suivi_elec", {}).get("storage_manager")
-            
             if storage_manager:
-                await storage_manager.save_capteurs_selection(body)
+                await storage_manager.save_capteurs_selection(normalized_body)
                 _LOGGER.info("[SAVE_SELECTION] Sauvegardé via Storage API")
             else:
-                # Fallback fichier JSON legacy
                 os.makedirs(os.path.dirname(CAPTEURS_SELECTION_PATH), exist_ok=True)
-                _save_json(CAPTEURS_SELECTION_PATH, body)
+                _save_json(CAPTEURS_SELECTION_PATH, normalized_body)
                 _LOGGER.warning("[SAVE_SELECTION] Sauvegardé via fichier JSON (fallback)")
 
             selected_ids: Set[str] = set()
-            for integ, lst in (body or {}).items():
+            for integ, lst in (normalized_body or {}).items():
                 for row in lst or []:
                     if row.get("enabled") and row.get("entity_id"):
                         selected_ids.add(row["entity_id"])
 
-            return self.json({"success": True, "selected": sorted(selected_ids), "need_restart": True})
+            message = (
+                "Sélection enregistrée (appliquée immédiatement)."
+                if not need_restart
+                else "Sélection enregistrée. Recharge/redémarrage nécessaire pour appliquer le changement de source."
+            )
+
+            return self.json({
+                "success": True,
+                "selected": sorted(selected_ids),
+                "need_restart": need_restart,
+                "message": message,
+            })
+
         except Exception as e:
             _LOGGER.exception("Erreur save_selection: %s", e)
             return self.json({"success": False, "need_restart": False, "error": str(e)})
-
 
 class GetSelectionView(HomeAssistantView):
     url = "/api/home_suivi_elec/get_selection"
@@ -308,23 +544,61 @@ class GetSelectionView(HomeAssistantView):
         """✅ PHASE 2.7: Utilise StorageManager au lieu du fichier JSON."""
         try:
             storage_manager = self.hass.data.get("home_suivi_elec", {}).get("storage_manager")
-            
+            loop = asyncio.get_running_loop()
+
+            # 🔹 récupérer aussi le mapping coût HA
+            cost_map = await _get_cost_ha_map(self.hass)
+
+            # Charger les capteurs détectés pour avoir by_id (comme dans SaveSelectionView)
+            detected = []
+            if os.path.exists(CAPTEURS_POWER_PATH):
+                detected = await loop.run_in_executor(None, lambda: _load_json(CAPTEURS_POWER_PATH))
+
+            detected = _enrich_device_info(self.hass, detected or [])
+            by_id: Dict[str, Dict[str, Any]] = {c.get("entity_id"): c for c in detected if c.get("entity_id")}
+
             if not storage_manager:
                 _LOGGER.error("[GET_SELECTION] StorageManager non disponible")
                 # Fallback sur fichier JSON legacy
                 if os.path.exists(CAPTEURS_SELECTION_PATH):
-                    loop = asyncio.get_running_loop()
                     data = await loop.run_in_executor(None, lambda: _load_json(CAPTEURS_SELECTION_PATH))
-                    return self.json(data)
+                    normalized = _normalize_selection_payload(data or {}, by_id)
+
+                    # 🔹 enrichir avec cost_ha dans le mode fallback aussi
+                    for category, sensors in normalized.items():
+                        if not isinstance(sensors, list):
+                            continue
+                        for entry in sensors:
+                            entity_id = entry.get("entity_id")
+                            if not entity_id:
+                                continue
+                            cfg = cost_map.get(entity_id) or {}
+                            entry["cost_ha_enabled"] = bool(cfg.get("enabled", False))
+                            entry["cost_ha_entity_id"] = cfg.get("cost_entity_id")
+
+                    return self.json(normalized)
                 return self.json({})
-            
+
             data = await storage_manager.get_capteurs_selection()
-            return self.json(data or {})
-            
+            normalized = _normalize_selection_payload(data or {}, by_id)
+
+            # 🔹 enrichir toutes les entrées avec cost_ha
+            for category, sensors in normalized.items():
+                if not isinstance(sensors, list):
+                    continue
+                for entry in sensors:
+                    entity_id = entry.get("entity_id")
+                    if not entity_id:
+                        continue
+                    cfg = cost_map.get(entity_id) or {}
+                    entry["cost_ha_enabled"] = bool(cfg.get("enabled", False))
+                    entry["cost_ha_entity_id"] = cfg.get("cost_entity_id")
+
+            return self.json(normalized)
+
         except Exception as e:
             _LOGGER.exception("Erreur get_selection: %s", e)
             return self.json({})
-
 
 class GetConsumptionsView(HomeAssistantView):
     """✅ CORRIGÉ : Utilise les sensors HSE energy natifs."""
@@ -340,7 +614,6 @@ class GetConsumptionsView(HomeAssistantView):
         try:
             # ✅ Charger sélection via StorageManager
             storage_manager = self.hass.data.get("home_suivi_elec", {}).get("storage_manager")
-            
             if storage_manager:
                 selections = await storage_manager.get_capteurs_selection()
                 user_config = await storage_manager.get_user_config()
@@ -349,13 +622,12 @@ class GetConsumptionsView(HomeAssistantView):
                 selections = await loop.run_in_executor(
                     None, lambda: _load_json(CAPTEURS_SELECTION_PATH)
                 ) if os.path.exists(CAPTEURS_SELECTION_PATH) else {}
-                
                 user_config = await loop.run_in_executor(
                     None, lambda: _load_json(USER_CONFIG_PATH)
                 ) if os.path.exists(USER_CONFIG_PATH) else {}
 
-            external_id = user_config.get("externalCapteur")
-            use_external = bool(user_config.get("useExternal"))
+            external_id = user_config.get("external_capteur")
+            use_external = bool(user_config.get("use_external"))
 
             cycles = ["hourly", "daily", "weekly", "monthly", "yearly"]
             result: Dict[str, Dict[str, Optional[float]]] = {}
@@ -367,18 +639,16 @@ class GetConsumptionsView(HomeAssistantView):
                         continue
                     capteur_id = c["entity_id"]
                     result.setdefault(capteur_id, {})
-                    
+
                     for cycle in cycles:
                         hse_sensor_id = _build_hse_energy_sensor_id(capteur_id, cycle)
                         st = self.hass.states.get(hse_sensor_id)
-                        
                         value: Optional[float] = None
                         if st and st.state not in (None, "unknown", "unavailable"):
                             try:
                                 value = float(st.state)
                             except Exception:
                                 value = None
-                        
                         result[capteur_id][cycle] = value
 
             # Capteur externe (référence)
@@ -387,21 +657,19 @@ class GetConsumptionsView(HomeAssistantView):
                 for cycle in cycles:
                     hse_sensor_id = _build_hse_energy_sensor_id(external_id, cycle)
                     st = self.hass.states.get(hse_sensor_id)
-                    
                     value: Optional[float] = None
                     if st and st.state not in (None, "unknown", "unavailable"):
                         try:
                             value = float(st.state)
                         except Exception:
                             value = None
-                    
                     result[external_id][cycle] = value
 
             return self.json(result)
+
         except Exception as e:
             _LOGGER.exception("Erreur get_consumptions: %s", e)
             return self.json({})
-
 
 class GetInstantPowerView(HomeAssistantView):
     url = "/api/home_suivi_elec/get_instant_puissance"
@@ -416,7 +684,6 @@ class GetInstantPowerView(HomeAssistantView):
         try:
             # ✅ Charger sélection via StorageManager
             storage_manager = self.hass.data.get("home_suivi_elec", {}).get("storage_manager")
-            
             if storage_manager:
                 selection = await storage_manager.get_capteurs_selection()
                 user_config = await storage_manager.get_user_config()
@@ -425,7 +692,6 @@ class GetInstantPowerView(HomeAssistantView):
                 selection = await loop.run_in_executor(
                     None, lambda: _load_json(CAPTEURS_SELECTION_PATH)
                 ) if os.path.exists(CAPTEURS_SELECTION_PATH) else {}
-                
                 user_config = await loop.run_in_executor(
                     None, lambda: _load_json(USER_CONFIG_PATH)
                 ) if os.path.exists(USER_CONFIG_PATH) else {}
@@ -436,9 +702,8 @@ class GetInstantPowerView(HomeAssistantView):
                     if c.get("enabled") and c.get("entity_id"):
                         entity_ids.append(c["entity_id"])
 
-            use_external = bool(user_config.get("useExternal"))
-            ext_id = user_config.get("externalCapteur")
-            
+            use_external = bool(user_config.get("use_external"))
+            ext_id = user_config.get("external_capteur")
             if use_external and ext_id and ext_id not in entity_ids:
                 entity_ids.append(ext_id)
 
@@ -454,10 +719,81 @@ class GetInstantPowerView(HomeAssistantView):
                     power_states[entity_id] = None
 
             return self.json(power_states)
+
         except Exception as e:
             _LOGGER.exception("Erreur get_instant_puissance: %s", e)
             return self.json({})
 
+class SensorMappingView(HomeAssistantView):
+    """✅ NOUVEAU : Endpoint pour récupérer le mapping des consommations par période."""
+    url = "/api/home_suivi_elec/sensor_mapping"
+    name = "api:home_suivi_elec:sensor_mapping"
+    requires_auth = False
+
+    def __init__(self, hass: HomeAssistant) -> None:
+        self.hass = hass
+
+    async def get(self, request):
+        """Retourne le mapping { entity_id: { hourly: kWh, daily: kWh, ... } }."""
+        try:
+            storage_manager = self.hass.data.get("home_suivi_elec", {}).get("storage_manager")
+            if storage_manager:
+                selection = await storage_manager.get_capteurs_selection()
+                user_config = await storage_manager.get_user_config()
+            else:
+                loop = asyncio.get_running_loop()
+                selection = await loop.run_in_executor(
+                    None, lambda: _load_json(CAPTEURS_SELECTION_PATH)
+                ) if os.path.exists(CAPTEURS_SELECTION_PATH) else {}
+                user_config = await loop.run_in_executor(
+                    None, lambda: _load_json(USER_CONFIG_PATH)
+                ) if os.path.exists(USER_CONFIG_PATH) else {}
+
+            cycles = ["hourly", "daily", "weekly", "monthly", "yearly"]
+            mapping: Dict[str, Dict[str, Optional[float]]] = {}
+
+            # Récupérer tous les entity_ids sélectionnés
+            entity_ids: List[str] = []
+            for capteurs in (selection or {}).values():
+                for c in (capteurs or []):
+                    if c.get("enabled") and c.get("entity_id"):
+                        entity_ids.append(c["entity_id"])
+
+            # Ajouter le capteur externe si actif
+            use_external = bool(user_config.get("use_external"))
+            ext_id = user_config.get("external_capteur")
+            if use_external and ext_id and ext_id not in entity_ids:
+                entity_ids.append(ext_id)
+
+            # Pour chaque capteur, récupérer les valeurs des sensors HSE energy
+            for entity_id in entity_ids:
+                mapping[entity_id] = {}
+                for cycle in cycles:
+                    hse_sensor_id = _build_hse_energy_sensor_id(entity_id, cycle)
+                    state = self.hass.states.get(hse_sensor_id)
+                    value: Optional[float] = None
+                    if state and state.state not in (None, "unknown", "unavailable"):
+                        try:
+                            value = float(state.state)
+                        except Exception:
+                            value = None
+                    mapping[entity_id][cycle] = value
+
+            _LOGGER.info(f"[SENSOR_MAPPING] ✅ Mapping extrait: {len(mapping)} capteurs")
+            return self.json({
+                "data": {
+                    "mapping": mapping,
+                    "total_sources": len(mapping)
+                },
+                "total_hse_sensors": len(entity_ids) * len(cycles)
+            })
+
+        except Exception as e:
+            _LOGGER.exception("Erreur sensor_mapping: %s", e)
+            return self.json({
+                "data": {"mapping": {}, "total_sources": 0},
+                "total_hse_sensors": 0
+            })
 
 class GetUserConfigView(HomeAssistantView):
     url = "/api/home_suivi_elec/get_user_config"
@@ -471,7 +807,6 @@ class GetUserConfigView(HomeAssistantView):
         """✅ PHASE 2.7: Utilise StorageManager."""
         try:
             storage_manager = self.hass.data.get("home_suivi_elec", {}).get("storage_manager")
-            
             if not storage_manager:
                 _LOGGER.error("[GET_USER_CONFIG] StorageManager non disponible")
                 # Fallback fichier JSON
@@ -480,14 +815,13 @@ class GetUserConfigView(HomeAssistantView):
                     data = await loop.run_in_executor(None, lambda: _load_json(USER_CONFIG_PATH))
                     return self.json(data)
                 return self.json({})
-            
+
             data = await storage_manager.get_user_config()
             return self.json(data or {})
-            
+
         except Exception as e:
             _LOGGER.exception("Erreur get_user_config: %s", e)
             return self.json({})
-
 
 class SaveUserConfigView(HomeAssistantView):
     url = "/api/home_suivi_elec/save_user_config"
@@ -501,9 +835,8 @@ class SaveUserConfigView(HomeAssistantView):
         """✅ PHASE 2.7: Utilise StorageManager."""
         try:
             body = await request.json()
-            
+
             storage_manager = self.hass.data.get("home_suivi_elec", {}).get("storage_manager")
-            
             if storage_manager:
                 await storage_manager.save_user_config(body)
                 _LOGGER.info("[SAVE_USER_CONFIG] Sauvegardé via Storage API")
@@ -511,13 +844,12 @@ class SaveUserConfigView(HomeAssistantView):
                 # Fallback fichier JSON
                 _save_json(USER_CONFIG_PATH, body)
                 _LOGGER.warning("[SAVE_USER_CONFIG] Sauvegardé via fichier JSON (fallback)")
-            
+
             return self.json({"success": True})
-            
+
         except Exception as e:
             _LOGGER.exception("Erreur save_user_config: %s", e)
             return self.json({"success": False})
-
 
 class GetUserOptionsView(HomeAssistantView):
     url = "/api/home_suivi_elec/get_user_options"
@@ -532,17 +864,12 @@ class GetUserOptionsView(HomeAssistantView):
         """✅ PHASE 2.7: Charge ignored depuis StorageManager."""
         try:
             storage_manager = self.hass.data.get("home_suivi_elec", {}).get("storage_manager")
-            
-            if storage_manager:
-                return await storage_manager.get_ignored_entities()
-            else:
-                # Fallback Store legacy
-                if self._store is None:
-                    self._store = Store(self.hass, 1, USER_STORE_KEY)
-                cfg = await self._store.async_load() or {}
-                return [str(x) for x in (cfg.get("ignored_entities") or []) if x]
+            if not storage_manager:
+                _LOGGER.error("GetUserOptionsView: StorageManager non disponible")
+                return []
+            return await storage_manager.get_ignored_entities()
         except Exception as e:
-            _LOGGER.debug("GetUserOptionsView: ignored_entities load failed: %s", e)
+            _LOGGER.exception("GetUserOptionsView: ignored_entities load failed: %s", e)
             return []
 
     async def get(self, request):
@@ -550,23 +877,29 @@ class GetUserOptionsView(HomeAssistantView):
             entries = self.hass.config_entries.async_entries("home_suivi_elec")
             if not entries:
                 return self.json({})
-            entry: ConfigEntry = entries[0]
 
+            entry: ConfigEntry = entries[0]
             data = dict(entry.data or {})
             opts = dict(entry.options or {})
+
+            # ✅ Normalisation type_contrat avec priorité options > data
+            type_contrat = (opts.get("type_contrat") or data.get("type_contrat") or "prix_unique")
+            type_contrat = str(type_contrat).strip().lower()
+            if type_contrat in ("hp-hc", "heurescreuses", "heures_creuses"):
+                type_contrat = "heures_creuses"
+            if type_contrat in ("fixe", "prixunique", "prix_unique"):
+                type_contrat = "prix_unique"
+
+            # Fusionner data + opts APRÈS avoir extrait type_contrat
             eff = {**data, **opts}
 
-            type_contrat = eff.get("type_contrat", "prix_unique")
-            is_hc = type_contrat == "heures_creuses"
-            type_ui = "hp-hc" if is_hc else "fixe"
-            
             defaults_fixe = DEFAULTS.get("prix_unique", {})
             defaults_hc = DEFAULTS.get("heures_creuses", {})
 
             resp = {
-                "typeContrat": type_ui,
-                "abonnementHT": eff.get("abonnementHT", eff.get(CONF_ABONNEMENT_MENSUEL_HT, defaults_fixe.get(CONF_ABONNEMENT_MENSUEL_HT, 0))),
-                "abonnementTTC": eff.get("abonnementTTC", eff.get(CONF_ABONNEMENT_MENSUEL_TTC, defaults_fixe.get(CONF_ABONNEMENT_MENSUEL_TTC, 0))),
+                "type_contrat": type_contrat,
+                "abonnement_ht": eff.get("abonnement_ht", eff.get(CONF_ABONNEMENT_MENSUEL_HT, defaults_fixe.get(CONF_ABONNEMENT_MENSUEL_HT, 0))),
+                "abonnement_ttc": eff.get("abonnement_ttc", eff.get(CONF_ABONNEMENT_MENSUEL_TTC, defaults_fixe.get(CONF_ABONNEMENT_MENSUEL_TTC, 0))),
                 "prix_ht": eff.get(CONF_PRIX_HT, eff.get("prix_ht", defaults_fixe.get(CONF_PRIX_HT, 0))),
                 "prix_ttc": eff.get(CONF_PRIX_TTC, eff.get("prix_ttc", defaults_fixe.get(CONF_PRIX_TTC, 0))),
                 "prix_ht_hp": eff.get(CONF_PRIX_HT_HP, eff.get("prix_ht_hp", defaults_hc.get(CONF_PRIX_HT_HP, 0))),
@@ -575,17 +908,19 @@ class GetUserOptionsView(HomeAssistantView):
                 "prix_ttc_hc": eff.get(CONF_PRIX_TTC_HC, eff.get("prix_ttc_hc", defaults_hc.get(CONF_PRIX_TTC_HC, 0))),
                 "hc_start": eff.get(CONF_HC_START, eff.get("hc_start", defaults_hc.get(CONF_HC_START, "22:00"))),
                 "hc_end": eff.get(CONF_HC_END, eff.get("hc_end", defaults_hc.get(CONF_HC_END, "06:00"))),
-                "useExternal": eff.get("useExternal", False),
-                "externalCapteur": eff.get("externalCapteur", ""),
-                "consommationExterne": eff.get("consommationExterne", 0),
+                "use_external": bool(eff.get("use_external", False)),
+                "external_capteur": eff.get("external_capteur", ""),
+                "consommation_externe": eff.get("consommation_externe", 0),
                 "mode": eff.get("mode", "sensor"),
+                "enable_cost_sensors_runtime": bool(eff.get("enable_cost_sensors_runtime", False)),
             }
+
             resp["ignored_entities"] = await self._load_ignored()
             return self.json(resp)
+
         except Exception as e:
             _LOGGER.exception("Erreur get_user_options: %s", e)
             return self.json({})
-
 
 class SaveUserOptionsView(HomeAssistantView):
     url = "/api/home_suivi_elec/save_user_options"
@@ -597,22 +932,74 @@ class SaveUserOptionsView(HomeAssistantView):
 
     async def post(self, request):
         try:
-            entries = self.hass.config_entries.async_entries("home_suivi_elec")
+            entries = self.hass.config_entries.async_entries(DOMAIN)
             if not entries:
                 return self.json({"success": False})
+
             entry: ConfigEntry = entries[0]
-
             body = await request.json()
-            current_opts = dict(entry.options or {})
-            if isinstance(body, dict):
-                current_opts.update(body)
 
+            if not isinstance(body, dict):
+                return self.json(
+                    {"success": False, "error": "Payload must be a JSON object"},
+                    status_code=400,
+                )
+
+            current_opts: Dict[str, Any] = dict(entry.options or {})
+
+            # Refus strict du camelCase (API snake_case only)
+            forbidden = [
+                k
+                for k in body.keys()
+                if any(x in k for x in ("Contrat", "External", "Capteur", "Externe", "Runtime"))
+            ]
+            if forbidden:
+                return self.json(
+                    {
+                        "success": False,
+                        "error": "camelCase keys are not accepted",
+                        "keys": forbidden,
+                    },
+                    status_code=400,
+                )
+
+            # Normalisation type_contrat
+            if "type_contrat" in body:
+                v = str(body.get("type_contrat") or "").strip().lower()
+                if v in ("hp-hc", "heurescreuses", "heures_creuses"):
+                    body["type_contrat"] = "heures_creuses"
+                elif v in ("fixe", "prixunique", "prix_unique"):
+                    body["type_contrat"] = "prix_unique"
+
+            # Normalisation booleans
+            if "use_external" in body:
+                body["use_external"] = bool(body.get("use_external"))
+            if "enable_cost_sensors_runtime" in body:
+                body["enable_cost_sensors_runtime"] = bool(body.get("enable_cost_sensors_runtime"))
+
+            # Écriture options
+            current_opts.update(body)
             self.hass.config_entries.async_update_entry(entry, options=current_opts)
+
+            # Reco 1: mettre à jour la config runtime "effective" si elle existe déjà
+            # (car chez toi elle est normalement recalculée au setup/reload). [file:57]
+            try:
+                domain_data = self.hass.data.get(DOMAIN)
+                if isinstance(domain_data, dict):
+                    effective = dict(entry.data or {})
+                    effective.update(current_opts)
+                    domain_data["effective_options"] = effective
+            except Exception:  # volontairement silencieux pour éviter toute régression
+                pass
+
+            # Reco 2: reload async (non bloquant) pour réaligner tout ce qui dépend du setup/reload. [file:57]
+            self.hass.async_create_task(self.hass.config_entries.async_reload(entry.entry_id))
+
             return self.json({"success": True})
+
         except Exception as e:
             _LOGGER.exception("Erreur save_user_options: %s", e)
             return self.json({"success": False})
-
 
 class GetSummaryView(HomeAssistantView):
     url = "/api/home_suivi_elec/get_summary"
@@ -626,33 +1013,35 @@ class GetSummaryView(HomeAssistantView):
         """✅ PHASE 2.7: Charge sélection via StorageManager."""
         try:
             loop = asyncio.get_running_loop()
-            
+
             power = await loop.run_in_executor(
                 None, lambda: _load_json(CAPTEURS_POWER_PATH)
             ) if os.path.exists(CAPTEURS_POWER_PATH) else []
-            
+
             # ✅ Charger sélection via StorageManager
             storage_manager = self.hass.data.get("home_suivi_elec", {}).get("storage_manager")
-            
             if storage_manager:
                 selection = await storage_manager.get_capteurs_selection()
             else:
                 selection = await loop.run_in_executor(
                     None, lambda: _load_json(CAPTEURS_SELECTION_PATH)
                 ) if os.path.exists(CAPTEURS_SELECTION_PATH) else {}
-                             
+
             total = len(power or [])
+
             enabled_ids: Set[str] = set()
             for integ, lst in (selection or {}).items():
                 for row in lst or []:
                     if row.get("enabled") and row.get("entity_id"):
                         enabled_ids.add(row["entity_id"])
+
             actifs = len(enabled_ids)
 
             by_sig: Dict[str, int] = {}
             for cap in power or []:
                 sig = _compute_signature(cap)
                 by_sig[sig] = by_sig.get(sig, 0) + 1
+
             duplicates = sum(1 for v in by_sig.values() if v > 1)
 
             return self.json({
@@ -660,10 +1049,10 @@ class GetSummaryView(HomeAssistantView):
                 "actifs": actifs,
                 "doublons_detectes": duplicates
             })
+
         except Exception as e:
             _LOGGER.exception("Erreur get_summary: %s", e)
             return self.json({})
-
 
 class GetSyncStatusView(HomeAssistantView):
     """GET /api/home_suivi_elec/sync/status - Statut de la synchronisation."""
@@ -683,7 +1072,6 @@ class GetSyncStatusView(HomeAssistantView):
             _LOGGER.exception("Erreur get_sync_status: %s", e)
             return self.json({"error": str(e)}, status_code=500)
 
-
 class ForceSyncView(HomeAssistantView):
     """POST /api/home_suivi_elec/sync/force - Force une synchronisation."""
     url = "/api/home_suivi_elec/sync/force"
@@ -701,7 +1089,6 @@ class ForceSyncView(HomeAssistantView):
         except Exception as e:
             _LOGGER.exception("Erreur force_sync: %s", e)
             return self.json({"success": False, "error": str(e)}, status_code=500)
-
 
 class AutoSelectBestSensorsView(HomeAssistantView):
     """API pour sélectionner automatiquement les meilleurs capteurs."""
@@ -721,53 +1108,50 @@ class AutoSelectBestSensorsView(HomeAssistantView):
                 enrich_sensors_with_quality,
                 is_physical_sensor
             )
-            
+
             loop = asyncio.get_running_loop()
-            
             detected = []
             if os.path.exists(CAPTEURS_POWER_PATH):
                 detected = await loop.run_in_executor(None, lambda: _load_json(CAPTEURS_POWER_PATH))
-            
+
             _LOGGER.info(f"[AUTO_SELECT] Total capteurs chargés : {len(detected)}")
-            
+
             detected = _enrich_device_info(self.hass, detected or [])
             physical_only = [s for s in detected if is_physical_sensor(s)]
             helpers_count = len(detected) - len(physical_only)
-            
+
             _LOGGER.info(
                 f"[AUTO_SELECT] Physiques : {len(physical_only)} | "
                 f"Helpers exclus : {helpers_count}"
             )
-            
+
             physical_only = enrich_sensors_with_quality(physical_only)
             selected = auto_select_best_sensors(physical_only)
-            
+
             selection_by_integration = {}
             for sensor in selected:
                 integration = sensor.get("integration", "unknown")
                 if integration not in selection_by_integration:
                     selection_by_integration[integration] = []
-                
                 selection_by_integration[integration].append({
                     "entity_id": sensor["entity_id"],
                     "enabled": True,
                     "auto_selected": True,
                     "quality_score": sensor["quality_score"]
                 })
-            
+
             # ✅ PHASE 2.7: Sauvegarder via StorageManager
             storage_manager = self.hass.data.get("home_suivi_elec", {}).get("storage_manager")
-            
             if storage_manager:
                 await storage_manager.save_capteurs_selection(selection_by_integration)
             else:
                 _save_json(CAPTEURS_SELECTION_PATH, selection_by_integration)
-            
+
             _LOGGER.info(
                 f"[AUTO_SELECT] ✅ {len(selected)} capteurs physiques sélectionnés "
                 f"({helpers_count} helpers exclus)"
             )
-            
+
             return self.json({
                 "success": True,
                 "selected_count": len(selected),
@@ -779,11 +1163,10 @@ class AutoSelectBestSensorsView(HomeAssistantView):
                     f"{helpers_count} helpers exclus."
                 )
             })
-            
+
         except Exception as e:
             _LOGGER.exception("Erreur auto_select_best_sensors: %s", e)
             return self.json({"success": False, "error": str(e)}, status_code=500)
-
 
 class GetSensorQualityScoresView(HomeAssistantView):
     """API pour obtenir les scores de qualité de tous les capteurs."""
@@ -799,31 +1182,30 @@ class GetSensorQualityScoresView(HomeAssistantView):
         """Retourne les capteurs avec leurs scores (physiques et helpers séparés)."""
         try:
             from .sensor_quality_scorer import enrich_sensors_with_quality
-            
+
             loop = asyncio.get_running_loop()
-            
             detected = []
             if os.path.exists(CAPTEURS_POWER_PATH):
                 detected = await loop.run_in_executor(None, lambda: _load_json(CAPTEURS_POWER_PATH))
-            
+
             detected = _enrich_device_info(self.hass, detected or [])
             detected = enrich_sensors_with_quality(detected)
-            
+
             physical = [s for s in detected if not s.get("is_helper")]
             helpers = [s for s in detected if s.get("is_helper")]
-            
+
             by_device = {}
             for sensor in physical:
                 device_id = sensor.get("device_id", "no_device")
                 if device_id not in by_device:
                     by_device[device_id] = []
                 by_device[device_id].append(sensor)
-            
+
             _LOGGER.debug(
                 f"[QUALITY_SCORES] Total : {len(detected)} | "
                 f"Physiques : {len(physical)} | Helpers : {len(helpers)}"
             )
-            
+
             return self.json({
                 "success": True,
                 "total": len(detected),
@@ -834,11 +1216,10 @@ class GetSensorQualityScoresView(HomeAssistantView):
                 "helpers": helpers,
                 "by_device": by_device
             })
-            
+
         except Exception as e:
             _LOGGER.exception("Erreur get_sensor_quality_scores: %s", e)
             return self.json({"success": False, "error": str(e)}, status_code=500)
-
 
 class HSESensorsPublicView(HomeAssistantView):
     """GET /api/home_suivi_elec/lovelace_sensors - Liste tous les sensors HSE exposés."""
@@ -864,3 +1245,238 @@ class HSESensorsPublicView(HomeAssistantView):
         except Exception as e:
             _LOGGER.error(f"Erreur HSESensorsPublicView: {e}")
             return self.json([])
+
+class GetHistoryCostsView(HomeAssistantView):
+    url = "/api/home_suivi_elec/history_costs"
+    name = "api:home_suivi_elec:history_costs"
+    requires_auth = False
+    cors_allowed = True
+
+    def __init__(self, hass: HomeAssistant) -> None:
+        self.hass = hass
+
+    async def post(self, request):
+        try:
+            from .history_analytics import (
+                fetch_statistics_hourly_sum,
+                compute_hourly_deltas_kwh,
+                compute_costs_per_hour,
+                aggregate_period,
+                normalize_comparison,
+                compute_top_entities,
+            )
+            from .calculation_engine import PricingProfile
+
+            body = await request.json()
+            if not isinstance(body, dict):
+                return self.json({"success": False, "error": "Payload must be a JSON object"}, status_code=400)
+
+            selection_scope = body.get("selection_scope", "summary_selected")
+            focus_entity_id = body.get("focus_entity_id")
+            group_by = body.get("group_by", "hour")
+            week_anchor_day = body.get("week_anchor_day", "monday")
+            comparison_periods = body.get("comparison_periods") or {}
+            top_limit = int(body.get("top_limit", 10) or 10)
+            top_sort_by = body.get("top_sort_by", "cost_ttc") or "cost_ttc"
+
+            baseline_cfg = (comparison_periods.get("baseline") or {})
+            event_cfg = (comparison_periods.get("event") or {})
+
+            try:
+                baseline_start = _parse_datetime_flexible(baseline_cfg.get("start"))
+                baseline_end = _parse_datetime_flexible(baseline_cfg.get("end"))
+                event_start = _parse_datetime_flexible(event_cfg.get("start"))
+                event_end = _parse_datetime_flexible(event_cfg.get("end"))
+            except Exception as e:
+                _LOGGER.error(f"Parse datetime error: {e}")
+                return self.json({"success": False, "error": "Invalid datetime in comparison_periods"}, status_code=400)
+
+            if not all([baseline_start, baseline_end, event_start, event_end]):
+                return self.json({"success": False, "error": "Missing start/end in comparison_periods"}, status_code=400)
+
+
+            baseline_duration_s = (baseline_end - baseline_start).total_seconds()
+            event_duration_s = (event_end - event_start).total_seconds()
+
+            normalized_supported = (baseline_duration_s >= 3600 and event_duration_s >= 3600)
+
+            # 1) Déterminer la liste entity_ids
+            entity_ids: List[str] = []
+
+            if selection_scope == "summary_selected":
+                storage_manager = self.hass.data.get(DOMAIN, {}).get("storage_manager")
+                if storage_manager:
+                    selection = await storage_manager.get_capteurs_selection()
+                else:
+                    loop = asyncio.get_running_loop()
+                    selection = await loop.run_in_executor(
+                        None, lambda: _load_json(CAPTEURS_SELECTION_PATH)
+                    ) if os.path.exists(CAPTEURS_SELECTION_PATH) else {}
+
+                for _, lst in (selection or {}).items():
+                    for row in (lst or []):
+                        if not row.get("enabled"):
+                            continue
+                        # si include_in_summary existe, on le respecte
+                        if "include_in_summary" in row and not row.get("include_in_summary"):
+                            continue
+
+                        # priorité à usage_energy si présent (format normalisé)
+                        if row.get("usage_energy"):
+                            entity_ids.append(row["usage_energy"])
+                        elif row.get("entity_id"):
+                            entity_ids.append(row["entity_id"])
+
+            elif isinstance(selection_scope, list):
+                entity_ids = [str(x) for x in selection_scope if x]
+            else:
+                return self.json({"success": False, "error": "Invalid selection_scope"}, status_code=400)
+
+            # dédoublonnage + limite
+            entity_ids = sorted(set(entity_ids))
+            if not entity_ids:
+                return self.json({"success": False, "error": "No entities selected"}, status_code=400)
+            if len(entity_ids) > 50:
+                return self.json({"success": False, "error": "Too many entities (max 50)"}, status_code=400)
+
+            # 2) Construire pricing_profile depuis entry options/data (comme GetUserOptionsView)
+            entries = self.hass.config_entries.async_entries(DOMAIN)
+            if not entries:
+                return self.json({"success": False, "error": "No config entry found"}, status_code=500)
+            entry: ConfigEntry = entries[0]
+            data = dict(entry.data or {})
+            opts = dict(entry.options or {})
+            eff = {**data, **opts}
+
+            type_contrat = str(eff.get("type_contrat") or "prix_unique").strip().lower()
+            if type_contrat in ("hp-hc", "heurescreuses", "heures_creuses"):
+                type_contrat = "heures_creuses"
+            if type_contrat in ("fixe", "prixunique", "prix_unique"):
+                type_contrat = "prix_unique"
+
+            prix_ht = float(eff.get(CONF_PRIX_HT, eff.get("prix_ht", 0)) or 0)
+            prix_ttc = float(eff.get(CONF_PRIX_TTC, eff.get("prix_ttc", 0)) or 0)
+            abonnement_ht = float(eff.get(CONF_ABONNEMENT_MENSUEL_HT, eff.get("abonnement_ht", 0)) or 0)
+            abonnement_ttc = float(eff.get(CONF_ABONNEMENT_MENSUEL_TTC, eff.get("abonnement_ttc", 0)) or 0)
+
+            prix_ht_hp = float(eff.get(CONF_PRIX_HT_HP, eff.get("prix_ht_hp", prix_ht)) or prix_ht)
+            prix_ttc_hp = float(eff.get(CONF_PRIX_TTC_HP, eff.get("prix_ttc_hp", prix_ttc)) or prix_ttc)
+            prix_ht_hc = float(eff.get(CONF_PRIX_HT_HC, eff.get("prix_ht_hc", prix_ht)) or prix_ht)
+            prix_ttc_hc = float(eff.get(CONF_PRIX_TTC_HC, eff.get("prix_ttc_hc", prix_ttc)) or prix_ttc)
+
+            hc_start = str(eff.get(CONF_HC_START, eff.get("hc_start", "22:00")) or "22:00")
+            hc_end = str(eff.get(CONF_HC_END, eff.get("hc_end", "06:00")) or "06:00")
+
+            # PricingProfile utilise hp.debut/hp.fin => HP = (HC_END -> HC_START)
+            pricing_config = {
+                "type_contrat": type_contrat,
+                "prix_ht": prix_ht,
+                "prix_ttc": prix_ttc,
+                "abonnement_ht": abonnement_ht,
+                "abonnement_ttc": abonnement_ttc,
+                "hp": {
+                    "prix_ht": prix_ht_hp,
+                    "prix_ttc": prix_ttc_hp,
+                    "debut": hc_end,
+                    "fin": hc_start,
+                },
+                "hc": {
+                    "prix_ht": prix_ht_hc,
+                    "prix_ttc": prix_ttc_hc,
+                },
+            }
+            pricing_profile = PricingProfile(pricing_config)
+
+            # 3) Charger stats sur la fenêtre globale
+            all_start = min(baseline_start, event_start)
+            all_end = max(baseline_end, event_end)
+
+            stats_by_entity = await fetch_statistics_hourly_sum(self.hass, entity_ids, all_start, all_end)
+            if not stats_by_entity:
+                return self.json({"success": False, "error": "No statistics returned"}, status_code=500)
+
+            entity_comparisons = []
+
+            for entity_id in entity_ids:
+                rows = stats_by_entity.get(entity_id) or []
+                deltas = compute_hourly_deltas_kwh(rows)
+                hourly_costs = compute_costs_per_hour(deltas, pricing_profile)
+
+                baseline_agg = aggregate_period(hourly_costs, baseline_start, baseline_end)
+                event_agg = aggregate_period(hourly_costs, event_start, event_end)
+
+                comp = normalize_comparison(baseline_agg, event_agg, baseline_duration_s, event_duration_s)
+
+                st = self.hass.states.get(entity_id)
+                display_name = st.attributes.get("friendly_name") if st else entity_id
+
+                entity_comparisons.append(
+                    {
+                        "entity_id": entity_id,
+                        "display_name": display_name,
+                        **comp,
+                    }
+                )
+
+            total_baseline = {
+                "energy_kwh": round(sum(x["baseline_energy_kwh"] for x in entity_comparisons), 3),
+                "cost_ht": round(sum(x["baseline_cost_ht"] for x in entity_comparisons), 4),
+                "cost_ttc": round(sum(x["baseline_cost_ttc"] for x in entity_comparisons), 4),
+            }
+            total_event = {
+                "energy_kwh": round(sum(x["event_energy_kwh"] for x in entity_comparisons), 3),
+                "cost_ht": round(sum(x["event_cost_ht"] for x in entity_comparisons), 4),
+                "cost_ttc": round(sum(x["event_cost_ttc"] for x in entity_comparisons), 4),
+            }
+            total_comp = normalize_comparison(total_baseline, total_event, baseline_duration_s, event_duration_s)
+
+            top_entities = compute_top_entities(entity_comparisons, top_sort_by, top_limit)
+
+            focus_data = None
+            if focus_entity_id:
+                for x in entity_comparisons:
+                    if x["entity_id"] == focus_entity_id:
+                        focus_data = x
+                        break
+
+            max_delta_entity = max(entity_comparisons, key=lambda x: abs(float(x.get("delta_cost_ttc") or 0.0)), default=None)
+
+            return self.json(
+                {
+                    "success": True,
+                    "data": {
+                        "meta": {
+                            "group_by": group_by,
+                            "week_anchor_day": week_anchor_day,
+                            "entity_count": len(entity_ids),
+                            "baseline_duration_s": baseline_duration_s,
+                            "event_duration_s": event_duration_s,
+                            "normalized_supported": normalized_supported,
+                        },
+                        "comparison": {
+                            "total": total_comp,
+                            "focus_entity": focus_data,
+                            "extremes": {
+                                "max_delta_entity": (
+                                    {
+                                        "entity_id": max_delta_entity["entity_id"],
+                                        "display_name": max_delta_entity["display_name"],
+                                        "delta_cost_ttc": max_delta_entity["delta_cost_ttc"],
+                                        "delta_cost_ttc_per_hour": max_delta_entity["delta_cost_ttc_per_hour"],
+                                        "delta_cost_ttc_per_day": max_delta_entity["delta_cost_ttc_per_day"],
+                                    }
+                                    if max_delta_entity
+                                    else None
+                                )
+                            },
+                        },
+                        "top_entities": {
+                            "by_cost_ttc": top_entities,
+                        },
+                    },
+                }
+            )
+
+        except Exception as e:
+            _LOGGER.exception("Erreur history_costs: %s", e)
+            return self.json({"success": False, "error": str(e)}, status_code=500)
