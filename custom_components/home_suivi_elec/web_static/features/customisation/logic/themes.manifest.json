@@ -1,0 +1,69 @@
+{
+  "notes": "Manifest source of truth (no max theme limit).",
+  "themes": [
+    {
+      "id": "light",
+      "key": "light",
+      "label": "Light (clair moderne)",
+      "description": null,
+      "icon": null,
+      "default": false
+    },
+    {
+      "id": "dark",
+      "key": "dark",
+      "label": "Dark (sombre élégant)",
+      "description": null,
+      "icon": null,
+      "default": true
+    },
+    {
+      "id": "hseocean",
+      "key": "ocean",
+      "label": "Ocean (bleu profond)",
+      "description": null,
+      "icon": null,
+      "default": false
+    },
+    {
+      "id": "hseforest",
+      "key": "forest",
+      "label": "Forest (vert nature)",
+      "description": null,
+      "icon": null,
+      "default": false
+    },
+    {
+      "id": "hsesunset",
+      "key": "sunset",
+      "label": "Sunset (coucher de soleil)",
+      "description": null,
+      "icon": null,
+      "default": false
+    },
+    {
+      "id": "hseminimal",
+      "key": "minimal",
+      "label": "Minimal (noir & blanc)",
+      "description": null,
+      "icon": null,
+      "default": false
+    },
+    {
+      "id": "hseneon",
+      "key": "neon",
+      "label": "Neon (cyberpunk)",
+      "description": null,
+      "icon": null,
+      "default": false
+    },
+    {
+      "id": "hseaurora",
+      "key": "aurora",
+      "label": "Aurora Glass (premium)",
+      "description": "Glassmorphism doux + fond aurora animé (tokens only).",
+      "icon": "✨",
+      "default": false
+    }
+  ]
+}

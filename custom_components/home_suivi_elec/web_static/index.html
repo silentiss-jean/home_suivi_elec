@@ -1,203 +1,195 @@
 <!DOCTYPE html>
-<html lang="fr">
+<html lang="fr" data-theme="light">
 <head>
-<meta charset="UTF-8">
-<title>Home Suivi Élec</title>
-<link rel="stylesheet" href="style.css">
-<link rel="stylesheet" href="style.hse.themes.css">
-<link rel="stylesheet" href="features/summary/summary.css">
-<link rel="stylesheet" href="features/diagnostics/diagnostics.css">
-<link rel="stylesheet" href="features/migration/migration.css">
-<link rel="stylesheet" href="features/history/history.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Home Suivi Élec</title>
 
-<style>
-body { font-family: "Segoe UI", Roboto, Arial, sans-serif; background-color: #f8f9fa; color: #222; margin: 20px; }
-h1 { text-align: center; color: #0078d4; margin-bottom: 20px; }
-nav#tabs { text-align: center; margin-bottom: 20px; }
-nav#tabs button { background-color: #0078d4; color: white; border: none; padding: 10px 15px; margin: 2px; border-radius: 5px; cursor: pointer; transition: 0.2s; }
-nav#tabs button:hover { background-color: #005fa3; }
-.tab-content { display: none; }
-.tab-content.active { display: block; }
-.card { background: white; padding: 15px; border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,0.1); margin-bottom: 20px; }
-.integration-block { background: #fff; border-radius: 8px; padding: 10px 15px; margin-bottom: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
-.integration-block h3 { color: #0078d4; }
-.sensor { margin-left: 10px; margin-bottom: 3px; }
-button.primary { background-color: #28a745; color: white; border: none; padding: 8px 12px; border-radius: 5px; cursor: pointer; }
-button.primary:hover { background-color: #218838; }
-label { display: block; margin: 5px 0; }
-#externalFieldsConfig { background: #eef4ff; border-radius: 8px; padding: 10px; margin-top: 8px; border-left: 3px solid #0078d4; }
-.reference-panel { display:flex; align-items:flex-start; gap:12px; background:#eef4ff; border-left:4px solid #0078d4; padding:12px; border-radius:8px; margin-bottom:12px; }
-.reference-icon { font-size:18px; }
-.reference-title { font-weight:600; }
-.reference-name { font-family: monospace; }
-.set-reference-btn { margin-left:auto; }
-table { width:100%; border-collapse: collapse; }
-table th, table td { border: 1px solid #e5e5e5; padding: 6px 8px; }
-table thead th { background: #f2f2f2; }
-.config-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-.config-section { background: #f4f8ff; border-left: 4px solid #0078d4; padding: 15px; border-radius: 8px; margin-top: 15px; }
-.config-section.hphc { background: #fff4e6; border-left-color: #ff9800; }
-.config-section h4 { margin-top: 0; color: #0078d4; }
-.config-section.hphc h4 { color: #ff9800; }
-</style>
+  <!-- Core tokens + composants (ne dépend pas du thème) -->
+  <link rel="stylesheet" href="style.hse.core.css">
+  <link rel="stylesheet" href="style.hse.components.css">
+  <link rel="stylesheet" href="style.hse.tokens.ui.css">
+
+  <!-- Legacy / styles divers (peut contenir des règles "en dur") -->
+  <!--link rel="stylesheet" href="style.css"-->
+
+  <!-- Thèmes v4 (doit passer après pour imposer les variables selon data-theme) -->
+  <link rel="stylesheet" href="style.hse.themes.v4.css">
+  <link rel="stylesheet" href="style.hse.themes.v4.aurora.overrides.css">
+
+  <!-- Features -->
+  <link rel="stylesheet" href="features/summary/summary.css">
+  <link rel="stylesheet" href="features/summary/summary.tokens.css">
+  <link rel="stylesheet" href="features/diagnostics/diagnostics.css">
+  <link rel="stylesheet" href="features/migration/migration.css">
+  <link rel="stylesheet" href="features/history/history.css">
+  <link rel="stylesheet" href="features/generation/generation.css">
+  <link rel="stylesheet" href="features/detection/detection.css">
+  <link rel="stylesheet" href="features/customisation/customisation.css">
+  <link rel="stylesheet" href="features/configuration/configuration.css">
 </head>
+
 <body>
-<h1>⚡ Home Suivi Élec</h1>
+  <header class="hse-header">
+    <h1>⚡ Home Suivi Élec</h1>
 
-<nav id="tabs">
-  <button type="button" onclick="showTab('home')">🏠 Accueil</button>
-  <button type="button" onclick="showTab('diagnostics')">🔧 Diagnostic</button>
-  <button type="button" onclick="showTab('detection')">🔍 Détection</button>
-  <button type="button" onclick="showTab('configuration')">⚙️ Configuration</button>
-  <button type="button" onclick="showTab('customisation')">🎨 Customisation</button>
-  <button type="button" onclick="showTab('generation')">🧩 Génération cartes</button>
-  <button type="button" onclick="showTab('migration')">🔄 Migration capteurs</button>
-  <button type="button" onclick="showTab('history')">📊 Analyse de coûts</button>
-</nav>
+    <!-- Tabs : on réutilise les styles existants .subtab-btn -->
+    <nav id="tabs" class="hse-tabs">
+      <button type="button" class="subtab-btn active" data-tab="home" onclick="showTab('home')">🏠 Accueil</button>
+      <button type="button" class="subtab-btn" data-tab="diagnostics" onclick="showTab('diagnostics')">🔧 Diagnostic</button>
+      <button type="button" class="subtab-btn" data-tab="detection" onclick="showTab('detection')">🔍 Détection</button>
+      <button type="button" class="subtab-btn" data-tab="configuration" onclick="showTab('configuration')">⚙️ Configuration</button>
+      <button type="button" class="subtab-btn" data-tab="customisation" onclick="showTab('customisation')">🎨 Customisation</button>
+      <button type="button" class="subtab-btn" data-tab="generation" onclick="showTab('generation')">🧩 Génération cartes</button>
+      <button type="button" class="subtab-btn" data-tab="migration" onclick="showTab('migration')">🔄 Migration capteurs</button>
+      <button type="button" class="subtab-btn" data-tab="history" onclick="showTab('history')">📊 Analyse de coûts</button>
+    </nav>
 
-<!-- ════════════════════════════════════════════════════════════════════════════
-     🏠 ACCUEIL - RÉSUMÉ GÉNÉRAL
-     ════════════════════════════════════════════════════════════════════════════ -->
-<div id="home" class="tab-content active">
-  <!-- ✨ Boutons d'actions avec cache -->
-  <div style="display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; align-items: center;">
-    <button id="refreshHome" class="primary" type="button">
-      🔄 Actualiser résumé
-    </button>
-    <button id="clearCache" class="btn-cache-clear" type="button">
-      🗑️ Vider cache
-    </button>
-    <button id="showCacheStats" class="btn-cache-stats" type="button">
-      📊 Stats cache
-    </button>
-  </div>
+  </header>
 
-  <!-- ✨ Panneau stats cache (masqué par défaut) -->
-  <div id="cacheStatsPanel" style="display:none;">
-    <strong>📊 Statistiques du cache</strong>
-    <div id="cacheStatsContent">Chargement...</div>
-  </div>
+  <!-- ════════════════════════════════════════════════════════════════════════════
+       🏠 ACCUEIL - RÉSUMÉ GÉNÉRAL
+       ════════════════════════════════════════════════════════════════════════════ -->
+  <div id="home" class="tab-content active">
 
-  <h2>Résumé général</h2>
-  <div id="summaryCard" class="card">
-    <!-- ✅ Bloc stats existant (conservé tel quel) -->
-    <div id="topBlocks" style="display: flex; justify-content: space-between; gap: 20px; margin-bottom: 20px;">
-      <div id="instantaneBlock" style="flex: 1; background: #eef4ff; border-radius: 8px; padding: 15px; font-size: 1rem;">
-        <h3>Capteurs</h3>
-        <p><strong>Total capteurs détectés :</strong> <span id="totalCapteurs">-</span></p>
-        <p><strong>Capteurs sélectionnés :</strong> <span id="actifsCapteurs">-</span></p>
-        <p><strong>Capteurs sélectionnés (tous actifs) :</strong> <span id="instantaneInterne">- W</span></p>
-        <p><strong id="externalTitle"></strong> <span id="externeCompact"></span> <abbr title="Valeur mesurée en temps réel, coût HT réel">*</abbr></p>
-        <p><strong>Consommation actuelle non mesurée (Delta) :</strong> <span id="deltaPuissance">- W</span></p>
-      </div>
-      <div id="resumeGeneral" style="flex: 1; background: #f5f5f5; border-radius: 8px; padding: 15px; font-size: 0.92rem;">
-        <h3>Résumé général</h3>
-        <p><strong>Type contrat :</strong> <span id="typeContratSummary">-</span></p>
-        <p><strong>Abonnement HT :</strong> <span id="abonnementHTSummary">-</span> €</p>
-        <p><strong>Abonnement TTC :</strong> <span id="abonnementTTCSummary">-</span> €</p>
-        <div id="blocFixe" style="display:none; margin-top:10px;">
-          <p><strong>Prix du kWh HT :</strong> <span id="prixFixeHT">-</span> €</p>
-          <p><strong>Prix du kWh TTC :</strong> <span id="prixFixeTTC">-</span> €</p>
-        </div>
-        <div id="blocHpHc" style="display:none; margin-top:10px;">
-          <p><strong>Tarif HP HT :</strong> <span id="tarifHPHTSummary">-</span> €</p>
-          <p><strong>Tarif HP TTC :</strong> <span id="tarifHPTTCSummary">-</span> €</p>
-          <p><strong>Tarif HC HT :</strong> <span id="tarifHCHTSummary">-</span> €</p>
-          <p><strong>Tarif HC TTC :</strong> <span id="tarifHCTTCSummary">-</span> €</p>
-          <p><strong>Heures HC début :</strong> <span id="heuresHPDebutSummary">-</span></p>
-          <p><strong>Heures HC fin :</strong> <span id="heuresHPFinSummary">-</span></p>
-        </div>
-        <div id="tarifsSummary"></div>
-        <p><strong>Dernier refresh :</strong> <span id="dernierRefresh">-</span></p>
-      </div>
+    <!-- Boutons d'actions (layout via classes, pas de style inline) -->
+    <div class="actions-section hse-actions-row">
+      <button id="refreshHome" class="btn btn-primary" type="button">🔄 Actualiser résumé</button>
+      <button id="clearCache" class="btn btn-warn" type="button">🗑️ Vider cache</button>
+      <button id="showCacheStats" class="btn btn-info" type="button">📊 Stats cache</button>
     </div>
 
-    <!-- ✅ Conteneur pour état de chargement / erreur (backend-powered) -->
-    <div id="summaryContent"></div>
+    <!-- Panneau stats cache -->
+    <div id="cacheStatsPanel" class="hse-panel hse-panel-accent" hidden>
+      <strong>📊 Statistiques du cache</strong>
+      <div id="cacheStatsContent">Chargement...</div>
+    </div>
 
-    <!-- ✅ Tables Résumé (IDs mis à jour pour backend-powered) -->
-    <section id="summaryData" style="display:none">
-      <div id="tablesDetail" style="margin-top: 10px;">
-        <h3>Capteurs détectés – Puissance cumulée</h3>
-        <table id="summaryInternalSensors">
-          <thead>
-            <tr>
-              <th>Période</th>
-              <th>kWh</th>
-              <th>Coût consommation HT (€)</th>
-              <th>Coût consommation TTC (€)</th>
-              <th>Total HT (€)</th>
-              <th>Total TTC (€)</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td colspan="6" style="text-align: center; color: #666; padding: 20px;">
-                Sélectionnez et configurez vos capteurs pour que le résumé affiche des estimations
-              </td>
-            </tr>
-          </tbody>
-        </table>
+    <h2 class="hse-title-gradient">Résumé général</h2>
 
-        <h3 id="externalSummaryTitle" style="margin-top:30px;">Capteur externe de référence</h3>
-        <table id="summaryExternalSensors">
-          <thead>
-            <tr>
-              <th>Période</th>
-              <th>kWh</th>
-              <th>Coût consommation HT (€)</th>
-              <th>Coût consommation TTC (€)</th>
-              <th>Total HT (€)</th>
-              <th>Total TTC (€)</th>
-            </tr>
-          </thead>
-          <tbody></tbody>
-        </table>
+    <div id="summaryCard" class="card">
+      <div id="topBlocks" class="hse-summary-top-grid">
+        <div id="instantaneBlock" class="hse-surface-card hse-panel hse-panel-accent hse-flex-1">
+          <h3 class="hse-title-gradient">Capteurs</h3>
+          <p><strong>Total capteurs détectés :</strong> <span id="totalCapteurs">-</span></p>
+          <p><strong>Capteurs sélectionnés :</strong> <span id="actifsCapteurs">-</span></p>
+          <p><strong>Capteurs sélectionnés (tous actifs) :</strong> <span id="instantaneInterne">- W</span></p>
+          <p><strong id="externalTitle"></strong> <span id="externeCompact"></span> <abbr title="Valeur mesurée en temps réel, coût HT réel">*</abbr></p>
+          <p><strong>Consommation actuelle non mesurée (Delta) :</strong> <span id="deltaPuissance">- W</span></p>
+        </div>
 
-        <h3 id="deltaSummaryTitle" style="margin-top:30px;">Delta (externe - interne)</h3>
-        <table id="summaryDeltaSensors">
-          <thead>
-            <tr>
-              <th>Période</th>
-              <th>kWh</th>
-              <th>Coût consommation HT (€)</th>
-              <th>Coût consommation TTC (€)</th>
-              <th>Total HT (€)</th>
-              <th>Total TTC (€)</th>
-            </tr>
-          </thead>
-          <tbody></tbody>
-        </table>
+        <div id="resumeGeneral" class="hse-surface-card hse-panel hse-panel-accent hse-flex-1">
+          <h3 class="hse-title-gradient">Résumé général</h3>
+          <p><strong>Type contrat :</strong> <span id="typeContratSummary">-</span></p>
+          <p><strong>Abonnement HT :</strong> <span id="abonnementHTSummary">-</span> €</p>
+          <p><strong>Abonnement TTC :</strong> <span id="abonnementTTCSummary">-</span> €</p>
 
-        <p id="summaryMessage" style="font-size: 0.8em; color: #666; margin-top: 10px;">
-          Sélectionnez et configurez vos capteurs pour que le résumé affiche des estimations
-        </p>
+          <div id="blocFixe" hidden class="hse-mt-10">
+            <p><strong>Prix du kWh HT :</strong> <span id="prixFixeHT">-</span> €</p>
+            <p><strong>Prix du kWh TTC :</strong> <span id="prixFixeTTC">-</span> €</p>
+          </div>
+
+          <div id="blocHpHc" hidden class="hse-mt-10">
+            <p><strong>Tarif HP HT :</strong> <span id="tarifHPHTSummary">-</span> €</p>
+            <p><strong>Tarif HP TTC :</strong> <span id="tarifHPTTCSummary">-</span> €</p>
+            <p><strong>Tarif HC HT :</strong> <span id="tarifHCHTSummary">-</span> €</p>
+            <p><strong>Tarif HC TTC :</strong> <span id="tarifHCTTCSummary">-</span> €</p>
+            <p><strong>Heures HC début :</strong> <span id="heuresHPDebutSummary">-</span></p>
+            <p><strong>Heures HC fin :</strong> <span id="heuresHPFinSummary">-</span></p>
+          </div>
+
+          <div id="tarifsSummary"></div>
+          <p><strong>Dernier refresh :</strong> <span id="dernierRefresh">-</span></p>
+        </div>
       </div>
-    </section>
+
+      <!-- Backend-powered loading/error -->
+      <div id="summaryContent"></div>
+
+      <!-- Tables Résumé -->
+      <section id="summaryData" hidden>
+        <div id="tablesDetail" class="hse-summary-tables-detail">
+          <h3 class="hse-summary-table-title">Capteurs détectés – Puissance cumulée</h3>
+          <div class="integrations-table-container">
+            <!-- NOTE: keep prod behavior: summary.js writes into #summaryInternalSensors -->
+            <table id="summaryInternalSensors" class="integrations-table">
+              <thead>
+                <tr>
+                  <th>Période</th>
+                  <th>kWh</th>
+                  <th>Coût consommation HT (€)</th>
+                  <th>Coût consommation TTC (€)</th>
+                  <th>Total HT (€)</th>
+                  <th>Total TTC (€)</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td colspan="6" class="hse-summary-message">Sélectionnez et configurez vos capteurs pour que le résumé affiche des estimations</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3 id="externalSummaryTitle" class="hse-summary-table-title">Capteur externe de référence</h3>
+          <div class="integrations-table-container">
+            <table id="summaryExternalSensors" class="integrations-table">
+              <thead>
+                <tr>
+                  <th>Période</th>
+                  <th>kWh</th>
+                  <th>Coût consommation HT (€)</th>
+                  <th>Coût consommation TTC (€)</th>
+                  <th>Total HT (€)</th>
+                  <th>Total TTC (€)</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+
+          <h3 id="deltaSummaryTitle" class="hse-summary-table-title">Delta (externe - interne)</h3>
+          <div class="integrations-table-container">
+            <table id="summaryDeltaSensors" class="integrations-table">
+              <thead>
+                <tr>
+                  <th>Période</th>
+                  <th>kWh</th>
+                  <th>Coût consommation HT (€)</th>
+                  <th>Coût consommation TTC (€)</th>
+                  <th>Total HT (€)</th>
+                  <th>Total TTC (€)</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+
+          <p id="summaryMessage" class="hse-summary-message">
+            Les totaux incluent l'abonnement mensuel proratisé sur chaque période.
+          </p>
+        </div>
+      </section>
+    </div>
+  </div>   <!-- /#home -->
+
+
+  <!-- AUTRES ONGLETS -->
+  <div id="diagnostics" class="tab-content"></div>
+  <div id="detection" class="tab-content"></div>
+  <div id="configuration" class="tab-content"></div>
+  <div id="customisation" class="tab-content"></div>
+  <div id="generation" class="tab-content"></div>
+  <div id="migration" class="tab-content"></div>
+
+  <!-- HISTORY -->
+  <div id="history" class="tab-content">
+    <div id="history-app"></div>
   </div>
-</div>
 
-<!-- ════════════════════════════════════════════════════════════════════════════
-     AUTRES ONGLETS
-     ════════════════════════════════════════════════════════════════════════════ -->
-<div id="diagnostics" class="tab-content"></div>
-<div id="detection" class="tab-content"></div>
-<div id="configuration" class="tab-content"></div>
-<div id="customisation" class="tab-content"></div>
-<div id="generation" class="tab-content"></div>
-<div id="migration" class="tab-content"></div>
-
-<!-- ════════════════════════════════════════════════════════════════════════════
-     📊 ANALYSE DE COÛTS (HISTORY)
-     ════════════════════════════════════════════════════════════════════════════ -->
-<div id="history" class="tab-content">
-  <!-- Le contenu sera généré dynamiquement par history.view.js -->
-</div>
-
-<!-- ════════════════════════════════════════════════════════════════════════════
-     SCRIPTS
-     ════════════════════════════════════════════════════════════════════════════ -->
-<script type="module" src="core/app.js"></script>
-<script type="module" src="core/router.js"></script>
+  <!-- SCRIPTS -->
+  <script src="core/theme-bridge.js"></script>
+  <script type="module" src="core/app.js"></script>
+  <script type="module" src="core/router.js"></script>
 </body>
 </html>

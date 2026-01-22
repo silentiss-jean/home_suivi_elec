@@ -445,6 +445,24 @@ class HomeElecUnifiedConfigAPIView(HomeAssistantView):
                     "Génération refusée: 'enable_cost_sensors_runtime' est désactivé.",
                 )
 
+            # ══════════════════════════════════════════════════════════════════
+            # Configuration des prix et allowlist
+            # ══════════════════════════════════════════════════════════════════
+
+            # Lire la config pricing depuis config_entries (pour détecter type_contrat)
+            from ..cost_tracking import get_pricing_config
+            pricing_config = get_pricing_config(self.hass)
+            type_contrat = pricing_config.get("type_contrat", "fixe")
+
+            # Prix depuis payload API (priorité) ou depuis config_entries (fallback)
+            prix_ht = float(data.get("prix_ht", data.get("prixht", 0.0)) or 0.0)
+            prix_ttc = float(data.get("prix_ttc", data.get("prixttc", 0.0)) or 0.0)
+
+            if prix_ht <= 0:
+                prix_ht = float(pricing_config.get("prix_ht", 0.0))
+            if prix_ttc <= 0:
+                prix_ttc = float(pricing_config.get("prix_ttc", 0.0))
+
             # Allowlist optionnelle depuis le store cost_ha (Coût: oui)
             cost_ha_map = await mgr.get_cost_ha_config()
             allowed_sources: Set[str] = {
@@ -454,11 +472,9 @@ class HomeElecUnifiedConfigAPIView(HomeAssistantView):
             }
             use_allowlist = len(allowed_sources) > 0
 
-            prix_ht = float(data.get("prix_ht", data.get("prixht", 0.0)) or 0.0)
-            prix_ttc = float(data.get("prix_ttc", data.get("prixttc", 0.0)) or 0.0)
-
             _LOGGER.info(
-                "[API-CONFIG] generate_cost_sensors HT=%.4f TTC=%.4f allowlist=%d (use=%s)",
+                "[API-CONFIG] generate_cost_sensors type=%s HT=%.4f TTC=%.4f allowlist=%d (use=%s)",
+                type_contrat,
                 prix_ht,
                 prix_ttc,
                 len(allowed_sources),
@@ -503,6 +519,76 @@ class HomeElecUnifiedConfigAPIView(HomeAssistantView):
                         "prix_ttc": prix_ttc,
                     }
                 )
+
+            # ══════════════════════════════════════════════════════════════════
+            # 💾 PERSISTANCE : Mise à jour du store cost_ha AVANT dédup
+            # (pour garantir que le store existe même si tous sont dédupliqués)
+            # ══════════════════════════════════════════════════════════════════
+
+            _LOGGER.info(
+                "[API-CONFIG] 💾 Préparation persistance pour %d capteurs coût générés",
+                len(cost_sensors)
+            )
+
+            cost_ha_map = cost_ha_map or {}
+
+            for e in cost_sensors:
+                src = self._entity_source_energy(e)
+                if not src:
+                    continue
+                
+                # Lire les attributs du capteur coût créé
+                attrs = {}
+                if hasattr(e, "extra_state_attributes") and callable(e.extra_state_attributes):
+                    attrs = e.extra_state_attributes or {}
+                elif hasattr(e, "_attr_extra_state_attributes"):
+                    attrs = e._attr_extra_state_attributes or {}
+                
+                # Construire l'entity_id du capteur coût
+                cost_entity_id = getattr(e, "entity_id", None)
+                if not cost_entity_id:
+                    cost_entity_id = f"sensor.{getattr(e, '_attr_suggested_object_id', 'unknown')}"
+                
+                # Persister la config complète (pour réconciliation + détection changement contrat)
+                entry = {
+                    "enabled": True,
+                    "cost_entity_id": cost_entity_id,
+                    "type_contrat": type_contrat,
+                    "prix_ht": prix_ht,
+                    "prix_ttc": prix_ttc,
+                    # Infos depuis attributs du capteur
+                    "cycle": attrs.get("cycle", "daily"),
+                    "variant": attrs.get("variant", "ht"),
+                    "tarif_type": attrs.get("tarif_type"),
+                    "price_per_kwh": attrs.get("price_per_kwh", 0.0),
+                    "last_updated": self._get_timestamp(),
+                }
+                
+                # Garder l'ancienne config si elle existe (pour tracer l'historique)
+                old_entry = cost_ha_map.get(src)
+                if isinstance(old_entry, dict):
+                    entry["previous_type_contrat"] = old_entry.get("type_contrat")
+                    entry["created_at"] = old_entry.get("created_at", entry["last_updated"])
+                else:
+                    entry["created_at"] = entry["last_updated"]
+                
+                cost_ha_map[src] = entry
+
+            # Sauvegarder AVANT la dédup pour garantir la création du fichier
+            if cost_ha_map:
+                try:
+                    await mgr.save_cost_ha_config(cost_ha_map)
+                    _LOGGER.info(
+                        "[API-CONFIG] ✅ Store cost_ha mis à jour : %d sources persistées (type=%s)",
+                        len(cost_ha_map),
+                        type_contrat,
+                    )
+                except Exception as e:
+                    _LOGGER.exception("[API-CONFIG] ❌ Erreur sauvegarde store cost_ha: %s", e)
+
+            # ══════════════════════════════════════════════════════════════════
+            # Déduplication (après persistance)
+            # ══════════════════════════════════════════════════════════════════
 
             domain = self.hass.data.setdefault(DOMAIN, {})
 
@@ -549,21 +635,6 @@ class HomeElecUnifiedConfigAPIView(HomeAssistantView):
                     }
                 )
 
-            # Mise à jour du store cost_ha pour chaque source réellement ajoutée
-            cost_ha_map = cost_ha_map or {}
-            for e in to_add:
-                src = self._entity_source_energy(e)
-                if not src:
-                    continue
-                entry = cost_ha_map.get(src)
-                if not isinstance(entry, dict):
-                    entry = {}
-                entry["enabled"] = True
-                entry["cost_entity_id"] = e.entity_id
-                cost_ha_map[src] = entry
-
-            await mgr.save_cost_ha_config(cost_ha_map)
-
             # sensor.py écoute hse_cost_sensors_ready et lit cost_sensors_pending
             domain["cost_sensors_pending"] = to_add
             domain["cost_sensors"] = to_add  # fallback
@@ -586,7 +657,7 @@ class HomeElecUnifiedConfigAPIView(HomeAssistantView):
                     "duplicates_skipped": dup,
                     "dropped_no_uid": dropped_no_uid,
                     "allowed_sources_count": len(allowed_sources),
-                    "message": f"{len(to_add)} capteurs coût envoyés à l’ajout (event cost).",
+                    "message": f"{len(to_add)} capteurs coût envoyés à l'ajout (event cost).",
                     "prix_ht": prix_ht,
                     "prix_ttc": prix_ttc,
                 }
@@ -1077,7 +1148,7 @@ class EnableSensorView(HomeAssistantView):
         content_type="application/json",
         status=500
     )
-
+    
 class HistoryAnalysisView(HomeAssistantView):
     """
     GET+POST /api/home_suivi_elec/history/{action}
@@ -1093,6 +1164,32 @@ class HistoryAnalysisView(HomeAssistantView):
         self.hass = hass
         _LOGGER.info("🕒 API History Analysis initialisée")
     
+    def _is_derived_from(self, entity_id: str, reference_id: str) -> bool:
+        """True si entity_id == reference_id OU si en remontant source_entity on tombe sur reference_id."""
+        if not entity_id or not reference_id:
+            return False
+
+        visited = set()
+        current = entity_id
+
+        while current and current not in visited:
+            if current == reference_id:
+                return True
+
+            visited.add(current)
+            st = self.hass.states.get(current)
+            if not st:
+                return False
+
+            attrs = st.attributes or {}
+            parent = attrs.get("source_entity") or attrs.get("source_energy_entity")
+            if not parent or parent == current:
+                return False
+
+            current = parent
+
+        return False
+
     # === GET ===
     
     async def get(self, request, action=None):
@@ -1105,6 +1202,9 @@ class HistoryAnalysisView(HomeAssistantView):
             
             if action == "available_sensors":
                 return await self._get_available_sensors()
+
+            if action == "current_costs":
+                return await self._get_current_costs()
             
             if action == "test":
                 return self._success({"message": "History API opérationnelle"})
@@ -1135,6 +1235,9 @@ class HistoryAnalysisView(HomeAssistantView):
             
             if action == "analysis":
                 return await self._analyze_comparison(data)
+
+            if action == "cost_analysis":
+                return await self._analyze_cost_comparison(data)
             
             return self._error(404, f"Action POST inconnue: {action}")
             
@@ -1174,6 +1277,810 @@ class HistoryAnalysisView(HomeAssistantView):
             _LOGGER.exception(f"[HISTORY] Erreur available_sensors: {e}")
             return self._error(500, str(e))
     
+    async def _get_current_costs(self):
+        """
+        GET /api/home_suivi_elec/history/current_costs
+        Retourne l'état actuel des capteurs coût (temps réel).
+
+        ✅ CORRECTIONS :
+        - Déduplication : 1 seul capteur par source (priorité TTC > HT)
+        - Détection automatique TTC/HT dans l'entity_id
+        - Filtrage capteurs unavailable, inactifs (0€, 0kWh)
+        - Logs détaillés pour diagnostic
+
+        ✅ NOUVELLE FEATURE :
+        - Inclure le capteur de référence (compteur) séparément + calcul de l'écart (gap)
+        """
+        try:
+            from homeassistant.helpers import entity_registry as er
+
+            # 🆕 Récupérer le capteur de référence depuis config_entries
+            external_capteur = None
+            try:
+                config_entries = self.hass.config_entries.async_entries(DOMAIN)
+                if config_entries:
+                    hse_entry = config_entries[0]
+                    # Fallback "external_sensor" pour éviter une régression si l'option n'est pas encore renommée
+                    external_capteur = (
+                        hse_entry.options.get("external_capteur")
+                        or hse_entry.options.get("external_sensor")
+                    )
+                    _LOGGER.info(f"[CURRENT-COSTS] Capteur de référence: {external_capteur}")
+            except Exception as e:
+                _LOGGER.warning(f"[CURRENT-COSTS] Impossible de lire external_capteur: {e}")
+
+            # ✅ CORRECTION: pré-initialiser reference_sensor à partir de external_capteur
+            # (même si aucun capteur coût "référence" n'est trouvé/retourné)
+            reference_sensor = None
+            if external_capteur:
+                ref_state = self.hass.states.get(external_capteur)
+                ref_attrs = (ref_state.attributes or {}) if ref_state else {}
+
+                ref_energy = 0.0
+                if ref_state and ref_state.state not in ("unknown", "unavailable"):
+                    try:
+                        ref_energy = float(ref_state.state)
+                    except (ValueError, TypeError):
+                        ref_energy = 0.0
+
+                reference_sensor = {
+                    "entity_id": external_capteur,
+                    "friendly_name": ref_attrs.get("friendly_name", external_capteur),
+                    "cost_ttc": 0.0,
+                    "cost_ht": 0.0,
+                    "energy_kwh": round(ref_energy, 3),
+                    "unit": ref_attrs.get("unit_of_measurement"),
+                    "source_entity": external_capteur,
+                    "cycle": "daily",
+                    "is_reference": True,
+                    "reference_only": True,  # marker: placeholder (pas un capteur coût HSE)
+                    "state": ref_state.state if ref_state else None,
+                }
+
+            entity_reg = er.async_get(self.hass)
+
+            cost_sensors_map = {}  # Dict[source_entity_id, sensor_data] (SANS référence)
+            excluded_count = 0
+            excluded_reasons = {
+                "unavailable": 0,
+                "unknown": 0,
+                "zero_values": 0,
+                "source_unavailable": 0,
+                "duplicate_ht": 0,
+            }
+
+            for entity_id, entry in entity_reg.entities.items():
+                if (
+                    entry.platform == "home_suivi_elec"
+                    and "_cout_daily" in entity_id
+                    and entity_id.startswith("sensor.hse_")
+                ):
+                    state = self.hass.states.get(entity_id)
+                    if not state:
+                        excluded_count += 1
+                        excluded_reasons["unavailable"] += 1
+                        continue
+
+                    # ✅ FILTRAGE 1 : Exclure si state unavailable/unknown
+                    if state.state in ("unavailable", "unknown", "none", None):
+                        excluded_count += 1
+                        excluded_reasons["unavailable"] += 1
+                        _LOGGER.debug(f"[CURRENT-COSTS] Exclus {entity_id}: state={state.state}")
+                        continue
+
+                    attrs = state.attributes or {}
+                    source_entity_id = attrs.get("source_entity")
+
+                    if not source_entity_id:
+                        _LOGGER.debug(f"[CURRENT-COSTS] Exclus {entity_id}: pas de source_entity")
+                        continue
+
+                    # ✅ FILTRAGE 2 : Vérifier l'état de la source d'énergie
+                    source_state = self.hass.states.get(source_entity_id)
+                    if source_state and source_state.state in ("unavailable", "unknown"):
+                        excluded_count += 1
+                        excluded_reasons["source_unavailable"] += 1
+                        _LOGGER.debug(
+                            f"[CURRENT-COSTS] Exclus {entity_id}: source {source_entity_id} unavailable"
+                        )
+                        continue
+
+                    # Récupérer l'énergie depuis la source
+                    energy_kwh = 0.0
+                    if source_state and source_state.state not in ("unknown", "unavailable"):
+                        try:
+                            energy_kwh = float(source_state.state)
+                        except (ValueError, TypeError):
+                            pass
+
+                    # 🆕 Détecter si c'est le capteur de référence
+                    is_reference = bool(external_capteur and self._is_derived_from(source_entity_id, external_capteur))
+
+                    # ✅ DÉTECTION DU TYPE DE CAPTEUR (TTC ou HT)
+                    is_ttc = "_ttc" in entity_id.lower()
+                    is_ht = "_ht" in entity_id.lower() and "_ttc" not in entity_id.lower()
+
+                    # Lire la valeur du capteur
+                    try:
+                        sensor_value = float(state.state) if state.state not in ("unknown", "unavailable") else 0.0
+                    except (ValueError, TypeError):
+                        sensor_value = 0.0
+
+                    # ✅ CALCUL INTELLIGENT TTC/HT selon le type de capteur
+                    if is_ttc:
+                        cost_ttc = sensor_value
+                        cost_ht = cost_ttc / 1.1 if cost_ttc > 0 else 0.0
+                        _LOGGER.debug(
+                            f"[CURRENT-COSTS] {entity_id} (TTC): {cost_ttc:.2f}€ TTC → {cost_ht:.2f}€ HT"
+                        )
+                    elif is_ht:
+                        cost_ht = sensor_value
+                        cost_ttc = cost_ht * 1.1 if cost_ht > 0 else 0.0
+                        _LOGGER.debug(
+                            f"[CURRENT-COSTS] {entity_id} (HT): {cost_ht:.2f}€ HT → {cost_ttc:.2f}€ TTC"
+                        )
+                    else:
+                        cost_ttc = sensor_value
+                        cost_ht = cost_ttc / 1.1 if cost_ttc > 0 else 0.0
+                        _LOGGER.warning(f"[CURRENT-COSTS] {entity_id} sans suffixe TTC/HT, suppose TTC")
+
+                    # ✅ FILTRAGE 3 : Exclure si coût=0 ET énergie=0
+                    if cost_ttc == 0.0 and energy_kwh == 0.0:
+                        excluded_count += 1
+                        excluded_reasons["zero_values"] += 1
+                        _LOGGER.debug(f"[CURRENT-COSTS] Exclus {entity_id}: coût=0 énergie=0")
+                        continue
+
+                    sensor_data = {
+                        "entity_id": entity_id,
+                        "friendly_name": attrs.get("friendly_name", entity_id),
+                        "cost_ttc": round(cost_ttc, 2),
+                        "cost_ht": round(cost_ht, 2),
+                        "energy_kwh": round(energy_kwh, 3),
+                        "unit": attrs.get("unit_of_measurement", "EUR"),
+                        "source_entity": source_entity_id,
+                        "cycle": "daily",
+                        "is_reference": is_reference,
+                        "reference_only": False,  # 🆕 (explicite)
+                    }
+
+                    # 🆕 Séparer référence vs internes
+                    if is_reference:
+                        # ✅ CORRECTION: si on a déjà un placeholder reference_only, on le remplace
+                        if reference_sensor is not None and reference_sensor.get("reference_only"):
+                            reference_sensor = sensor_data
+                            _LOGGER.info(
+                                f"[CURRENT-COSTS] Référence (placeholder→capteur coût): {entity_id} = {cost_ttc:.2f}€"
+                            )
+                            continue
+
+                        if reference_sensor is None:
+                            reference_sensor = sensor_data
+                            _LOGGER.info(
+                                f"[CURRENT-COSTS] Référence détectée: {entity_id} = {cost_ttc:.2f}€"
+                            )
+                        else:
+                            # Dédup sur la référence aussi (priorité TTC > HT)
+                            existing_is_ttc = "_ttc" in reference_sensor["entity_id"].lower()
+                            if is_ttc and not existing_is_ttc:
+                                _LOGGER.info(
+                                    f"[CURRENT-COSTS] Référence: remplacement {reference_sensor['entity_id']} (HT) "
+                                    f"par {entity_id} (TTC)"
+                                )
+                                reference_sensor = sensor_data
+                            elif is_ht and existing_is_ttc:
+                                excluded_count += 1
+                                excluded_reasons["duplicate_ht"] += 1
+                                _LOGGER.debug(
+                                    f"[CURRENT-COSTS] Référence: exclusion {entity_id} (HT) "
+                                    f"doublon de {reference_sensor['entity_id']} (TTC)"
+                                )
+                            else:
+                                _LOGGER.warning(
+                                    f"[CURRENT-COSTS] Référence: doublon ambigu "
+                                    f"{reference_sensor['entity_id']} vs {entity_id}"
+                                )
+                        continue  # ⚠️ Ne pas mettre la référence dans cost_sensors_map
+
+                    # ✅ DÉDUPLICATION : Gérer les doublons TTC/HT pour la même source (internes)
+                    if source_entity_id in cost_sensors_map:
+                        existing = cost_sensors_map[source_entity_id]
+                        existing_is_ttc = "_ttc" in existing["entity_id"].lower()
+
+                        if is_ttc and not existing_is_ttc:
+                            _LOGGER.info(
+                                f"[CURRENT-COSTS] Remplacement {existing['entity_id']} (HT) "
+                                f"par {entity_id} (TTC) pour source {source_entity_id}"
+                            )
+                        elif is_ht and existing_is_ttc:
+                            excluded_count += 1
+                            excluded_reasons["duplicate_ht"] += 1
+                            _LOGGER.debug(
+                                f"[CURRENT-COSTS] Exclus {entity_id} (HT): "
+                                f"doublon de {existing['entity_id']} (TTC)"
+                            )
+                            continue
+                        else:
+                            _LOGGER.warning(
+                                f"[CURRENT-COSTS] Doublon ambigu pour {source_entity_id}: "
+                                f"{existing['entity_id']} vs {entity_id}"
+                            )
+                            continue
+
+                    cost_sensors_map[source_entity_id] = sensor_data
+
+            # Convertir en liste (sans le capteur de référence)
+            cost_sensors = list(cost_sensors_map.values())
+            cost_sensors.sort(key=lambda x: x["cost_ttc"], reverse=True)
+
+            top_10 = cost_sensors[:10]
+            other_sensors = cost_sensors[10:]
+
+            # Totaux (SANS référence)
+            total_cost_ttc = sum(s["cost_ttc"] for s in cost_sensors)
+            total_cost_ht = sum(s["cost_ht"] for s in cost_sensors)
+            total_energy = sum(s["energy_kwh"] for s in cost_sensors)
+
+            # 🆕 Calculer l'écart vs référence
+            gap_info = None
+            if reference_sensor:
+                gap_energy = reference_sensor["energy_kwh"] - total_energy
+                gap_cost_ttc = reference_sensor["cost_ttc"] - total_cost_ttc
+                gap_cost_ht = reference_sensor["cost_ht"] - total_cost_ht
+                gap_pct = (
+                    (gap_energy / reference_sensor["energy_kwh"] * 100.0)
+                    if reference_sensor["energy_kwh"] > 0
+                    else 0.0
+                )
+
+                gap_info = {
+                    "energy_kwh": round(gap_energy, 3),
+                    "cost_ttc": round(gap_cost_ttc, 2),
+                    "cost_ht": round(gap_cost_ht, 2),
+                    "percent": round(gap_pct, 1),
+                }
+
+                _LOGGER.info(
+                    f"[CURRENT-COSTS] Écart détecté: {gap_energy:.3f} kWh ({gap_pct:.1f}%) = {gap_cost_ttc:.2f}€ TTC"
+                )
+
+            _LOGGER.info(
+                f"[CURRENT-COSTS] ✅ {len(cost_sensors)} capteurs uniques, "
+                f"{excluded_count} exclus "
+                f"(unavailable:{excluded_reasons['unavailable']}, "
+                f"zero:{excluded_reasons['zero_values']}, "
+                f"source_unavailable:{excluded_reasons['source_unavailable']}, "
+                f"duplicate_ht:{excluded_reasons['duplicate_ht']}), "
+                f"total={total_cost_ttc:.2f}€ TTC / {total_cost_ht:.2f}€ HT"
+            )
+
+            return self._success(
+                {
+                    "reference_sensor": reference_sensor,
+                    "top_10": top_10,
+                    "other_sensors": other_sensors,
+                    "total_cost_ttc": round(total_cost_ttc, 2),
+                    "total_cost_ht": round(total_cost_ht, 2),
+                    "total_energy_kwh": round(total_energy, 3),
+                    "sensor_count": len(cost_sensors),
+                    "gap": gap_info,
+                    "excluded_count": excluded_count,
+                    "excluded_reasons": excluded_reasons,
+                    "timestamp": self._get_timestamp(),
+                }
+            )
+
+        except Exception as e:
+            _LOGGER.exception(f"[CURRENT-COSTS] Erreur: {e}")
+            return self._error(500, str(e))
+
+    async def _analyze_cost_comparison(self, data):
+        """
+        POST /api/home_suivi_elec/history/cost_analysis
+        Analyse comparative entre deux périodes en utilisant les capteurs coût existants.
+
+        ✅ NOUVELLE APPROCHE :
+        - Lit directement les valeurs des capteurs coût (pas de recalcul)
+        - Merge les capteurs HT/TTC pour la même source
+        - Récupère les statistiques historiques des capteurs coût
+
+        ✅ NOUVELLE FEATURE :
+        - Gestion d’un capteur de référence (compteur) via config_entries options["external_capteur"]
+        - Le capteur de référence est renvoyé séparément et EXCLU des totaux / tops
+        """
+        try:
+            from homeassistant.components.recorder.statistics import statistics_during_period
+            from homeassistant.helpers import entity_registry as er
+            from ..history_analytics import _to_datetime
+
+            # ═══════════════════════════════════════════════════════════
+            # 1. Parse et valide les paramètres
+            # ═══════════════════════════════════════════════════════════
+            baseline_start = data.get("baseline_start")
+            baseline_end = data.get("baseline_end")
+            event_start = data.get("event_start")
+            event_end = data.get("event_end")
+            top_limit = int(data.get("top_limit", 10))
+            sort_by = data.get("sort_by", "cost_ttc")
+
+            if not all([baseline_start, baseline_end, event_start, event_end]):
+                return self._error(
+                    400,
+                    "Paramètres baseline_start, baseline_end, event_start, event_end requis",
+                )
+
+            # Convertir les timestamps en datetime
+            try:
+                baseline_start_dt = _to_datetime(baseline_start)
+                baseline_end_dt = _to_datetime(baseline_end)
+                event_start_dt = _to_datetime(event_start)
+                event_end_dt = _to_datetime(event_end)
+            except Exception as e:
+                return self._error(400, f"Format de date invalide: {e}")
+
+            _LOGGER.info(
+                f"[COST-ANALYSIS] baseline: {baseline_start_dt.isoformat()} → {baseline_end_dt.isoformat()}"
+            )
+            _LOGGER.info(
+                f"[COST-ANALYSIS] event: {event_start_dt.isoformat()} → {event_end_dt.isoformat()}"
+            )
+
+            # ═══════════════════════════════════════════════════════════
+            # 🆕 RÉCUPÉRER LE CAPTEUR DE RÉFÉRENCE depuis config_entries
+            # ═══════════════════════════════════════════════════════════
+            external_capteur = None
+            try:
+                config_entries = self.hass.config_entries.async_entries(DOMAIN)
+                if config_entries:
+                    hse_entry = config_entries[0]  # Normalement une seule entry
+                    external_capteur = (
+                        hse_entry.options.get("external_capteur")
+                        or hse_entry.options.get("external_sensor")
+                    )
+                    _LOGGER.info(f"[COST-ANALYSIS] Capteur de référence: {external_capteur}")
+            except Exception as e:
+                _LOGGER.warning(f"[COST-ANALYSIS] Impossible de lire external_capteur: {e}")
+
+
+            # ═══════════════════════════════════════════════════════════
+            # 2. Récupérer tous les capteurs de COÛT HSE avec leur source
+            # (conservé tel quel, même si redondant avec sensors_map)
+            # ═══════════════════════════════════════════════════════════
+            entity_reg = er.async_get(self.hass)
+            sensors_by_source = {}
+
+            for entity_id, entry in entity_reg.entities.items():
+                if (
+                    entry.platform == "home_suivi_elec"
+                    and entity_id.startswith("sensor.hse_")
+                    and "_cout_daily" in entity_id
+                ):
+                    state = self.hass.states.get(entity_id)
+                    if not state or state.state in ("unavailable", "unknown", "none", None):
+                        continue
+
+                    attrs = state.attributes or {}
+                    source_entity = attrs.get("source_entity")
+
+                    if not source_entity:
+                        _LOGGER.debug(
+                            f"[COST-ANALYSIS] Capteur {entity_id} sans source_entity, ignoré"
+                        )
+                        continue
+
+                    is_ttc = "_ttc" in entity_id.lower()
+                    is_ht = "_ht" in entity_id.lower() and "_ttc" not in entity_id.lower()
+
+                    if not is_ht and not is_ttc:
+                        _LOGGER.warning(
+                            f"[COST-ANALYSIS] Capteur {entity_id} sans suffixe HT/TTC, supposé TTC"
+                        )
+                        is_ttc = True
+
+                    variant = "ttc" if is_ttc else "ht"
+                    statistic_id = attrs.get("statistic_id") or entity_id
+                    price_per_kwh = float(attrs.get("price_per_kwh", 0.0))
+
+                    sensor_info = {
+                        "entity_id": entity_id,
+                        "source_entity": source_entity,
+                        "friendly_name": attrs.get("friendly_name", entity_id),
+                        "statistic_id": statistic_id,
+                        "variant": variant,
+                        "price_per_kwh": price_per_kwh,
+                        "cycle": attrs.get("cycle", "daily"),
+                    }
+
+                    if source_entity not in sensors_by_source:
+                        sensors_by_source[source_entity] = {}
+
+                    sensors_by_source[source_entity][variant] = sensor_info
+
+            _LOGGER.info(
+                f"[COST-ANALYSIS] {len(sensors_by_source)} sources avec capteurs coût trouvées"
+            )
+
+            # Réponse vide cohérente
+            def _empty_result():
+                return self._success(
+                    {
+                        "baseline_period": {
+                            "start": baseline_start,
+                            "end": baseline_end,
+                            "total_kwh": 0.0,
+                            "total_cost_ht": 0.0,
+                            "total_cost_ttc": 0.0,
+                            "sensor_count": 0,
+                        },
+                        "event_period": {
+                            "start": event_start,
+                            "end": event_end,
+                            "total_kwh": 0.0,
+                            "total_cost_ht": 0.0,
+                            "total_cost_ttc": 0.0,
+                            "sensor_count": 0,
+                        },
+                        "total_comparison": {
+                            "delta_kwh": 0.0,
+                            "delta_cost_ht": 0.0,
+                            "delta_cost_ttc": 0.0,
+                            "delta_pct_kwh": 0.0,
+                            "delta_pct_cost": 0.0,
+                            "trend": "stable",
+                        },
+                        "reference_sensor": None,
+                        "top_variations": [],
+                        "top_consumers": [],
+                        "other_sensors": [],
+                        "timestamp": self._get_timestamp(),
+                    }
+                )
+
+            if not sensors_by_source:
+                return _empty_result()
+
+            # ═══════════════════════════════════════════════════════════
+            # 3. Récupérer les capteurs avec flag is_reference
+            # ═══════════════════════════════════════════════════════════
+            entity_reg = er.async_get(self.hass)
+            sensors_map = {}
+
+            for entity_id, entry in entity_reg.entities.items():
+                if (
+                    entry.platform == "home_suivi_elec"
+                    and entity_id.startswith("sensor.hse_")
+                    and "_cout_daily" in entity_id
+                ):
+                    state = self.hass.states.get(entity_id)
+                    if not state or state.state in ("unavailable", "unknown", "none", None):
+                        continue
+
+                    attrs = state.attributes or {}
+                    source_entity = attrs.get("source_entity")
+
+                    if not source_entity:
+                        continue
+
+                    # 🆕 Détecter si c'est le capteur de référence
+                    is_reference = bool(external_capteur and self._is_derived_from(source_entity_id, external_capteur))
+
+                    # Détecter si HT ou TTC
+                    is_ttc = "_ttc" in entity_id.lower()
+                    is_ht = "_ht" in entity_id.lower() and "_ttc" not in entity_id.lower()
+
+                    if not is_ht and not is_ttc:
+                        is_ttc = True  # Par défaut
+
+                    price_per_kwh = float(attrs.get("price_per_kwh", 0.0))
+
+                    if source_entity not in sensors_map:
+                        # Friendly name depuis la source d'énergie
+                        source_state = self.hass.states.get(source_entity)
+                        source_attrs = source_state.attributes or {} if source_state else {}
+
+                        sensors_map[source_entity] = {
+                            "source_entity": source_entity,
+                            "friendly_name": source_attrs.get("friendly_name", source_entity),
+                            "statistic_id": source_attrs.get("statistic_id") or source_entity,
+                            "prix_ht": None,
+                            "prix_ttc": None,
+                            "is_reference": is_reference,  # 🆕 Flag référence
+                        }
+
+                    if is_ttc:
+                        sensors_map[source_entity]["prix_ttc"] = price_per_kwh
+                    else:
+                        sensors_map[source_entity]["prix_ht"] = price_per_kwh
+
+            # Compléter les prix manquants avec ratio 1.1
+            for _source_entity, info in sensors_map.items():
+                if info["prix_ttc"] and not info["prix_ht"]:
+                    info["prix_ht"] = info["prix_ttc"] / 1.1
+                elif info["prix_ht"] and not info["prix_ttc"]:
+                    info["prix_ttc"] = info["prix_ht"] * 1.1
+
+            _LOGGER.info(
+                f"[COST-ANALYSIS] {len(sensors_map)} sources d'énergie avec pricing trouvées"
+            )
+
+            if not sensors_map:
+                return _empty_result()
+
+            # ═══════════════════════════════════════════════════════════
+            # 4. Récupérer les statistiques ÉNERGIE (pas coût)
+            # ═══════════════════════════════════════════════════════════
+            statistic_ids = [info["statistic_id"] for info in sensors_map.values()]
+
+            _LOGGER.info(
+                f"[COST-ANALYSIS] Fetching energy statistics pour {len(statistic_ids)} sources"
+            )
+
+            baseline_stats = await self.hass.async_add_executor_job(
+                statistics_during_period,
+                self.hass,
+                baseline_start_dt,
+                baseline_end_dt,
+                statistic_ids,
+                "hour",
+                None,
+                {"sum"},
+            )
+
+            event_stats = await self.hass.async_add_executor_job(
+                statistics_during_period,
+                self.hass,
+                event_start_dt,
+                event_end_dt,
+                statistic_ids,
+                "hour",
+                None,
+                {"sum"},
+            )
+
+            # ═══════════════════════════════════════════════════════════
+            # 5. Calculer les coûts depuis l'énergie + prix
+            # ═══════════════════════════════════════════════════════════
+            entity_comparisons = []
+            baseline_duration_s = (baseline_end_dt - baseline_start_dt).total_seconds()
+            event_duration_s = (event_end_dt - event_start_dt).total_seconds()
+
+            for source_entity, info in sensors_map.items():
+                statistic_id = info["statistic_id"]
+                prix_ht = info["prix_ht"]
+                prix_ttc = info["prix_ttc"]
+
+                # === BASELINE ===
+                baseline_rows = baseline_stats.get(statistic_id, [])
+                if not baseline_rows:
+                    _LOGGER.debug(f"[COST-ANALYSIS] Pas de stats baseline pour {statistic_id}")
+                    continue
+
+                baseline_last = baseline_rows[-1].get("sum", 0.0) if baseline_rows else 0.0
+                baseline_first = baseline_rows[0].get("sum", 0.0) if baseline_rows else 0.0
+                baseline_energy_kwh = float(baseline_last) - float(baseline_first)
+
+                baseline_cost_ht = baseline_energy_kwh * prix_ht if prix_ht else 0.0
+                baseline_cost_ttc = baseline_energy_kwh * prix_ttc if prix_ttc else 0.0
+
+                # === EVENT ===
+                event_rows = event_stats.get(statistic_id, [])
+                if not event_rows:
+                    _LOGGER.debug(f"[COST-ANALYSIS] Pas de stats event pour {statistic_id}")
+                    continue
+
+                event_last = event_rows[-1].get("sum", 0.0) if event_rows else 0.0
+                event_first = event_rows[0].get("sum", 0.0) if event_rows else 0.0
+                event_energy_kwh = float(event_last) - float(event_first)
+
+                event_cost_ht = event_energy_kwh * prix_ht if prix_ht else 0.0
+                event_cost_ttc = event_energy_kwh * prix_ttc if prix_ttc else 0.0
+
+                if baseline_energy_kwh == 0.0 and event_energy_kwh == 0.0:
+                    continue
+
+                baseline_h = baseline_duration_s / 3600.0 if baseline_duration_s > 0 else 0.0
+                event_h = event_duration_s / 3600.0 if event_duration_s > 0 else 0.0
+                baseline_d = baseline_duration_s / 86400.0 if baseline_duration_s > 0 else 0.0
+                event_d = event_duration_s / 86400.0 if event_duration_s > 0 else 0.0
+
+                def safe_div(a, b, ndigits=3):
+                    return round(a / b, ndigits) if b > 0 else 0.0
+
+                baseline_kwh_h = safe_div(baseline_energy_kwh, baseline_h, 3)
+                event_kwh_h = safe_div(event_energy_kwh, event_h, 3)
+                baseline_cost_ttc_h = safe_div(baseline_cost_ttc, baseline_h, 4)
+                event_cost_ttc_h = safe_div(event_cost_ttc, event_h, 4)
+
+                baseline_kwh_d = safe_div(baseline_energy_kwh, baseline_d, 3)
+                event_kwh_d = safe_div(event_energy_kwh, event_d, 3)
+                baseline_cost_ttc_d = safe_div(baseline_cost_ttc, baseline_d, 4)
+                event_cost_ttc_d = safe_div(event_cost_ttc, event_d, 4)
+
+                delta_energy = event_energy_kwh - baseline_energy_kwh
+                delta_cost_ht = event_cost_ht - baseline_cost_ht
+                delta_cost_ttc = event_cost_ttc - baseline_cost_ttc
+
+                pct_energy = (
+                    safe_div(delta_energy, baseline_energy_kwh, 1) * 100
+                    if baseline_energy_kwh > 0
+                    else 0.0
+                )
+                pct_cost_ttc = (
+                    safe_div(delta_cost_ttc, baseline_cost_ttc, 1) * 100
+                    if baseline_cost_ttc > 0
+                    else 0.0
+                )
+
+                comparison = {
+                    "entity_id": source_entity,
+                    "display_name": info["friendly_name"],
+                    "source_entity": source_entity,
+                    # Baseline
+                    "baseline_energy_kwh": round(baseline_energy_kwh, 3),
+                    "baseline_cost_ht": round(baseline_cost_ht, 2),
+                    "baseline_cost_ttc": round(baseline_cost_ttc, 2),
+                    "baseline_energy_kwh_per_hour": baseline_kwh_h,
+                    "baseline_cost_ttc_per_hour": baseline_cost_ttc_h,
+                    "baseline_energy_kwh_per_day": baseline_kwh_d,
+                    "baseline_cost_ttc_per_day": baseline_cost_ttc_d,
+                    # Event
+                    "event_energy_kwh": round(event_energy_kwh, 3),
+                    "event_cost_ht": round(event_cost_ht, 2),
+                    "event_cost_ttc": round(event_cost_ttc, 2),
+                    "event_energy_kwh_per_hour": event_kwh_h,
+                    "event_cost_ttc_per_hour": event_cost_ttc_h,
+                    "event_energy_kwh_per_day": event_kwh_d,
+                    "event_cost_ttc_per_day": event_cost_ttc_d,
+                    # Deltas
+                    "delta_energy_kwh": round(delta_energy, 3),
+                    "delta_cost_ht": round(delta_cost_ht, 2),
+                    "delta_cost_ttc": round(delta_cost_ttc, 2),
+                    "delta_energy_kwh_per_hour": round(event_kwh_h - baseline_kwh_h, 3),
+                    "delta_cost_ttc_per_hour": round(event_cost_ttc_h - baseline_cost_ttc_h, 4),
+                    "delta_energy_kwh_per_day": round(event_kwh_d - baseline_kwh_d, 3),
+                    "delta_cost_ttc_per_day": round(event_cost_ttc_d - baseline_cost_ttc_d, 4),
+                    # Pourcentages
+                    "pct_energy_kwh": round(pct_energy, 1),
+                    "pct_cost_ttc": round(pct_cost_ttc, 1),
+                }
+
+                entity_comparisons.append(comparison)
+
+            _LOGGER.info(
+                f"[COST-ANALYSIS] {len(entity_comparisons)} capteurs avec données comparées"
+            )
+
+            if not entity_comparisons:
+                return _empty_result()
+
+            # ═══════════════════════════════════════════════════════════
+            # 🆕 Séparer le capteur de référence des autres
+            # ═══════════════════════════════════════════════════════════
+            reference_comparison = None
+            internal_comparisons = []
+
+            for comparison in entity_comparisons:
+                source_entity = comparison.get("source_entity")
+                info = sensors_map.get(source_entity, {}) if source_entity else {}
+
+                if info.get("is_reference"):
+                    comparison["is_reference"] = True
+                    reference_comparison = comparison
+                    _LOGGER.info(
+                        f"[COST-ANALYSIS] Capteur de référence identifié: {source_entity}"
+                    )
+                else:
+                    comparison["is_reference"] = False
+                    internal_comparisons.append(comparison)
+
+            # ═══════════════════════════════════════════════════════════
+            # Calculer les totaux (SANS le capteur de référence)
+            # ═══════════════════════════════════════════════════════════
+            total_baseline_kwh = sum(c["baseline_energy_kwh"] for c in internal_comparisons)
+            total_baseline_cost_ht = sum(c["baseline_cost_ht"] for c in internal_comparisons)
+            total_baseline_cost_ttc = sum(
+                c["baseline_cost_ttc"] for c in internal_comparisons
+            )
+
+            total_event_kwh = sum(c["event_energy_kwh"] for c in internal_comparisons)
+            total_event_cost_ht = sum(c["event_cost_ht"] for c in internal_comparisons)
+            total_event_cost_ttc = sum(c["event_cost_ttc"] for c in internal_comparisons)
+
+            delta_kwh = total_event_kwh - total_baseline_kwh
+            delta_cost_ht = total_event_cost_ht - total_baseline_cost_ht
+            delta_cost_ttc = total_event_cost_ttc - total_baseline_cost_ttc
+
+            delta_pct_kwh = (
+                (delta_kwh / total_baseline_kwh * 100.0) if total_baseline_kwh > 0 else 0.0
+            )
+            delta_pct_cost = (
+                (delta_cost_ttc / total_baseline_cost_ttc * 100.0)
+                if total_baseline_cost_ttc > 0
+                else 0.0
+            )
+
+            if abs(delta_pct_cost) < 5.0:
+                trend = "stable"
+            elif delta_cost_ttc > 0:
+                trend = "hausse"
+            else:
+                trend = "baisse"
+
+            # ═══════════════════════════════════════════════════════════
+            # Trier et séparer (SANS le capteur de référence)
+            # ═══════════════════════════════════════════════════════════
+            if sort_by == "energy_kwh":
+                internal_comparisons.sort(
+                    key=lambda x: abs(x["delta_energy_kwh"]), reverse=True
+                )
+            else:
+                internal_comparisons.sort(
+                    key=lambda x: abs(x["delta_cost_ttc"]), reverse=True
+                )
+
+            top_variations = internal_comparisons[:top_limit]
+            other_sensors = internal_comparisons[top_limit:]
+
+            top_consumers = sorted(
+                internal_comparisons, key=lambda x: x["event_cost_ttc"], reverse=True
+            )[:top_limit]
+
+            # ═══════════════════════════════════════════════════════════
+            # 🆕 Construire la réponse avec le capteur de référence séparé
+            # ═══════════════════════════════════════════════════════════
+            result = {
+                "baseline_period": {
+                    "start": baseline_start,
+                    "end": baseline_end,
+                    "total_kwh": round(total_baseline_kwh, 3),
+                    "total_cost_ht": round(total_baseline_cost_ht, 2),
+                    "total_cost_ttc": round(total_baseline_cost_ttc, 2),
+                    "sensor_count": len(internal_comparisons),
+                },
+                "event_period": {
+                    "start": event_start,
+                    "end": event_end,
+                    "total_kwh": round(total_event_kwh, 3),
+                    "total_cost_ht": round(total_event_cost_ht, 2),
+                    "total_cost_ttc": round(total_event_cost_ttc, 2),
+                    "sensor_count": len(internal_comparisons),
+                },
+                "total_comparison": {
+                    "delta_kwh": round(delta_kwh, 3),
+                    "delta_cost_ht": round(delta_cost_ht, 2),
+                    "delta_cost_ttc": round(delta_cost_ttc, 2),
+                    "delta_pct_kwh": round(delta_pct_kwh, 1),
+                    "delta_pct_cost": round(delta_pct_cost, 1),
+                    "trend": trend,
+                },
+                "reference_sensor": reference_comparison,
+                "top_variations": top_variations,
+                "top_consumers": top_consumers,
+                "other_sensors": other_sensors,
+                "timestamp": self._get_timestamp(),
+            }
+
+            log_ref = ""
+            if reference_comparison:
+                try:
+                    log_ref = (
+                        f" | Référence: {reference_comparison.get('display_name')} "
+                        f"({reference_comparison.get('event_cost_ttc', 0.0):.2f}€)"
+                    )
+                except Exception:
+                    log_ref = " | Référence: (log failed)"
+
+            _LOGGER.info(
+                f"[COST-ANALYSIS] ✅ Analyse terminée: "
+                f"{len(top_variations)} top + {len(other_sensors)} autres{log_ref}"
+            )
+
+            return self._success(result)
+
+        except Exception as e:
+            _LOGGER.exception(f"[COST-ANALYSIS] Erreur: {e}")
+            return self._error(500, str(e))
+
     async def _fetch_history_costs(self, data):
         """
         POST /api/home_suivi_elec/history/costs
@@ -1190,7 +2097,6 @@ class HistoryAnalysisView(HomeAssistantView):
             _LOGGER.info(f"[HISTORY-COSTS] baseline: {baseline_start} → {baseline_end}")
             _LOGGER.info(f"[HISTORY-COSTS] event: {event_start} → {event_end}")
             
-            # TODO: Implémenter récupération via recorder
             result = {
                 "baseline": {
                     "start": baseline_start,
@@ -1242,7 +2148,6 @@ class HistoryAnalysisView(HomeAssistantView):
             _LOGGER.info(f"[HISTORY-ANALYSIS] Analyse comparative demandée")
             _LOGGER.info(f"[HISTORY-ANALYSIS] top {top_limit} by {top_sort_by}")
             
-            # TODO: Implémenter logique réelle
             result = {
                 "baseline_period": {
                     "start": baseline_start,
@@ -1291,10 +2196,14 @@ class HistoryAnalysisView(HomeAssistantView):
             text=json.dumps({"error": False, "data": data}, default=_json_default),
             content_type="application/json"
         )
-
+    
     def _error(self, status: int, message: str) -> web.Response:
         return web.Response(
             text=json.dumps({"error": True, "message": message}, default=_json_default),
             content_type="application/json",
             status=status
         )
+    
+    def _get_timestamp(self) -> str:
+        return datetime.now().isoformat()
+

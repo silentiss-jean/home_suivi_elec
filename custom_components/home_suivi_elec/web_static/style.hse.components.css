@@ -1,0 +1,268 @@
+/* ════════════════════════════════════════════════════════════════════════════
+   HSE COMPONENTS CSS
+   - Composants UI réutilisables (boutons, tabs, panels/cards)
+   - Consume uniquement des tokens (vars --hse-*)
+   ════════════════════════════════════════════════════════════════════════════ */
+
+/* ────────────────────────────────────────────────────────────────────────────
+   BUTTONS
+   ──────────────────────────────────────────────────────────────────────────── */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-radius: var(--hse-radius-md);
+  border: 1px solid var(--hse-border);
+  background: var(--hse-surface);
+  color: var(--hse-text);
+  cursor: pointer;
+  font-weight: 700;
+  box-shadow: var(--hse-shadow-sm);
+  transition:
+    transform var(--hse-transition-base),
+    box-shadow var(--hse-transition-base),
+    background var(--hse-transition-base),
+    border-color var(--hse-transition-base),
+    color var(--hse-transition-base);
+}
+
+.btn:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--hse-shadow-md);
+}
+
+.btn:active {
+  transform: translateY(0);
+  box-shadow: var(--hse-shadow-sm);
+}
+
+.btn[disabled] {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.btn-primary {
+  background: var(--hse-gradient-primary, var(--hse-primary));
+  border-color: transparent;
+  color: var(--hse-on-accent, #ffffff);
+}
+
+.btn-secondary {
+  background: var(--hse-surface);
+}
+
+/* Variants */
+.btn-warn {
+  background: var(--hse-gradient-warning);
+  border-color: transparent;
+  color: var(--hse-on-accent, #ffffff);
+}
+
+.btn-info {
+  background: var(--hse-gradient-info);
+  border-color: transparent;
+  color: var(--hse-on-accent, #ffffff);
+}
+
+.btn-success {
+  background: var(--hse-gradient-success);
+  border-color: transparent;
+  color: var(--hse-on-accent, #ffffff);
+}
+
+.btn-danger {
+  background: var(--hse-gradient-danger);
+  border-color: transparent;
+  color: var(--hse-on-accent, #ffffff);
+}
+
+/* Layout boutons (index.html) */
+.hse-actions-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 8px 0 14px;
+}
+
+/* ────────────────────────────────────────────────────────────────────────────
+   TABS
+   ──────────────────────────────────────────────────────────────────────────── */
+
+.hse-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.subtab-btn {
+  appearance: none;
+  border: 1px solid var(--hse-border);
+  background: var(--hse-surface);
+  color: var(--hse-text);
+  border-radius: var(--hse-radius-md);
+  padding: 10px 14px;
+  cursor: pointer;
+  font-weight: 700;
+  box-shadow: var(--hse-shadow-sm);
+  transition:
+    transform var(--hse-transition-base),
+    box-shadow var(--hse-transition-base),
+    background var(--hse-transition-base),
+    border-color var(--hse-transition-base),
+    color var(--hse-transition-base);
+}
+
+.subtab-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--hse-shadow-md);
+}
+
+.subtab-btn.active {
+  background: var(--hse-gradient-header, var(--hse-primary));
+  border-color: transparent;
+  color: var(--hse-on-header, #ffffff);
+}
+
+/* ────────────────────────────────────────────────────────────────────────────
+   PANELS / CARDS
+   ──────────────────────────────────────────────────────────────────────────── */
+
+.hse-surface-card {
+  background: var(--hse-surface);
+  border: 1px solid var(--hse-border);
+  border-radius: var(--hse-radius-lg);
+  box-shadow: var(--hse-shadow-sm);
+  padding: 16px;
+  color: var(--hse-text);
+  backdrop-filter: var(--hse-backdrop-filter);
+}
+
+.card,
+.hse-card {
+  background: var(--hse-surface);
+  border: 1px solid var(--hse-border);
+  border-radius: var(--hse-radius-lg);
+  box-shadow: var(--hse-shadow-sm);
+  padding: 16px;
+  backdrop-filter: var(--hse-backdrop-filter);
+}
+
+.hse-panel {
+  background: var(--hse-surface);
+  border: 1px solid var(--hse-border);
+  border-radius: var(--hse-radius-lg);
+  box-shadow: var(--hse-shadow-sm);
+  backdrop-filter: var(--hse-backdrop-filter);
+}
+
+.hse-panel-accent {
+  border-color: var(--hse-border-soft);
+}
+
+.hse-panel-muted {
+  background: var(--hse-bg-secondary);
+}
+
+/* ────────────────────────────────────────────────────────────────────────────
+   TITLES (utility)
+   - Pour donner un rendu "header" (gradient) à un simple <h3> / <h4>
+   - N'affecte pas la structure table (<th>)
+   ──────────────────────────────────────────────────────────────────────────── */
+
+.hse-title-gradient {
+  display: inline-block;
+  padding: 6px 10px;
+  border-radius: 10px;
+  background: var(--hse-table-header-bg, var(--hse-gradient-header));
+  color: var(--hse-table-header-color, var(--hse-on-header));
+  font-weight: 800;
+  letter-spacing: var(--hse-font-tracking, 0.1px);
+  box-shadow: var(--hse-shadow-sm);
+}
+
+/* ────────────────────────────────────────────────────────────────────────────
+   BADGES
+   ──────────────────────────────────────────────────────────────────────────── */
+
+.hse-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--hse-badge-bg, var(--hse-surface));
+  color: var(--hse-badge-fg, var(--hse-text));
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: var(--hse-badge-padding, 2px 8px);
+  border-radius: var(--hse-badge-radius, 999px);
+  border: 1px solid var(--hse-badge-border, var(--hse-border-soft));
+  vertical-align: middle;
+  box-shadow: var(--hse-shadow-sm);
+}
+
+.hse-badge-help {
+  cursor: help;
+  transition: transform var(--hse-transition-base), box-shadow var(--hse-transition-base);
+}
+
+.hse-badge-help:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--hse-shadow-md);
+}
+
+.hse-badge[data-state="ok"] {
+  border-color: color-mix(in srgb, var(--hse-success) 55%, var(--hse-badge-border, var(--hse-border-soft)));
+}
+.hse-badge[data-state="warn"] {
+  border-color: color-mix(in srgb, var(--hse-warning) 55%, var(--hse-badge-border, var(--hse-border-soft)));
+}
+.hse-badge[data-state="danger"] {
+  border-color: color-mix(in srgb, var(--hse-error) 55%, var(--hse-badge-border, var(--hse-border-soft)));
+}
+
+/* ────────────────────────────────────────────────────────────────────────────
+   TEXT / LINKS
+   ──────────────────────────────────────────────────────────────────────────── */
+
+a {
+  color: var(--hse-primary);
+  text-decoration: none;
+}
+
+a:hover { text-decoration: underline; }
+
+abbr[title] {
+  text-decoration: underline dotted;
+  cursor: help;
+}
+
+/* ────────────────────────────────────────────────────────────────────────────
+   SCROLLBAR (optionnel, safe)
+   ──────────────────────────────────────────────────────────────────────────── */
+
+@supports selector(::-webkit-scrollbar) {
+  ::-webkit-scrollbar { width: 12px; height: 12px; }
+  ::-webkit-scrollbar-track { background: var(--hse-scroll-track, var(--hse-bg-secondary)); }
+  ::-webkit-scrollbar-thumb {
+    background: var(--hse-scroll-thumb, var(--hse-border-strong));
+    border-radius: 999px;
+    border: 3px solid var(--hse-scroll-track, var(--hse-bg-secondary));
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--hse-scroll-thumb-hov, var(--hse-text-muted));
+  }
+}
+
+/* ────────────────────────────────────────────────────────────────────────────
+   RESPONSIVE
+   ──────────────────────────────────────────────────────────────────────────── */
+
+@media (max-width: 768px) {
+  .hse-tabs { gap: 8px; }
+  .subtab-btn { padding: 9px 12px; }
+  .btn { padding: 9px 12px; }
+  .hse-surface-card { padding: 14px; }
+}

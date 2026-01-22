@@ -1,0 +1,756 @@
+/* configuration.css
+   Harmonisation (comme diagnostics/detection)
+   Objectifs:
+   - fond/contrastes lisibles en dark
+   - pas de couleurs hardcodées
+   - respecter les tokens v3 (style.hse.themes.v3.css)
+*/
+
+:root {
+  /* Variables module (thémables) */
+  --hse-config-panel-bg: var(--hse-surface);
+  --hse-config-panel-border: var(--hse-border);
+  --hse-config-panel-shadow: var(--hse-shadow-sm);
+
+  --hse-config-title: var(--hse-text-main);
+  --hse-config-muted: var(--hse-text-muted);
+
+  --hse-config-input-bg: var(--input-bg, var(--hse-surface));
+  --hse-config-input-border: var(--hse-border-strong);
+  --hse-config-input-text: var(--hse-text-main);
+  --hse-config-input-focus: var(--hse-accent);
+
+  /* Bandeau info (thémable) */
+  --hse-config-banner-bg: var(--hse-surface);
+  --hse-config-banner-border: var(--hse-border);
+  --hse-config-banner-text: var(--hse-text-main);
+
+  /* Auto-select panel */
+  --hse-auto-bg: var(--hse-surface);
+  --hse-auto-border: var(--hse-accent);
+  --hse-auto-title: var(--hse-text-main);
+  --hse-auto-text: var(--hse-text-muted);
+  --hse-auto-status: var(--hse-accent);
+}
+
+/* Wrapper */
+.configuration-layout {
+  width: 100%;
+}
+
+.configuration-layout hr {
+  border: 0;
+  border-top: 1px solid var(--hse-border-soft);
+  margin: 12px 0;
+}
+
+/* Bandeau info ("les modifications ..." / "gestion des doublons" etc.) */
+.configuration-banner,
+#configuration-banner,
+.config-banner,
+.notice-banner,
+.hse-config-note {
+  background: var(--hse-config-banner-bg);
+  border: 1px solid var(--hse-config-banner-border);
+  color: var(--hse-config-banner-text);
+  border-radius: var(--hse-radius-lg);
+  padding: 10px 14px;
+  margin: 12px 0 16px 0;
+}
+
+.hse-config-note-text {
+  margin: 0;
+  font-size: 0.9em;
+  color: var(--hse-text-main);
+}
+
+.configuration-banner a,
+#configuration-banner a,
+.config-banner a,
+.notice-banner a {
+  color: var(--hse-accent);
+}
+
+/* Sections / cards */
+.configuration-section,
+.config-section,
+.tariff-section,
+.runtime-section,
+.card.configuration,
+.configuration-card,
+.hse-tarif-section {
+  background: var(--hse-config-panel-bg);
+  border: 1px solid var(--hse-config-panel-border);
+  border-radius: var(--hse-radius-lg);
+  box-shadow: var(--hse-config-panel-shadow);
+}
+
+.hse-config-root {
+  margin-bottom: 20px;
+}
+
+.hse-config-grid {
+  display: grid;
+  gap: 16px;
+}
+
+.hse-config-grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+@media (max-width: 900px) {
+  .hse-config-grid-2 {
+    grid-template-columns: 1fr;
+  }
+}
+
+.hse-config-row {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.hse-config-label {
+  font-weight: 700;
+  color: var(--hse-text-main);
+}
+
+.configuration-section h2,
+.config-section h2,
+.tariff-section h2,
+.runtime-section h2,
+.configuration-section h3,
+.config-section h3 {
+  color: var(--hse-config-title);
+}
+
+.configuration-section p,
+.config-section p,
+.tariff-section p,
+.runtime-section p,
+.configuration-section small,
+.config-section small {
+  color: var(--hse-config-muted);
+}
+
+/* Inputs & selects */
+.configuration-section input,
+.configuration-section select,
+.configuration-section textarea,
+.config-section input,
+.config-section select,
+.config-section textarea,
+.hse-config-input {
+  background: var(--hse-config-input-bg);
+  color: var(--hse-config-input-text);
+  border: 1px solid var(--hse-config-input-border);
+  border-radius: var(--hse-radius-md);
+  padding: 8px 10px;
+  outline: none;
+  width: 100%;
+}
+
+.configuration-section input:focus,
+.configuration-section select:focus,
+.configuration-section textarea:focus,
+.config-section input:focus,
+.config-section select:focus,
+.config-section textarea:focus,
+.hse-config-input:focus {
+  border-color: var(--hse-config-input-focus);
+  box-shadow: 0 0 0 3px var(--hse-accent-soft);
+}
+
+/* Force les form controls à respecter le thème HSE
+   (Home Assistant peut imposer des styles natifs sur select/input) */
+#configuration .hse-config-input,
+#configuration select.hse-config-input,
+#configuration input.hse-config-input {
+  background: var(--hse-surface-muted) !important;
+  color: var(--hse-text-main) !important;
+  border-color: var(--hse-border-strong) !important;
+}
+
+/* Référence: certains selects ne portent pas .hse-config-input */
+#configuration .reference-panel select,
+#configuration .reference-panel input,
+#configuration .hse-config-note select,
+#configuration .hse-config-note input {
+  background: var(--hse-surface-muted) !important;
+  color: var(--hse-text-main) !important;
+  border: 1px solid var(--hse-border-strong) !important;
+  border-radius: var(--hse-radius-md);
+  padding: 6px 10px;
+}
+
+#configuration .reference-panel select option,
+#configuration .hse-config-note select option {
+  background: var(--hse-surface) !important;
+  color: var(--hse-text-main) !important;
+}
+
+/* Dropdown list: garantit la lisibilité dans la liste */
+#configuration select.hse-config-input option {
+  background: var(--hse-surface) !important;
+  color: var(--hse-text-main) !important;
+}
+
+/* Aide le navigateur à rendre correctement les contrôles en thème sombre */
+#configuration {
+  color-scheme: dark;
+}
+
+/* Tarifs */
+.hse-tarif-title {
+  margin: 0 0 12px 0;
+  color: var(--hse-text-main);
+  font-size: 1em;
+}
+
+.hse-mb-20 { margin-bottom: 20px; }
+
+.hse-runtime-section { margin-top: 16px; }
+
+.hse-inline-check {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.95em;
+  color: var(--hse-text-main);
+}
+
+.hse-runtime-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.hse-muted {
+  font-size: 0.9em;
+  color: var(--hse-text-muted);
+}
+
+.hse-btn-compact {
+  padding: 8px 12px;
+}
+
+.hse-config-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 16px;
+}
+
+.hse-save-config {
+  padding: 10px 24px;
+  width: auto;
+}
+
+/* Boutons */
+.configuration-section button,
+.config-section button,
+button.save-config,
+button#save-config,
+#configuration #saveSelection {
+  background: var(--hse-accent);
+  color: var(--hse-on-accent);
+  border: 1px solid var(--hse-accent-hover);
+  border-radius: var(--hse-radius-md);
+  padding: 8px 12px;
+  transition: background var(--hse-transition-base), transform var(--hse-transition-fast);
+}
+
+.configuration-section button:hover,
+.config-section button:hover,
+button.save-config:hover,
+button#save-config:hover,
+#configuration #saveSelection:hover {
+  background: var(--hse-accent-hover);
+  transform: translateY(-1px);
+}
+
+/* Boutons hors "section" (auto-select + capteur de référence)
+   -> certains boutons restent sur le style HA/navigateur (gris) */
+#configuration #autoSelectBtn,
+#configuration .hse-auto-btn,
+#configuration .reference-panel button,
+#configuration .hse-config-note button {
+  background: var(--hse-accent) !important;
+  color: var(--hse-on-accent) !important;
+  border: 1px solid var(--hse-accent-hover) !important;
+  border-radius: var(--hse-radius-md);
+}
+
+#configuration #autoSelectBtn:hover,
+#configuration .hse-auto-btn:hover,
+#configuration .reference-panel button:hover,
+#configuration .hse-config-note button:hover {
+  background: var(--hse-accent-hover) !important;
+}
+
+#configuration #autoSelectBtn:disabled,
+#configuration .hse-auto-btn:disabled,
+#configuration .reference-panel button:disabled,
+#configuration .hse-config-note button:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+/* Petits chips / badges si présents */
+.configuration-badge,
+.badge,
+.pill {
+  background: var(--hse-accent-soft);
+  color: var(--hse-text-main);
+  border: 1px solid var(--hse-border-soft);
+  border-radius: 999px;
+  padding: 2px 8px;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   Auto-select panel — thémable
+   ═══════════════════════════════════════════════════════════════════════ */
+.hse-auto-panel {
+  background: var(--hse-auto-bg);
+  border: 1px solid var(--hse-border);
+  border-left: 4px solid var(--hse-auto-border);
+  box-shadow: var(--hse-shadow-sm);
+  border-radius: var(--hse-radius-lg);
+  padding: 14px 14px;
+  margin-top: 20px;
+}
+
+.hse-auto-panel h3 {
+  color: var(--hse-auto-title);
+  margin-top: 0;
+}
+
+.hse-auto-panel p,
+.hse-auto-panel li {
+  color: var(--hse-auto-text);
+}
+
+.hse-auto-panel ul {
+  margin-bottom: 15px;
+  line-height: 1.6;
+}
+
+.hse-auto-panel .hse-auto-desc {
+  margin-bottom: 15px;
+  line-height: 1.5;
+}
+
+.hse-auto-panel .hse-auto-btn {
+  font-size: 16px;
+  padding: 12px 24px;
+  box-shadow: var(--hse-shadow-md);
+}
+
+/* status colors via classes (set by JS) */
+.hse-auto-status {
+  margin-top: 12px;
+  font-size: 0.9em;
+  font-weight: 600;
+  color: var(--hse-auto-status);
+}
+
+.hse-auto-status.is-warn { color: var(--hse-warning); }
+.hse-auto-status.is-ok { color: var(--hse-success); }
+.hse-auto-status.is-err { color: var(--hse-error); }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   ✅ Remplacement styles inline (JS)
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* Bloc erreur de chargement (remplace <div style="...">) */
+.hse-config-error {
+  border-radius: var(--hse-radius-lg);
+  border: 1px solid var(--hse-error);
+  background: var(--hse-accent-soft);
+  padding: 14px;
+}
+
+.hse-config-error h3 {
+  margin: 0 0 8px 0;
+  color: var(--hse-error);
+}
+
+.hse-config-error p {
+  margin: 0;
+  color: var(--hse-text-main);
+}
+
+/* Bouton save dirty */
+#configuration #saveSelection.hse-btn--dirty {
+  background: var(--hse-warning) !important;
+  color: var(--hse-text-main) !important;
+  border-color: var(--hse-warning) !important;
+  font-weight: 800;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   Doublons panel — CSS (ex-<style> injecté)
+   ═══════════════════════════════════════════════════════════════════════ */
+
+.hse-dup-title {
+  margin: 0 0 8px 0;
+}
+
+.dup-empty {
+  margin: 0;
+  color: var(--hse-text-muted);
+  font-size: 13px;
+}
+
+.hse-duplicates-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.dup-column {
+  background: var(--hse-surface);
+  border: 1px solid var(--hse-border);
+  border-radius: var(--hse-radius-lg);
+  padding: 8px;
+  min-height: 200px;
+  box-sizing: border-box;
+}
+
+.dup-column-header {
+  font-weight: 600;
+  font-size: 14px;
+  padding: 6px 8px;
+  border-bottom: 2px solid var(--hse-border-strong);
+  margin-bottom: 8px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  color: var(--hse-text-main);
+}
+
+.dup-count {
+  background: var(--hse-accent);
+  color: var(--hse-on-accent);
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.dup-column-body {
+  max-height: 500px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.dup-column-body::-webkit-scrollbar {
+  width: 8px;
+}
+
+.dup-column-body::-webkit-scrollbar-thumb {
+  background: var(--hse-border-strong);
+  border-radius: 4px;
+}
+
+.dup-column-body::-webkit-scrollbar-thumb:hover {
+  background: var(--hse-text-muted);
+}
+
+.dup-group-card {
+  background: var(--hse-surface);
+  border: 1px solid var(--hse-border);
+  border-radius: var(--hse-radius-md);
+  padding: 10px;
+  margin-bottom: 8px;
+  box-shadow: var(--hse-shadow-sm);
+  font-size: 13px;
+}
+
+.dup-group-title {
+  font-weight: 600;
+  margin-bottom: 4px;
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  color: var(--hse-text-main);
+}
+
+.dup-group-sub {
+  color: var(--hse-text-muted);
+  font-size: 11px;
+  margin-bottom: 6px;
+}
+
+.dup-sensor-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 3px 0;
+  border-top: 1px solid var(--hse-border-soft);
+  gap: 6px;
+}
+
+.dup-sensor-main {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+
+.dup-sensor-name {
+  font-weight: 500;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  overflow: hidden;
+}
+
+.dup-sensor-meta {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  font-size: 11px;
+  color: var(--hse-text-muted);
+}
+
+.dup-sensor-score {
+  font-size: 11px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--hse-accent-soft);
+  color: var(--hse-accent);
+  border: 1px solid var(--hse-border-soft);
+}
+
+.dup-ref-star {
+  color: var(--hse-warning);
+  margin-left: 4px;
+}
+
+.dup-actions {
+  margin-top: 6px;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.dup-btn-primary {
+  font-size: 11px;
+  padding: 4px 8px;
+  border-radius: var(--hse-radius-md);
+  border: 1px solid var(--hse-accent-hover);
+  cursor: pointer;
+  background: var(--hse-accent);
+  color: var(--hse-on-accent);
+}
+
+.dup-btn-primary:hover {
+  background: var(--hse-accent-hover);
+}
+
+.dup-btn-secondary {
+  font-size: 11px;
+  padding: 2px 6px;
+  border-radius: var(--hse-radius-md);
+  border: 1px solid var(--hse-border-strong);
+  cursor: pointer;
+  background: var(--hse-surface);
+  color: var(--hse-text-main);
+}
+
+.dup-btn-secondary:hover {
+  background: var(--hse-accent-soft);
+}
+
+.dup-integration-header {
+  font-size: 12px;
+  font-weight: 600;
+  margin: 4px 0;
+  color: var(--hse-text-main);
+  opacity: 0.85;
+}
+
+.dup-ignored-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 4px 0;
+  border-top: 1px solid var(--hse-border-soft);
+  font-size: 12px;
+  gap: 10px;
+}
+
+.dup-ignored-main {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+}
+
+@media (max-width: 1024px) {
+  .hse-duplicates-grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
+  .dup-column-body {
+    max-height: 400px;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   Sélection panel — CSS (ex-inline)
+   ═══════════════════════════════════════════════════════════════════════ */
+
+.hse-selection-columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+@media (max-width: 900px) {
+  .hse-selection-columns {
+    grid-template-columns: 1fr;
+  }
+}
+
+.hse-selection-columns .capteur-column {
+  min-width: 0;
+}
+
+.hse-selection-columns .capteur-column h3 {
+  margin: 0 0 8px 0;
+  color: var(--hse-text-main);
+}
+
+.hse-selection-empty {
+  margin: 0;
+  color: var(--hse-text-muted);
+  font-size: 13px;
+  padding: 8px;
+}
+
+.hse-selection-columns .integration-section {
+  margin-bottom: 8px;
+  border: 1px solid var(--hse-border);
+  border-radius: var(--hse-radius-md);
+  overflow: hidden;
+  background: var(--hse-surface);
+}
+
+.hse-selection-columns .integration-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 8px;
+  cursor: pointer;
+  background: var(--hse-accent-soft);
+  font-size: 13px;
+  user-select: none;
+}
+
+.hse-selection-columns .integration-right {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.hse-selection-columns .integration-count-badge {
+  background: var(--hse-accent);
+  color: var(--hse-on-accent);
+  padding: 2px 6px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.hse-selection-columns .integration-actions {
+  display: flex;
+  gap: 6px;
+  padding: 4px 8px;
+  border-top: 1px solid var(--hse-border-soft);
+  background: var(--hse-surface);
+}
+
+.hse-selection-columns .hse-btn-mini {
+  font-size: 11px;
+  padding: 2px 6px;
+  cursor: pointer;
+  border-radius: var(--hse-radius-md);
+  border: 1px solid var(--hse-border-strong);
+  background: var(--hse-surface);
+  color: var(--hse-text-main);
+}
+
+.hse-selection-columns .hse-btn-mini:hover {
+  background: var(--hse-accent-soft);
+}
+
+.hse-selection-columns .sensor-row {
+  display: flex;
+  align-items: center;
+  padding: 4px 6px;
+  border-bottom: 1px solid var(--hse-border-soft);
+  font-size: 13px;
+}
+
+.hse-selection-columns .capteur-checkbox {
+  margin-right: 8px;
+}
+
+.hse-selection-columns .hse-sensor-label {
+  flex: 1;
+  min-width: 0;
+}
+
+.hse-selection-columns .hse-sensor-name {
+  font-weight: 500;
+  color: var(--hse-text-main);
+}
+
+.hse-selection-columns .hse-sensor-meta {
+  color: var(--hse-text-muted);
+  font-size: 11px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.hse-selection-columns .hse-cost-badge {
+  margin-left: 4px;
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 10px;
+  border: 1px solid var(--hse-border-strong);
+  background: var(--hse-warning-soft, var(--hse-accent-soft));
+  color: var(--hse-text-main);
+}
+
+.hse-selection-columns .hse-summary-toggle,
+.hse-selection-columns .hse-summary-bulk {
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 10px;
+  border: 1px solid var(--hse-border-strong);
+  cursor: pointer;
+  background: var(--hse-surface);
+  color: var(--hse-text-main);
+}
+
+.hse-selection-columns .hse-summary-toggle.is-on,
+.hse-selection-columns .hse-summary-bulk.is-on {
+  background: var(--hse-success-soft, var(--hse-accent-soft));
+}
+
+.hse-selection-columns .hse-summary-toggle:hover,
+.hse-selection-columns .hse-summary-bulk:hover {
+  background: var(--hse-accent-soft);
+}

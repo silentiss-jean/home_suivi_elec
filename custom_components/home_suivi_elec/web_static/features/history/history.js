@@ -1,33 +1,47 @@
 /**
- * Module Analyse de coûts (History)
- * Point d'entrée du module pour comparaison baseline vs event
+ * @file history.js
+ * @description Entry point for History Analysis feature
  */
-import HistoryAPI from './history.api.js';
-import HistoryView from './history.view.js';
-import HistoryState from './history.state.js';
 
+import HistoryMainController from './logic/history_main.js';
+
+console.log('[HISTORY] Module loaded');
+
+/**
+ * HistoryModule - Classe compatible avec le router Phase 3
+ */
 class HistoryModule {
     constructor() {
-        this.api = new HistoryAPI();
-        this.state = new HistoryState();
-        this.view = null;
+        this.mainController = null;
     }
 
     async init() {
         console.log('[HISTORY] Initializing History module...');
-        
-        this.view = new HistoryView(this.state, this.api);
-        await this.view.init();
-        
-        console.log('[HISTORY] ✅ History module initialized');
+
+        // Find the history container
+        const container = document.getElementById('history-app');
+
+        if (!container) {
+            console.error('[HISTORY] Container #history-app not found');
+            return;
+        }
+
+        // Create and initialize main controller
+        this.mainController = new HistoryMainController();
+        await this.mainController.init(container);
+
+        console.log('[HISTORY] ✅ Initialization complete');
     }
 
     destroy() {
-        if (this.view) {
-            this.view.destroy();
-        }
         console.log('[HISTORY] Module destroyed');
+        if (this.mainController) {
+            // Cleanup if needed
+            this.mainController = null;
+        }
     }
 }
 
+// ✅ EXPORT DEFAULT pour le router
 export default HistoryModule;
+

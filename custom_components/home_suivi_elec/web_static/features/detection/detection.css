@@ -1,0 +1,145 @@
+/* Harmonisation Detection (comme summary/diagnostics)
+   Objectifs:
+   - enlever gradients/fonds forcés via styles inline (on les écrase ici)
+   - enlever couleurs de texte forcées (bleu/violet/orange)
+   - afficher 2 intégrations par ligne
+   - rendre les couleurs modifiables via thème (variables CSS)
+*/
+
+:root {
+  /* Valeurs par défaut (thémables): la plupart des thèmes pourront les surcharger */
+  --hse-detect-row-bg: var(--hse-surface-elevated);
+  --hse-detect-row-text: var(--hse-text-main);
+  --hse-detect-row-muted: var(--hse-text-muted);
+  --hse-detect-row-value: var(--hse-accent);
+}
+
+/* Layout global */
+.detection-layout {
+  width: 100%;
+}
+
+.detection-header {
+  padding: 16px 18px;
+  margin-bottom: 12px;
+  background: var(--hse-surface);
+  border: 1px solid var(--hse-border);
+  border-radius: var(--hse-radius-lg);
+  box-shadow: var(--hse-shadow-sm);
+}
+
+.detection-header h2 {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: var(--hse-text-main);
+}
+
+/* Bloc stats */
+.detection-stats.card {
+  background: var(--hse-surface);
+  border: 1px solid var(--hse-border);
+  border-radius: var(--hse-radius-lg);
+  box-shadow: var(--hse-shadow-sm);
+  padding: 14px;
+}
+
+.detection-stats.card p {
+  margin: 0 0 8px 0;
+  color: var(--hse-text-main);
+}
+
+.detection-stats.card p:last-child {
+  margin-bottom: 0;
+}
+
+/* Grille intégrations: 2 colonnes */
+#content-detection {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(320px, 1fr));
+  gap: 12px;
+  align-items: start;
+}
+
+@media (max-width: 900px) {
+  #content-detection {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Le capteur de référence en pleine largeur (si présent) */
+#content-detection .card:first-child {
+  grid-column: 1 / -1;
+}
+
+/* Accordéons: harmoniser et neutraliser le gradient inline */
+#content-detection .accordion-item {
+  margin-bottom: 0 !important;
+  background: var(--hse-surface);
+  border: 1px solid var(--hse-border) !important;
+  border-radius: var(--hse-radius-lg);
+  box-shadow: var(--hse-shadow-sm);
+  overflow: hidden;
+}
+
+#content-detection .accordion-header {
+  background: var(--hse-surface-elevated) !important;
+  color: var(--hse-text-main) !important;
+  border-bottom: 1px solid var(--hse-border-soft);
+}
+
+#content-detection .accordion-header * {
+  color: var(--hse-text-main) !important;
+}
+
+#content-detection .accordion-body {
+  background: var(--hse-surface) !important;
+}
+
+/* 
+  Lignes capteurs: lisibles par défaut
+  - fond clair (thémable)
+  - texte "bleu" (via --hse-detect-row-value)
+*/
+#content-detection .sensor-item {
+  background: var(--hse-detect-row-bg) !important;
+  border-bottom: 1px solid var(--hse-border-soft) !important;
+}
+
+#content-detection .sensor-item:hover {
+  background: var(--hse-hover) !important;
+}
+
+/* Forcer le texte à la charte + thémable */
+#content-detection .sensor-item strong {
+  color: var(--hse-detect-row-text) !important;
+}
+
+#content-detection .sensor-item small,
+#content-detection .sensor-item div {
+  color: var(--hse-detect-row-muted) !important;
+}
+
+/* Valeur à droite: bleu/teinte accent, thémable */
+#content-detection .sensor-item [style*="font-weight: bold"] {
+  color: var(--hse-detect-row-value) !important;
+}
+
+/* Carte valeur actuelle (référence) : enlever gradient + texte blanc */
+#content-detection div[style*="linear-gradient"] {
+  background: var(--hse-surface-elevated) !important;
+  color: var(--hse-text-main) !important;
+  border: 1px solid var(--hse-border-soft);
+}
+
+#content-detection div[style*="linear-gradient"] * {
+  color: var(--hse-text-main) !important;
+  opacity: 1 !important;
+}
+
+/* Bloc alternatives (fond jaune) : harmoniser */
+#content-detection div[style*="#fff9e6"] {
+  background: var(--hse-surface-elevated) !important;
+  border: 1px solid var(--hse-border-soft);
+}
