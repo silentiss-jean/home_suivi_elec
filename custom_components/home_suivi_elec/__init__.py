@@ -17,60 +17,53 @@ Toutes les clés métier et hass.data transitent par ce module central.
 """
 
 import logging
+logging.getLogger(__name__).error("HSE __init__.py LOADED (debug marker)")
 
 import os
-
 import shutil
-
 import asyncio
-
 import json
 
 from typing import Any, Dict, List, Optional
-
 from datetime import datetime
 
 from homeassistant.core import HomeAssistant, ServiceCall, callback, EVENT_HOMEASSISTANT_STARTED
-
 from homeassistant.config_entries import ConfigEntry
-
 from homeassistant.components.http import HomeAssistantView
-
 from homeassistant.helpers.storage import Store
-
 from homeassistant.components import frontend
 
+# ✅ AJOUT (important)
+from homeassistant.const import Platform
+
 from .const import DOMAIN, CONF_AUTO_GENERATE
-
 from .detect_local import run_detect_local
-
 from .generator import run_all
-
 from .debug_json_sets import scan_sets
-
 from .options_flow import HomeSuiviElecOptionsFlow
-
 from . import manage_selection
-
 from .proxy_api import SuiviElecProxyView
-
 from .sensor_name_fixer import async_setup_sensor_name_fixer, async_fix_all_long_sensors
-
 from .manage_selection_views import HSESensorsPublicView, SensorMappingView, GetHistoryCostsView
-
 from .hidden_sensors_view import HiddenSensorsView
-
-from .api.unified_api_extensions import ValidationActionView, HomeElecUnifiedConfigAPIView, HomeElecMigrationHelpersView, CacheClearView, CacheInvalidateEntityView, HistoryAnalysisView
+from .api.unified_api_extensions import (
+    ValidationActionView,
+    HomeElecUnifiedConfigAPIView,
+    HomeElecMigrationHelpersView,
+    CacheClearView,
+    CacheInvalidateEntityView,
+    HistoryAnalysisView,
+)
 
 # ✅ PHASE 2.7: Import StorageManager et migration
-
 from .storage_manager import StorageManager
-
 from .migration_storage import async_migrate_storage, async_export_storage_backup, async_rollback_to_legacy
 
 _LOGGER = logging.getLogger(__name__)
 
-PLATFORMS = ["sensor"]
+# ✅ MODIF (important)
+PLATFORMS: list[Platform] = [Platform.SENSOR]
+
 
 # ============================================================================
 
@@ -279,48 +272,39 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     # ========================================
 
     _LOGGER.info("=" * 70)
-
     _LOGGER.info("🔄 [PHASE 2.7] Vérification migration Storage API...")
-
     _LOGGER.info("=" * 70)
 
     try:
-
         # ✅ Initialiser StorageManager ICI (AVANT tout le reste)
-
         storage_manager = StorageManager(hass)
-
         hass.data[DOMAIN]["storage_manager"] = storage_manager
 
-        # Migration automatique si fichiers legacy détectés
+        # ✅ Charger la plateforme sensor TOUT DE SUITE (listeners events)
+        _LOGGER.info("[INIT] 🚀 Forward platforms: %s", PLATFORMS)
+        await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+        _LOGGER.info("[INIT] ✅ Forward platforms done (sensor listeners should be ready)")
 
+        # Migration automatique si fichiers legacy détectés
         migration_success = await async_migrate_storage(hass)
 
         if migration_success:
-
             _LOGGER.info("✅ [STORAGE] Migration Storage API terminée")
-
-            # Émettre event pour notifier les composants
-
-            hass.bus.async_fire("hse_storage_migrated", {
-
-                "timestamp": datetime.now().isoformat(),
-
-                "status": "success"
-
-            })
-
+            hass.bus.async_fire(
+                "hse_storage_migrated",
+                {"timestamp": datetime.now().isoformat(), "status": "success"},
+            )
         else:
-
-            _LOGGER.warning("⚠️ [STORAGE] Migration échouée, tentative de fonctionnement en mode dégradé")
+            _LOGGER.warning(
+                "⚠️ [STORAGE] Migration échouée, tentative de fonctionnement en mode dégradé"
+            )
 
     except Exception as e:
-
         _LOGGER.exception("❌ [STORAGE] Erreur critique migration Storage API: %s", e)
-
         # Continuer le setup malgré l'erreur (mode dégradé)
 
     _LOGGER.info("=" * 70)
+
 
     # ========================================
 
@@ -1398,6 +1382,35 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             except Exception as e:
                 _LOGGER.exception("[INIT] Erreur cost tracking: %s", e)
 
+            # 5.6. Group totals (rooms/types)
+            _LOGGER.info("[INIT] 🧮 Setup group totals...")
+
+            try:
+                from .group_totals import refresh_group_totals
+                from datetime import datetime
+
+                await refresh_group_totals(hass)
+
+                # Debug: vérifier que les pools existent bien
+                domain = hass.data.get(DOMAIN, {})
+                room_pending = domain.get("room_totals_sensors_pending") or []
+                type_pending = domain.get("type_totals_sensors_pending") or []
+
+                _LOGGER.info(
+                    "[INIT] ✅ Group totals refresh done (pending: rooms=%s, types=%s)",
+                    len(room_pending),
+                    len(type_pending),
+                )
+
+                # Sécurité anti-course: re-fire après refresh (sensor.py consomme le pool hass.data)
+                payload = {"ts": datetime.now().isoformat(), "source": "init"}
+                hass.bus.async_fire("hse_room_totals_ready", payload)
+                hass.bus.async_fire("hse_type_totals_ready", payload)
+                _LOGGER.info("[INIT] 📣 Totals events re-fired after refresh")
+
+            except Exception as e:
+                _LOGGER.exception("[INIT] Erreur group totals: %s", e)
+
 
             # 6. Vérifier que les pools sont bien remplis
 
@@ -1447,13 +1460,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
             _LOGGER.exception("[INIT] ❌ Erreur critique préparation pools HSE: %s", e)
 
-        # 7. MAINTENANT charger la plateforme sensor.py
+        # 7. (SUPPRIMÉ) Plateforme sensor déjà chargée dans async_setup_entry
+        _LOGGER.info("[INIT] ℹ️ Plateforme sensor déjà chargée (listeners déjà prêts)")
 
-        _LOGGER.info("[INIT] 🚀 Chargement plateforme sensor...")
-
-        await hass.config_entries.async_forward_entry_setups(entry, ["sensor"])
-
-        _LOGGER.info("[INIT] ✅ Plateforme sensor chargée - Capteurs HSE disponibles")
 
     # ✅ LANCER LA TÂCHE
 

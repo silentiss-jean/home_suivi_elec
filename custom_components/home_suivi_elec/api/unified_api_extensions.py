@@ -13,7 +13,6 @@ from typing import Any, Dict, Optional, Set
 from aiohttp import web
 from homeassistant.components.http import HomeAssistantView
 from homeassistant.core import HomeAssistant
-from datetime import datetime, date
 
 from ..cache_manager import get_cache_manager
 from ..const import DOMAIN
@@ -21,6 +20,11 @@ from ..export import ExportService
 from ..sensor_grouping import build_auto_groups, merge_with_existing
 from ..storage_manager import StorageManager
 from ..utils.json_response import json_response
+
+try:
+    from ..group_totals import refresh_group_totals  # type: ignore
+except Exception:
+    refresh_group_totals = None  # type: ignore
 
 try:
     # Nom "propre" (présent dans ton projet)
@@ -65,6 +69,7 @@ class HomeElecUnifiedConfigAPIView(HomeAssistantView):
         "resetconfig": "reset_config",
         "autogroup": "auto_group",
         "savegroups": "save_groups",
+        "savegroupsets": "save_group_sets",
         "generatecostsensors": "generate_cost_sensors",
         "generate_cost_sensors": "generate_cost_sensors",
         "calculatesummary": "calculate_summary",
@@ -186,6 +191,9 @@ class HomeElecUnifiedConfigAPIView(HomeAssistantView):
 
             if action == "enable_sensor":
                 return await self._enable_sensor(data)
+
+            if action == "save_group_sets":
+                return await self._save_group_sets(data)
 
             return self._error(404, f"Action POST inconnue: {action}")
 
@@ -759,6 +767,38 @@ class HomeElecUnifiedConfigAPIView(HomeAssistantView):
         except Exception as e:
             _LOGGER.exception("[CONFIG] Erreur save_groups: %s", e)
             return self._error(500, f"Erreur save_groups: {e}")
+
+    async def _save_group_sets(self, data):
+        """Sauvegarde du document canon group_sets (rooms/types/...)."""
+        try:
+            mgr = await self._get_storage_manager()
+            group_sets = (data or {}).get("group_sets")
+
+            if not isinstance(group_sets, dict):
+                return self._error(400, "'group_sets' doit être un objet")
+
+            ok = await mgr.save_group_sets(group_sets)
+            if not ok:
+                return self._error(500, "Erreur sauvegarde group_sets")
+
+            sets = group_sets.get("sets")
+            count_sets = len(sets) if isinstance(sets, dict) else 0
+
+            # Refresh totals (rooms/types) après mise à jour de group_sets
+            if refresh_group_totals is not None:
+                try:
+                    await refresh_group_totals(self.hass)
+                except Exception as e:
+                    _LOGGER.exception("[CONFIG] refresh_group_totals failed: %s", e)
+
+            return self._success({
+                "message": "Group sets sauvegardés avec succès",
+                "count_sets": count_sets,
+            })
+
+        except Exception as e:
+            _LOGGER.exception("[CONFIG] Erreur save_group_sets: %s", e)
+            return self._error(500, f"Erreur save_group_sets: {e}")
 
     # -------------------------
     # Summary / CalculationEngine
@@ -1396,6 +1436,7 @@ class HistoryAnalysisView(HomeAssistantView):
                     # 🆕 Détecter si c'est le capteur de référence
                     is_reference = bool(external_capteur and self._is_derived_from(source_entity_id, external_capteur))
 
+
                     # ✅ DÉTECTION DU TYPE DE CAPTEUR (TTC ou HT)
                     is_ttc = "_ttc" in entity_id.lower()
                     is_ht = "_ht" in entity_id.lower() and "_ttc" not in entity_id.lower()
@@ -1641,7 +1682,6 @@ class HistoryAnalysisView(HomeAssistantView):
             except Exception as e:
                 _LOGGER.warning(f"[COST-ANALYSIS] Impossible de lire external_capteur: {e}")
 
-
             # ═══════════════════════════════════════════════════════════
             # 2. Récupérer tous les capteurs de COÛT HSE avec leur source
             # (conservé tel quel, même si redondant avec sensors_map)
@@ -1762,7 +1802,10 @@ class HistoryAnalysisView(HomeAssistantView):
                         continue
 
                     # 🆕 Détecter si c'est le capteur de référence
-                    is_reference = bool(external_capteur and self._is_derived_from(source_entity_id, external_capteur))
+                    # ✅ FIX: utiliser la variable existante dans ce scope (source_entity)
+                    is_reference = bool(
+                        external_capteur and self._is_derived_from(source_entity, external_capteur)
+                    )
 
                     # Détecter si HT ou TTC
                     is_ttc = "_ttc" in entity_id.lower()
@@ -1786,6 +1829,10 @@ class HistoryAnalysisView(HomeAssistantView):
                             "prix_ttc": None,
                             "is_reference": is_reference,  # 🆕 Flag référence
                         }
+                    else:
+                        # ✅ Cohérence: si déjà créé, on force le flag à True si l'un des variants est référence
+                        if is_reference:
+                            sensors_map[source_entity]["is_reference"] = True
 
                     if is_ttc:
                         sensors_map[source_entity]["prix_ttc"] = price_per_kwh
@@ -1978,9 +2025,7 @@ class HistoryAnalysisView(HomeAssistantView):
             # ═══════════════════════════════════════════════════════════
             total_baseline_kwh = sum(c["baseline_energy_kwh"] for c in internal_comparisons)
             total_baseline_cost_ht = sum(c["baseline_cost_ht"] for c in internal_comparisons)
-            total_baseline_cost_ttc = sum(
-                c["baseline_cost_ttc"] for c in internal_comparisons
-            )
+            total_baseline_cost_ttc = sum(c["baseline_cost_ttc"] for c in internal_comparisons)
 
             total_event_kwh = sum(c["event_energy_kwh"] for c in internal_comparisons)
             total_event_cost_ht = sum(c["event_cost_ht"] for c in internal_comparisons)

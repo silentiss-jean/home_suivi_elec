@@ -6,16 +6,7 @@
    - styles scopés au module (évite collisions)
 */
 
-/*
-  IMPORTANT:
-  - On scope les variables locales au wrapper .generation-layout (pas :root)
-    pour éviter tout effet de bord global.
-  - On évite les classes génériques type .container (souvent stylées globalement)
-    au profit d'un conteneur dédié.
-*/
-
 .generation-layout {
-  /* Variables locales (toutes mappées sur tokens HSE) */
   --hse-generation-surface: var(--hse-surface);
   --hse-generation-surface-muted: var(--hse-surface-muted);
   --hse-generation-border: var(--hse-border);
@@ -30,16 +21,13 @@
   --hse-generation-success: var(--hse-success);
   --hse-generation-error: var(--hse-error);
 
-  /* Texte sur fond accent/success (évite #fff en dur) */
   --hse-generation-on-accent: var(--hse-text-inverse);
   --hse-generation-on-success: var(--hse-text-inverse);
 
-  /* Premium: micro-interactions */
   --hse-generation-ease: cubic-bezier(0.2, 0.9, 0.2, 1);
   --hse-generation-hover-shadow: var(--hse-shadow-md);
 }
 
-/* Layout */
 .generation-layout {
   width: 100%;
 }
@@ -50,7 +38,6 @@
   padding: var(--hse-spacing-xl) var(--hse-spacing-lg);
 }
 
-/* Hero */
 .generation-layout .generation-hero {
   display: flex;
   align-items: flex-start;
@@ -80,7 +67,6 @@
   gap: var(--hse-spacing-md);
 }
 
-/* Top group (meta + actions) */
 .generation-layout .generation-top {
   background: var(--hse-generation-surface);
   border: 1px solid var(--hse-generation-border);
@@ -134,8 +120,137 @@
   flex-wrap: wrap;
 }
 
-/* Panels grid (YAML + Preview)
-   NOTE: On garde l'aperçu sous le YAML (une colonne), même en desktop. */
+.generation-layout .generation-config {
+  background: var(--hse-generation-surface);
+  border: 1px solid var(--hse-generation-border);
+  border-radius: var(--hse-radius-lg);
+  box-shadow: var(--hse-shadow-sm);
+  padding: var(--hse-spacing-xl);
+  margin-bottom: var(--hse-spacing-xl);
+}
+
+.generation-layout .generation-config-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--hse-spacing-md);
+  flex-wrap: wrap;
+  margin-bottom: var(--hse-spacing-lg);
+}
+
+.generation-layout .generation-config-header h3 {
+  margin: 0;
+  color: var(--hse-generation-text);
+}
+
+.generation-layout .generation-config-hint {
+  color: var(--hse-generation-muted);
+  font-size: var(--hse-font-size-xs);
+  max-width: 90ch;
+}
+
+.generation-layout .generation-config-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: var(--hse-spacing-lg);
+}
+
+.generation-layout .generation-config-sub {
+  margin-top: var(--hse-spacing-lg);
+  padding-top: var(--hse-spacing-lg);
+  border-top: 1px solid var(--hse-generation-border-soft);
+}
+
+.generation-layout .generation-field {
+  display: grid;
+  gap: var(--hse-spacing-xs);
+}
+
+.generation-layout .generation-label {
+  color: var(--hse-generation-muted);
+  font-size: var(--hse-font-size-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-weight: var(--hse-font-weight-semibold);
+}
+
+.generation-layout .generation-input {
+  width: 100%;
+  padding: var(--hse-spacing-sm) var(--hse-spacing-md);
+  border-radius: var(--hse-radius-md);
+  border: 1px solid var(--hse-generation-border-soft);
+  background: var(--hse-generation-surface-muted);
+  color: var(--hse-generation-text);
+  outline: none;
+}
+
+.generation-layout .generation-input:focus {
+  border-color: var(--hse-generation-accent);
+  box-shadow: 0 0 0 3px var(--hse-generation-accent-soft);
+}
+
+.generation-layout .generation-field-hint {
+  color: var(--hse-generation-muted);
+  font-size: var(--hse-font-size-xs);
+  line-height: 1.5;
+}
+
+.generation-layout .generation-field-hint code {
+  padding: 0 6px;
+  border-radius: var(--hse-radius-sm);
+  background: var(--hse-generation-surface-muted);
+  border: 1px solid var(--hse-generation-border-soft);
+}
+
+.generation-layout .generation-individuals {
+  margin-top: var(--hse-spacing-lg);
+}
+
+.generation-layout .generation-individuals-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--hse-spacing-md);
+  flex-wrap: wrap;
+  margin-bottom: var(--hse-spacing-md);
+}
+
+.generation-layout .generation-individuals-header h4 {
+  margin: 0;
+  color: var(--hse-generation-text);
+}
+
+.generation-layout .generation-individuals-list {
+  display: grid;
+  gap: var(--hse-spacing-md);
+}
+
+.generation-layout .generation-individual-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr 1fr auto;
+  gap: var(--hse-spacing-md);
+  align-items: end;
+  padding: var(--hse-spacing-md);
+  border-radius: var(--hse-radius-lg);
+  background: var(--hse-generation-surface-muted);
+  border: 1px solid var(--hse-generation-border-soft);
+}
+
+.generation-layout .generation-individual-remove {
+  height: 38px;
+  align-self: end;
+}
+
+@media (max-width: 768px) {
+  .generation-layout .generation-individual-row {
+    grid-template-columns: 1fr;
+  }
+
+  .generation-layout .generation-individual-remove {
+    width: 100%;
+  }
+}
+
 .generation-layout .generation-panels {
   display: grid;
   grid-template-columns: 1fr;
@@ -143,7 +258,6 @@
   align-items: start;
 }
 
-/* YAML */
 .generation-layout .yaml-section {
   background: var(--hse-generation-surface);
   border: 1px solid var(--hse-generation-border);
@@ -180,18 +294,13 @@
   border: 1px solid var(--hse-generation-border-soft);
   color: var(--hse-generation-text);
   overflow: auto;
-
-  /* Rend la zone "moins massive" visuellement */
   max-height: 420px;
   white-space: pre;
-
-  /* Premium: meilleure lisibilité */
   font-size: var(--hse-font-size-sm);
   line-height: 1.55;
   tab-size: 2;
 }
 
-/* Preview */
 .generation-layout #preview-container {
   background: var(--hse-generation-surface);
   border: 1px solid var(--hse-generation-border);
@@ -238,7 +347,6 @@
     border-color 160ms var(--hse-generation-ease);
 }
 
-/* Premium: hover/focus sans casser le thème */
 .generation-layout .preview-card:hover {
   transform: translateY(-2px);
   box-shadow: var(--hse-generation-hover-shadow);
@@ -278,12 +386,10 @@
   padding: var(--hse-spacing-lg);
 }
 
-/* Helpers */
 .generation-layout .is-hidden {
   display: none !important;
 }
 
-/* Fallback clipboard (textarea invisible) */
 .hse-clipboard-fallback {
   position: fixed;
   top: 0;
@@ -297,7 +403,6 @@
   background: transparent;
 }
 
-/* Accessibilité: réduire animations si demandé */
 @media (prefers-reduced-motion: reduce) {
   .generation-layout .preview-card {
     transition: none;

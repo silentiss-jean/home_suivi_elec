@@ -680,7 +680,11 @@ class GetInstantPowerView(HomeAssistantView):
         self.hass = hass
 
     async def get(self, request):
-        """✅ PHASE 2.7: Charge sélection via StorageManager."""
+        """✅ PHASE 2.7: Charge sélection via StorageManager.
+
+        ⚠️ Endpoint puissance instantanée (W): ne doit pas remonter des capteurs énergie
+        (kWh/Wh), sinon le frontend peut les additionner par erreur comme des watts.
+        """
         try:
             # ✅ Charger sélection via StorageManager
             storage_manager = self.hass.data.get("home_suivi_elec", {}).get("storage_manager")
@@ -696,11 +700,48 @@ class GetInstantPowerView(HomeAssistantView):
                     None, lambda: _load_json(USER_CONFIG_PATH)
                 ) if os.path.exists(USER_CONFIG_PATH) else {}
 
+            # ✅ Garder uniquement les sources power
             entity_ids: List[str] = []
+            ignored: List[str] = []
+
             for capteurs in (selection or {}).values():
                 for c in (capteurs or []):
-                    if c.get("enabled") and c.get("entity_id"):
+                    if not (c.get("enabled") and c.get("entity_id")):
+                        continue
+
+                    # Format normalisé: usage_power prioritaire
+                    if c.get("usage_power"):
+                        entity_ids.append(c["usage_power"])
+                        continue
+
+                    source_type = str(c.get("source_type") or "").lower()
+                    is_power = bool(c.get("is_power")) or source_type == "power"
+                    is_energy = bool(c.get("is_energy")) or bool(c.get("usage_energy"))
+
+                    if is_power:
                         entity_ids.append(c["entity_id"])
+                    elif is_energy:
+                        ignored.append(c["entity_id"])
+                    else:
+                        # Type inconnu => prudence (éviter mélange d'unités)
+                        ignored.append(c["entity_id"])
+
+            # dédoublonnage stable
+            seen: Set[str] = set()
+            deduped: List[str] = []
+            for eid in entity_ids:
+                if eid in seen:
+                    continue
+                seen.add(eid)
+                deduped.append(eid)
+            entity_ids = deduped
+
+            if ignored:
+                _LOGGER.warning(
+                    "[INSTANT_POWER] %s capteur(s) non-power ignoré(s) pour la puissance instantanée: %s",
+                    len(ignored),
+                    ", ".join(ignored[:10]) + ("..." if len(ignored) > 10 else ""),
+                )
 
             use_external = bool(user_config.get("use_external"))
             ext_id = user_config.get("external_capteur")
@@ -711,9 +752,20 @@ class GetInstantPowerView(HomeAssistantView):
             for entity_id in entity_ids:
                 state = self.hass.states.get(entity_id)
                 try:
-                    if state is not None and state.state not in (None, "unknown", "unavailable"):
-                        power_states[entity_id] = float(state.state)
+                    if state is None or state.state in (None, "unknown", "unavailable"):
+                        power_states[entity_id] = None
+                        continue
+
+                    raw = float(state.state)
+                    unit = (state.attributes.get("unit_of_measurement") or "").strip()
+
+                    # Normaliser kW -> W si besoin
+                    if unit == "kW":
+                        power_states[entity_id] = raw * 1000.0
+                    elif unit in ("W", ""):
+                        power_states[entity_id] = raw
                     else:
+                        # unité non puissance => on renvoie None pour éviter toute addition invalide
                         power_states[entity_id] = None
                 except Exception:
                     power_states[entity_id] = None
@@ -794,6 +846,7 @@ class SensorMappingView(HomeAssistantView):
                 "data": {"mapping": {}, "total_sources": 0},
                 "total_hse_sensors": 0
             })
+
 
 class GetUserConfigView(HomeAssistantView):
     url = "/api/home_suivi_elec/get_user_config"
